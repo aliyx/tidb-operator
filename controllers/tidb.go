@@ -175,7 +175,7 @@ func (dc *TidbController) Status() {
 			dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Start tidb %s error: %v", cell, err))
 		}
 	case 1:
-		if err := models.Stop(cell); err != nil {
+		if err := models.Stop(cell, nil); err != nil {
 			logs.Error("Stop tidb %s error: %v", cell, err)
 			dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Stop tidb %s error: %v", cell, err))
 		}

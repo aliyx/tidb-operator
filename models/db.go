@@ -153,13 +153,15 @@ func Start(cell string) (err error) {
 }
 
 // Stop tidb server
-func Stop(cell string) (err error) {
+func Stop(cell string, ch chan int) (err error) {
 	if !started(cell) {
 		return err
 	}
 	e := NewEvent(cell, "tidb", "stop")
 	defer func() {
-		e.Trace(err, fmt.Sprintf("Delete tidb pods on k8s"))
+		if err != nil {
+			e.Trace(err, fmt.Sprintf("Delete tidb pods on k8s"))
+		}
 	}()
 	if td, _ := GetTidb(cell); td != nil {
 		if err = td.stop(); err != nil {
@@ -176,6 +178,25 @@ func Stop(cell string) (err error) {
 			return err
 		}
 	}
+	// waitring for all pod deleted
+	go func() {
+		defer func() {
+			if ch != nil {
+				ch <- 0
+			}
+		}()
+		rollout(cell, tidbClearing)
+		for {
+			if started(cell) {
+				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
+				time.Sleep(time.Second)
+			} else {
+				rollout(cell, Undefined)
+				break
+			}
+		}
+		e.Trace(nil, fmt.Sprintf("Delete tidb pods on k8s"))
+	}()
 	return err
 }
 
@@ -187,19 +208,14 @@ func Restart(cell string) (err error) {
 		defer func() {
 			e.Trace(err, fmt.Sprintf("Restart tidb[status=%d]", td.Status))
 		}()
-		if err = Stop(cell); err != nil {
+		ch := make(chan int, 1)
+		if err = Stop(cell, ch); err != nil {
 			logs.Error("Delete tidb %s pods on k8s error: %v", cell, err)
 			return
 		}
-		rollout(cell, tidbClearing)
-		// waitring for all pod deleted
-		for {
-			if started(cell) {
-				logs.Warn(`tidb "%s" has not been cleared yet: %v`, cell, err)
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
+		// waiting for all pod deleted
+		select {
+		case <-ch:
 		}
 		if err = Start(cell); err != nil {
 			logs.Error("Create tidb %s pods on k8s error: %v", cell, err)
