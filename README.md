@@ -1,16 +1,16 @@
-# tidb-k8s
+# Tidb-k8s
 
-Tidb-k8s manager multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic expansion, all operations web.
+Tidb-k8s manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic scale, all operations web.
 
-## 前期准备工作
+## Preparedness
 
 ### Install kubernetes
 
-Note: 由于GFW的原因，有些安装包和images无法获取，需要先下载到本地上传到指定的服务器再安装.  详见：kubernetes/deploy目录.
+Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes / deploy directory.
 
 ### Install etcd
 
-由于tidb-k8s项目后端存储采用的是etcd cluster database,所以在部署k8s-tidb之前需要安装etcd
+As tidb-k8s project back-end storage using the etcd cluster database, so the deployment of k8s-tidb need to install etcd.
 
 ```bash
 docker run -d --net=host \
@@ -29,9 +29,9 @@ docker run -d --net=host \
     --auto-compaction-retention 1
 ```
 
-## 构建images
+## Build images
 
-构建tidb docker image,并push到私有仓库
+Build tidb docker image and push to private registry.
 
 ```bash
 ./docker/pd/build.sh
@@ -39,21 +39,24 @@ docker run -d --net=host \
 ./docker/tidb/build.sh
 ```
 
-## 启动
+## Startup
 
 ```bash
 ./restart.sh
 ```
 
-访问：127.0.0.1:10228/swagger
+Access local endpoint: 127.0.0.1:10228/swagger
 
 ## Topology
 
-tidb-k8s后端存储采用etcd服务，tidb的root为：/dbs/tidb
+tidb-k8s project back-end storage using the etcd cluster database,tidb root: /dbs/tidb
 
-- user的path: $root/users/{id}/{cell}, id是关联的用户名称，cell是创建的tidb名称
-- metadata的path: $root/metadata, 元数据信息，第一次启动时会初始化一些默认的数据(见：metadata.go)，目前只支持Put操作,不支持Post/Delet等操作
-- tidb的path: $root/tidbs/{cell}, 该path下存放tidb具体的实例信息
-- event的path: $root/events/{cell}, 记录tidb创建/scale过程
+- user的path: $root/users/{id}/{cell}, Id is the associated user name, cell is the name of the created tidb.
+
+- metadata的path: $root/metadata, Metadata information, the first start will initialize some of the default data (see: metadata.go), currently only supports Put operation, does not support Post / Delet and other operations.
+
+- tidb的path: $root/tidbs/{cell}, The path under the storage tidb specific instance of information.
+
+- event的path: $root/events/{cell}, Record tidb create / scale process.
 
 
