@@ -52,8 +52,10 @@ const (
 	TikvStoped
 	// PdStopFailed fail to stop tikv
 	PdStopFailed
-	// TidbClearing wait for k8s to close all pods
-	TidbClearing
+	// tidbClearing wait for k8s to close all pods
+	tidbClearing
+	// tidbDeleting wait for k8s to close all pods
+	tidbDeleting
 )
 
 const (
@@ -443,7 +445,7 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 		return err
 	}
 	go func() {
-		rollout(db.Cell, TidbClearing)
+		rollout(db.Cell, tidbDeleting)
 		for {
 			if !started(db.Cell) {
 				if err := db.delete(); err != nil && err != ErrNoNode {

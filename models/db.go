@@ -191,6 +191,7 @@ func Restart(cell string) (err error) {
 			logs.Error("Delete tidb %s pods on k8s error: %v", cell, err)
 			return
 		}
+		rollout(cell, tidbClearing)
 		// waitring for all pod deleted
 		for {
 			if started(cell) {
