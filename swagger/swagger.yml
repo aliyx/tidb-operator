@@ -1,0 +1,829 @@
+swagger: "2.0"
+info: {}
+basePath: /tidb/api/v1
+paths:
+  /health/:
+    get:
+      tags:
+      - health
+      description: get health status
+      operationId: HealthController.Get
+      responses:
+        "200": {}
+        "404": {}
+  /metadata/:
+    get:
+      tags:
+      - metadata
+      description: get all metatada
+      operationId: MetadataController.GetAll
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/models.Metadata'
+        "404":
+          description: not find
+        "500":
+          description: etcd error
+    put:
+      tags:
+      - metadata
+      description: update the metadata
+      operationId: MetadataController.Update
+      parameters:
+      - in: body
+        name: body
+        description: body for metadata content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Metadata'
+      responses:
+        "200": {}
+        "400":
+          description: bad request
+        "500":
+          description: cannt store metadata
+  /metadata/{key}:
+    get:
+      tags:
+      - metadata
+      description: get sub metadata by key
+      operationId: MetadataController.Get
+      parameters:
+      - in: path
+        name: key
+        description: The key for metadata property
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string}'
+        "404":
+          description: :key not found
+  /metadata/specifications:
+    put:
+      tags:
+      - metadata
+      description: update the specifications
+      operationId: MetadataController.PutSpec
+      parameters:
+      - in: body
+        name: body
+        description: body for spec content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Specifications'
+      responses:
+        "200": {}
+        "400":
+          description: bad request
+        "500":
+          description: cannt store specifications
+  /pds/:
+    post:
+      tags:
+      - pds
+      description: create pds
+      operationId: PdController.CreatePd
+      parameters:
+      - in: body
+        name: body
+        description: body for pd content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Pd'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /pds/{cell}:
+    get:
+      tags:
+      - pds
+      description: get pd by cell
+      operationId: PdController.Get
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/models.Pd'
+        "404":
+          description: :key not found
+    delete:
+      tags:
+      - pds
+      description: delete the pd service
+      operationId: PdController.Delete
+      parameters:
+      - in: path
+        name: cell
+        description: The cell you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: cell is empty
+  /pds/{cell}/scale:
+    patch:
+      tags:
+      - pds
+      description: scale pds
+      operationId: PdController.ScalePds
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for patch content
+        required: true
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /pds/replicas:
+    get:
+      tags:
+      - pds
+      description: get pd replicas
+      operationId: PdController.Get
+      parameters:
+      - in: query
+        name: tikv
+        description: tikv replicas
+        required: true
+        type: integer
+        format: int64
+      - in: query
+        name: tidb
+        description: tidb replicas
+        required: true
+        type: integer
+        format: int64
+      responses:
+        "200":
+          description: '{int}'
+        "403":
+          description: invalid replicas
+  /tidbs/:
+    post:
+      tags:
+      - tidbs
+      description: create tidb
+      operationId: TidbController.CreateTidb
+      parameters:
+      - in: body
+        name: body
+        description: body for tidb content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Tidb'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /tidbs/{cell}:
+    get:
+      tags:
+      - tidbs
+      description: get tidb by cell
+      operationId: TidbController.Get
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for tidb name
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/models.Tidb'
+        "404":
+          description: :key not found
+    delete:
+      tags:
+      - tidbs
+      description: delete the tidb service
+      operationId: TidbController.Delete
+      parameters:
+      - in: path
+        name: cell
+        description: The cell you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: cell is empty
+  /tidbs/{cell}/events:
+    get:
+      tags:
+      - tidbs
+      description: get all events
+      operationId: TidbController.GetEvents
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for tidb name
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/models.Event'
+  /tidbs/{cell}/scale:
+    patch:
+      tags:
+      - tidbs
+      description: scale tidbs
+      operationId: TidbController.ScaleTidbs
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for patch content
+        required: true
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /tidbs/{cell}/status:
+    patch:
+      tags:
+      - tidbs
+      description: start/stop/restart tidb server
+      operationId: TidbController.status
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: 'The body data type is {''status'': int}'
+        required: true
+      responses:
+        "200": {}
+        "400":
+          description: body is empty
+        "403":
+          description: unsupport operation
+  /tidbs/{cell}/transfer:
+    post:
+      tags:
+      - tidbs
+      description: Transfer mysql data to tidb
+      operationId: TidbController.Transfer
+      parameters:
+      - in: path
+        name: cell
+        description: The database name for tidb
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: Body for src mysql
+        required: true
+        schema:
+          $ref: '#/definitions/mysql.Mysql'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /tikvs/:
+    post:
+      tags:
+      - tikvs
+      description: create tikvs
+      operationId: TikvController.CreateTikv
+      parameters:
+      - in: body
+        name: body
+        description: body for tikv content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Tikv'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /tikvs/{cell}:
+    get:
+      tags:
+      - tikvs
+      description: get tikv by cell
+      operationId: TikvController.Get
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for tikv name
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/models.Tikv'
+        "404":
+          description: :key not found
+    delete:
+      tags:
+      - tikvs
+      description: delete the tikv service
+      operationId: TikvController.Delete
+      parameters:
+      - in: path
+        name: cell
+        description: The cell you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: cell is empty
+  /tikvs/{cell}/scale:
+    patch:
+      tags:
+      - tikvs
+      description: scale tikvs
+      operationId: TikvController.ScaleTikvs
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for patch content
+        required: true
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /users/:
+    post:
+      tags:
+      - users
+      description: associate tidb to the user
+      operationId: UserController.AddTidb
+      parameters:
+      - in: body
+        name: body
+        description: body for user&tidb content
+        required: true
+        schema:
+          $ref: '#/definitions/models.Db'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
+  /users/{user}/tidbs:
+    get:
+      tags:
+      - users
+      description: Get tidbs by user
+      operationId: UserController.GetTidbsByUser
+      parameters:
+      - in: path
+        name: user
+        description: The user id
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/controllers.Dbs'
+        "404":
+          description: :user not found
+  /users/{user}/tidbs/{cell}:
+    get:
+      tags:
+      - users
+      description: get tidb by user and cell
+      operationId: UserController.GetTidbByUserAndCell
+      parameters:
+      - in: path
+        name: user
+        description: The user id for tidb
+        required: true
+        type: string
+      - in: path
+        name: cell
+        description: The cell for tidb
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/models.Db'
+        "404":
+          description: :cell not found
+    delete:
+      tags:
+      - users
+      description: delete the tidb from user
+      operationId: UserController.Delete tidb
+      parameters:
+      - in: path
+        name: user
+        description: The user you want to delete tidb
+        required: true
+        type: string
+      - in: path
+        name: cell
+        description: The cell you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: cell is empty
+definitions:
+  controllers.Dbs:
+    title: Dbs
+    type: object
+    properties:
+      tidbs:
+        type: array
+        items:
+          $ref: '#/definitions/models.Db'
+      total:
+        type: integer
+        format: int64
+  models.Db:
+    title: K8sInfo
+    type: object
+    properties:
+      cell:
+        type: string
+      cpu:
+        type: integer
+        format: int64
+      hosts: {}
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/models.Net'
+      ok:
+        type: boolean
+      password:
+        type: string
+      pd:
+        $ref: '#/definitions/models.Pd'
+      registry:
+        type: string
+      replicas:
+        type: integer
+        format: int64
+      status:
+        $ref: '#/definitions/models.TidbStatus'
+      tikv:
+        $ref: '#/definitions/models.Tikv'
+      timecreate:
+        type: string
+        format: string
+      transfer:
+        type: string
+      user:
+        type: string
+      version:
+        type: string
+  models.Event:
+    title: Event
+    type: object
+    properties:
+      cell:
+        type: string
+      first:
+        type: string
+        format: string
+      key:
+        type: string
+      last:
+        type: string
+        format: string
+      msg:
+        type: string
+      sc:
+        type: string
+      type:
+        type: string
+  models.K8s:
+    title: K8s
+    type: object
+    properties:
+      namespace:
+        type: string
+      proxys:
+        type: string
+      registry:
+        type: string
+      volume:
+        type: string
+  models.K8sInfo:
+    title: K8sInfo
+    type: object
+    properties:
+      cell:
+        type: string
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/models.Net'
+      ok:
+        type: boolean
+      registry:
+        type: string
+      replicas:
+        type: integer
+        format: int64
+      version:
+        type: string
+  models.Metadata:
+    title: Metadata
+    type: object
+    properties:
+      basic:
+        $ref: '#/definitions/models.Units'
+      k8s:
+        $ref: '#/definitions/models.K8s'
+      specifications:
+        type: array
+        items:
+          $ref: '#/definitions/models.Specification'
+      versions: {}
+  models.Net:
+    title: Net
+    type: object
+    properties:
+      ip:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+        format: int64
+  models.Pd:
+    title: K8sInfo
+    type: object
+    properties:
+      cell:
+        type: string
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/models.Net'
+      ok:
+        type: boolean
+      registry:
+        type: string
+      replicas:
+        type: integer
+        format: int64
+      version:
+        type: string
+  models.Preference:
+    title: Preference
+    type: object
+    properties:
+      desc:
+        type: string
+      name:
+        type: string
+      pd:
+        $ref: '#/definitions/models.Spec'
+      tidb:
+        $ref: '#/definitions/models.Spec'
+      tikv:
+        $ref: '#/definitions/models.Spec'
+  models.Spec:
+    title: Spec
+    type: object
+    properties:
+      replicas:
+        type: integer
+        format: int64
+  models.Specification:
+    title: Specification
+    type: object
+    properties:
+      desc:
+        type: string
+      name:
+        type: string
+      preferences:
+        type: array
+        items:
+          $ref: '#/definitions/models.Preference'
+  models.Specifications:
+    type: object
+  models.Store:
+    title: Store
+    type: object
+    properties:
+      s_address:
+        type: string
+      s_id:
+        type: integer
+        format: int64
+      s_state:
+        type: integer
+        format: int64
+  models.Tidb:
+    title: K8sInfo
+    type: object
+    properties:
+      cell:
+        type: string
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/models.Net'
+      ok:
+        type: boolean
+      password:
+        type: string
+      pd:
+        $ref: '#/definitions/models.Pd'
+      registry:
+        type: string
+      replicas:
+        type: integer
+        format: int64
+      status:
+        $ref: '#/definitions/models.TidbStatus'
+      tikv:
+        $ref: '#/definitions/models.Tikv'
+      timecreate:
+        type: string
+        format: string
+      transfer:
+        type: string
+      user:
+        type: string
+      version:
+        type: string
+  models.TidbStatus:
+    type: object
+  models.Tikv:
+    title: K8sInfo
+    type: object
+    properties:
+      capatity:
+        type: integer
+        format: int64
+      cell:
+        type: string
+      cpu:
+        type: integer
+        format: int64
+      cur:
+        type: string
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/models.Net'
+      ok:
+        type: boolean
+      registry:
+        type: string
+      replicas:
+        type: integer
+        format: int64
+      stores:
+        $ref: '#/definitions/models.Store'
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
+  models.UScale:
+    title: UScale
+    type: object
+    properties:
+      pd:
+        type: integer
+        format: int64
+      status:
+        type: integer
+        format: int64
+      tidb:
+        type: integer
+        format: int64
+      tikv:
+        type: integer
+        format: int64
+  models.Unit:
+    title: Unit
+    type: object
+    properties:
+      capacity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
+      max:
+        type: integer
+        format: int64
+      memory:
+        type: integer
+        format: int64
+  models.Units:
+    title: Units
+    type: object
+    properties:
+      pd:
+        $ref: '#/definitions/models.Unit'
+      tidb:
+        $ref: '#/definitions/models.Unit'
+      tikv:
+        $ref: '#/definitions/models.Unit'
+  models.User:
+    title: User
+    type: object
+    properties:
+      id:
+        type: string
+      schema:
+        type: string
+      uscale:
+        $ref: '#/definitions/models.UScale'
+  mysql.Mysql:
+    title: Mysql
+    type: object
+    properties:
+      database:
+        type: string
+      ip:
+        type: string
+      password:
+        type: string
+      port:
+        type: integer
+        format: int64
+      user:
+        type: string
+tags:
+- name: health
+  description: |
+    Operations about health
+- name: metadata
+  description: |
+    Operations about metadata
+- name: pds
+  description: |
+    Operations about pd
+- name: tikvs
+  description: |
+    Operations about tikv
+- name: tidbs
+  description: |
+    Operations about tidb
+- name: users
+  description: |
+    Operations about database

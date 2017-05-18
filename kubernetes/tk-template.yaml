@@ -1,0 +1,76 @@
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: tidb-k8s
+  name: tidb-k8s
+spec:
+  type: NodePort
+  ports:
+  - port: 10228
+    targetPort: 10228
+    nodePort: 12808
+  selector:
+    app: tidb-k8s
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  labels:
+    app: tidb-k8s
+  name: tidb-k8s
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: tidb-k8s
+  template:
+    metadata:
+      labels:
+        app: tidb-k8s
+    spec:
+      volumes:
+      - name: zone
+        hostPath: {path: /etc/localtime}
+      containers:
+      - command:
+        - bash
+        - "-c"
+        - |
+          export RunMode=dev
+          export HTTPAddr=${POD_IP}
+          export EtcdAddress={{etcd}}
+          export K8sAddr={{k8s}}
+          export ForceInitMd=false
+          export PdScaleFactor=0.5
+          tidb-k8s
+        image: {{registry}}/tidb-k8s:{{version}}
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: zone
+            mountPath: /etc/localtime
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            path: /api/v1/dbtypes/tidb/health/
+            port: 10228
+            scheme: HTTP
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        name: tidb-k8s
+        resources:
+          requests:
+            cpu: 250m
+        ports:
+        - containerPort: 10228
+          protocol: TCP
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+      # Comment the following tolerations if Dashboard must not be deployed on master
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule

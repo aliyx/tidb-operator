@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prom-server
+  labels:
+    name: prom-server
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 9090
+  selector:
+    name: prom-server
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: prom-server
+  labels:
+    name: prom-server
+spec:
+  replicas: 1
+  selector:
+    name: prom-server
+  template:
+    metadata:
+      labels:
+        name: prom-server
+    spec:
+      nodeSelector:
+        node-role: prometheus
+      volumes:
+        - name: datadir
+          hostPath: {path: /var/lib/prometheus}
+      containers:
+      - name: prom-server
+        image: 10.209.224.13:10500/rds/prom-server
+        ports:
+          - containerPort: 9090
+        volumeMounts:
+          - name: datadir
+            mountPath: /prometheus
+      tolerations:
+      - key: node-role.prometheus
+      # - key: node-role.kubernetes.io/master
+        effect: NoSchedule
