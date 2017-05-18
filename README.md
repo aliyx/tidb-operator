@@ -1,6 +1,6 @@
 # tidb-k8s
 
-Tidb-k8s基于kubernetes+docker管理多个tidb集群的manager,支持用户针对实际需求申请不同规格的资源，支持在线动态扩容，所有操作web化.后续会整合openstack实现资源动态管理.
+Tidb-k8s manager multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic expansion, all operations web.
 
 ## 前期准备工作
 

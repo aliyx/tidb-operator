@@ -181,6 +181,8 @@ func (db *Tidb) Save() error {
 	if db.Cell == "" {
 		return errors.New("cell is nil")
 	}
+	db.Pd.Cell = db.Cell
+	db.Tikv.Cell = db.Cell
 	if err := db.Pd.beforeSave(); err != nil {
 		return err
 	}
