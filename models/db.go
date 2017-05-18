@@ -112,7 +112,7 @@ func Start(cell string) (err error) {
 		defer k8sMu.Unlock()
 		e := NewEvent(cell, "tidb", "start")
 		defer func() {
-			e.Trace(err, "Start tidb pods on k8s")
+			e.Trace(err, "Start deploying tidb clusters on kubernetes")
 		}()
 		var pd *Pd
 		var tk *Tikv
@@ -185,7 +185,6 @@ func Stop(cell string, ch chan int) (err error) {
 				ch <- 0
 			}
 		}()
-		rollout(cell, tidbClearing)
 		for {
 			if started(cell) {
 				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
@@ -195,7 +194,7 @@ func Stop(cell string, ch chan int) (err error) {
 				break
 			}
 		}
-		e.Trace(nil, fmt.Sprintf("Delete tidb pods on k8s"))
+		e.Trace(nil, fmt.Sprintf("Stop tidb pods on k8s"))
 	}()
 	return err
 }

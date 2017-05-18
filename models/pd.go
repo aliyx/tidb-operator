@@ -189,7 +189,7 @@ func (p *Pd) stop() (err error) {
 		e.Trace(err, "Stop pd replicationcontrollers")
 	}()
 	defer func() {
-		st := Undefined
+		st := tidbClearing
 		if err != nil {
 			st = PdStopFailed
 		}
