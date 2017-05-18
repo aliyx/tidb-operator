@@ -271,7 +271,7 @@ func DeleteTikv(cell string) (err error) {
 	if err = kv.stop(); err != nil {
 		return err
 	}
-	if err := kv.delete(); err != nil {
+	if err = kv.delete(); err != nil {
 		return err
 	}
 	logs.Warn(`Tikv "%s" deleted`, kv.Cell)

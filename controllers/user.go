@@ -136,5 +136,5 @@ func uniqueID(uid, schema string) string {
 	} else {
 		u = fmt.Sprintf("%03s", uid)
 	}
-	return strings.ToLower(fmt.Sprintf("%s-%s", u[len(u)-3:], schema))
+	return strings.ToLower(fmt.Sprintf("%s-%s", u[len(u)-3:], strings.Replace(schema, "_", "-", -1)))
 }
