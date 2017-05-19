@@ -35,7 +35,7 @@ func (uc *UserController) Post() {
 	if err := json.Unmarshal(b, db); err != nil {
 		uc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	db.Cell = uniqueID(db.User.ID, db.Schema)
+	db.Cell = uniqueID(db.ID, db.Schema)
 	db.DatabaseID = db.Cell
 	err := db.Save()
 	if err != nil {

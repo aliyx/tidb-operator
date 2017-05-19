@@ -27,15 +27,15 @@ var (
 
 // Db database
 type Db struct {
-	User
+	Creater
 	Tidb
 	Hosts []string `json:"hosts,omitempty"`
 }
 
-// User info
-type User struct {
-	ID         string `json:"id"` //user
-	Name       string `json:"name"`
+// Creater info
+type Creater struct {
+	ID         string `json:"userid"` //user
+	Name       string `json:"username"`
 	DatabaseID string `json:"dbid"`
 
 	Uscale UScale `json:"uscale,omitempty"`
@@ -67,8 +67,8 @@ func (d *Db) Save() (err error) {
 	if err = d.beforeSave(); err != nil {
 		return err
 	}
-	logs.Debug("user: %+v", d.User)
-	if err = d.User.save(); err != nil {
+	logs.Debug("creater: %+v", d.Creater)
+	if err = d.Creater.save(); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func (d *Db) beforeSave() (err error) {
 	if len(d.ID) < 1 || len(d.Cell) < 1 {
 		return fmt.Errorf("user id or cell is nil")
 	}
-	if len(d.Tidb.User) < 1 || len(d.Tidb.User) > 32 {
+	if len(d.User) < 1 || len(d.User) > 32 {
 		return fmt.Errorf("no set user")
 	}
 	if len(d.Password) < 1 || len(d.Password) > 32 {
@@ -106,7 +106,7 @@ func (d *Db) beforeSave() (err error) {
 	return nil
 }
 
-func (u *User) save() error {
+func (u *Creater) save() error {
 	j, err := json.Marshal(u)
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func (u *User) save() error {
 }
 
 // Update user
-func (u *User) Update() error {
+func (u *Creater) Update() error {
 	j, err := json.Marshal(u)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func (u *User) Update() error {
 }
 
 // Delete user
-func (u *User) Delete() error {
+func (u *Creater) Delete() error {
 	key := getUserKey(u.ID, u.DatabaseID)
 	if err := userS.Delete(key); err != nil {
 		return err
@@ -143,7 +143,7 @@ func (u *User) Delete() error {
 // Delete user and tidb
 func (d *Db) Delete() (err error) {
 	if err = d.Tidb.Delete(func() {
-		if err := d.User.Delete(); err != nil {
+		if err := d.Creater.Delete(); err != nil {
 			logs.Error("Delete user: %v", err)
 		}
 	}); err != nil {
@@ -230,8 +230,8 @@ func getDbs(ID string) ([]Db, error) {
 // GetDb gets the specified user's tidb
 func GetDb(ID, cell string) (*Db, error) {
 	db := NewDb()
-	db.User = User{}
-	err := userS.GetObj(getUserKey(ID, cell), &db.User)
+	db.Creater = Creater{}
+	err := userS.GetObj(getUserKey(ID, cell), &db.Creater)
 	if err != nil {
 		return nil, err
 	}

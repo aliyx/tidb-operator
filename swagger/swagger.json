@@ -763,6 +763,24 @@
                 }
             }
         },
+        "models.Creater": {
+            "title": "Creater",
+            "type": "object",
+            "properties": {
+                "dbid": {
+                    "type": "string"
+                },
+                "uscale": {
+                    "$ref": "#/definitions/models.UScale"
+                },
+                "userid": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Db": {
             "title": "K8sInfo",
             "type": "object",
@@ -1220,24 +1238,6 @@
                 },
                 "tikv": {
                     "$ref": "#/definitions/models.Unit"
-                }
-            }
-        },
-        "models.User": {
-            "title": "User",
-            "type": "object",
-            "properties": {
-                "dbid": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "uscale": {
-                    "$ref": "#/definitions/models.UScale"
                 }
             }
         },

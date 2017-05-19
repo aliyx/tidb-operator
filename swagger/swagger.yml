@@ -503,6 +503,18 @@ definitions:
       kvr:
         type: integer
         format: int32
+  models.Creater:
+    title: Creater
+    type: object
+    properties:
+      dbid:
+        type: string
+      uscale:
+        $ref: '#/definitions/models.UScale'
+      userid:
+        type: string
+      username:
+        type: string
   models.Db:
     title: K8sInfo
     type: object
@@ -821,18 +833,6 @@ definitions:
         $ref: '#/definitions/models.Unit'
       tikv:
         $ref: '#/definitions/models.Unit'
-  models.User:
-    title: User
-    type: object
-    properties:
-      dbid:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      uscale:
-        $ref: '#/definitions/models.UScale'
   mysql.Mysql:
     title: Mysql
     type: object
