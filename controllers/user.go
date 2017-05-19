@@ -123,6 +123,32 @@ func (uc *UserController) GetAll() {
 	uc.ServeJSON()
 }
 
+// CheckResources Check the user's request for resources
+// @Title CheckResources
+// @Description whether the user creates tidb for approval
+// @Param 	user 	path 	string 	true	"The user id"
+// @Param	body	body 	models.ApprovalConditions	true	"body for resource content"
+// @Success 200
+// @Failure 403 body is empty
+// @router /:user/limit [post]
+func (uc *UserController) CheckResources() {
+	user := uc.GetString(":user")
+	if len(user) < 1 {
+		uc.CustomAbort(403, "user id is nil")
+	}
+	ac := &models.ApprovalConditions{}
+	b := uc.Ctx.Input.RequestBody
+	if len(b) < 1 {
+		uc.CustomAbort(403, "body is empty")
+	}
+	if err := json.Unmarshal(b, ac); err != nil {
+		uc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
+	}
+	limit := models.NeedLimitResources(user, ac.KvReplicas, ac.DbReplicas)
+	uc.Data["json"] = limit
+	uc.ServeJSON()
+}
+
 // Dbs db array
 type Dbs struct {
 	Total int         `json:"total"`

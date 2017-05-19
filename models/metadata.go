@@ -40,6 +40,9 @@ k8s:
   registry: "10.209.224.13:10500/ffan/rds"
   volume: ""
   proxys: "10.213.44.128,10.213.129.73,10.213.129.74"
+approvalConditions:
+  kvReplicas: 2
+  dbReplicas: 2
 `
 
 var (
@@ -72,12 +75,20 @@ type K8s struct {
 	Proxys    string `json:"proxys"`
 }
 
+// ApprovalConditions Tikv and tidb more than the number of replicas of the conditions,
+// you need admin approval
+type ApprovalConditions struct {
+	KvReplicas uint `json:"kvr" yaml:"kvReplicas"`
+	DbReplicas uint `json:"dbr" yaml:"dbReplicas"`
+}
+
 // Metadata tidb元数据
 type Metadata struct {
-	Versions       []string        `json:"versions"`
-	Units          Units           `json:"basic" yaml:"basic"`
-	Specifications []Specification `json:"specifications"`
-	K8s            K8s             `json:"k8s"`
+	Versions       []string           `json:"versions"`
+	Units          Units              `json:"basic" yaml:"basic"`
+	Specifications []Specification    `json:"specifications"`
+	K8s            K8s                `json:"k8s"`
+	AC             ApprovalConditions `json:"ac" yaml:"approvalConditions"`
 }
 
 // Init Metadata model初始化

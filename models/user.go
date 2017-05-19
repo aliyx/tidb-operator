@@ -35,6 +35,7 @@ type Db struct {
 // User info
 type User struct {
 	ID         string `json:"id"` //user
+	Name       string `json:"name"`
 	DatabaseID string `json:"dbid"`
 
 	Uscale UScale `json:"uscale,omitempty"`
@@ -149,6 +150,33 @@ func (d *Db) Delete() (err error) {
 		return err
 	}
 	return
+}
+
+// NeedLimitResources whether the user creates tidb for approval
+func NeedLimitResources(ID string, kvr, dbr uint) bool {
+	if len(ID) < 1 {
+		return true
+	}
+	md, err := GetMetadata()
+	if err != nil {
+		logs.Error("cant get metadata when invoke limitResources: %v", err)
+		return true
+	}
+	dbs, err := GetDbs(ID)
+	if err != nil {
+		logs.Error("cant get user %s dbs: %v", ID, err)
+	}
+	for _, db := range dbs {
+		kvr = kvr + uint(db.Tikv.Replicas)
+		dbr = dbr + uint(db.Replicas)
+	}
+	if kvr > md.AC.KvReplicas {
+		return true
+	}
+	if dbr > md.AC.DbReplicas {
+		return true
+	}
+	return false
 }
 
 // GetDbs Return the user's db, if the admin user, then return all the database

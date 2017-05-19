@@ -181,4 +181,11 @@ func init() {
 			AllowHTTPMethods: []string{"get"},
 			Params: nil})
 
+	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
+		beego.ControllerComments{
+			Method: "CheckResources",
+			Router: `/:user/limit`,
+			AllowHTTPMethods: []string{"post"},
+			Params: nil})
+
 }

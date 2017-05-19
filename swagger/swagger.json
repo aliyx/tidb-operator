@@ -601,6 +601,39 @@
                 }
             }
         },
+        "/users/{user}/limit": {
+            "post": {
+                "tags": [
+                    "users"
+                ],
+                "description": "whether the user creates tidb for approval",
+                "operationId": "UserController.CheckResources",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "user",
+                        "description": "The user id",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "body for resource content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ApprovalConditions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {},
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/users/{user}/tidbs": {
             "get": {
                 "tags": [
@@ -716,6 +749,20 @@
                 }
             }
         },
+        "models.ApprovalConditions": {
+            "title": "ApprovalConditions",
+            "type": "object",
+            "properties": {
+                "dbr": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "kvr": {
+                    "type": "integer",
+                    "format": "int32"
+                }
+            }
+        },
         "models.Db": {
             "title": "K8sInfo",
             "type": "object",
@@ -753,6 +800,9 @@
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
+                },
+                "schema": {
+                    "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/models.TidbStatus"
@@ -862,6 +912,9 @@
             "title": "Metadata",
             "type": "object",
             "properties": {
+                "ac": {
+                    "$ref": "#/definitions/models.ApprovalConditions"
+                },
                 "basic": {
                     "$ref": "#/definitions/models.Units"
                 },
@@ -1035,6 +1088,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "schema": {
+                    "type": "string"
+                },
                 "status": {
                     "$ref": "#/definitions/models.TidbStatus"
                 },
@@ -1171,10 +1227,13 @@
             "title": "User",
             "type": "object",
             "properties": {
+                "dbid": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
-                "schema": {
+                "name": {
                     "type": "string"
                 },
                 "uscale": {
