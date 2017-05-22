@@ -2,11 +2,29 @@
 
 Tidb-k8s manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic scale, all operations web.
 
+## Build images
+
+Build tidb docker images and push to private registry.
+
+* Please configure your development environment `./dev.env`.
+
+* Build docker iamges:
+
+```bash
+./docker/pd/build.sh
+./docker/tikv/build.sh
+./docker/tidb/build.sh
+```
+
+* Push pd/tikv/tidb images to your private registry.
+
 ## Preparedness
 
 ### Install kubernetes
 
-Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes / deploy directory.
+Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes `./kubernetes/deploy` directory.
+
+Access kubernetes dashboard: {masterid}:10281
 
 ### Install etcd
 
@@ -29,34 +47,34 @@ docker run -d --net=host \
     --auto-compaction-retention 1
 ```
 
-## Build images
-
-Build tidb docker image and push to private registry.
-
-```bash
-./docker/pd/build.sh
-./docker/tikv/build.sh
-./docker/tidb/build.sh
-```
-
 ## Startup
+
+### Startup tk on local
 
 ```bash
 ./restart.sh
 ```
 
-Access local endpoint: 127.0.0.1:10228/swagger
+Access endpoint: 127.0.0.1:10228/swagger
+
+### Startup tk on kubernetes
+
+```bash
+./kubernetes/tk-up.sh # run this shell on kubernetes master
+```
+
+Access endpoint: 127.0.0.1:12808/swagger
 
 ## Topology
 
-tidb-k8s project back-end storage using the etcd cluster database,tidb root: /dbs/tidb
+tidb-k8s project back-end storage using the etcd cluster database,tidb root: `/tk/tidb`
 
-- User path: $root/users/{id}/{cell}, Id is the associated user name, cell is the name of the created tidb.
+* User path: `$root/users/{id}/{cell}`, Id is the associated user name, cell is the name of the created tidb.
 
-- Metadata path: $root/metadata, Metadata information, the first start will initialize some of the default data (see: metadata.go), currently only supports Put operation, does not support Post / Delet and other operations.
+* Metadata path: `$root/metadata`, Metadata information, the first start will initialize some of the default data (see: metadata.go), currently only supports Put operation, does not support Post / Delet and other operations.
 
-- Tidb path: $root/tidbs/{cell}, The path under the storage tidb specific instance of information.
+* Tidb path: `$root/tidbs/{cell}`, The path under the storage tidb specific instance of information.
 
-- Event path: $root/events/{cell}, Record tidb create / scale process.
+* Event path: `$root/events/{cell}`, Record tidb create / scale process.
 
 
