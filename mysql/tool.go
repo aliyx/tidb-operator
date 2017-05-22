@@ -15,7 +15,7 @@ import (
 
 var (
 	binDir   = fmt.Sprintf("%s/mysql/bin/", utils.Root())
-	checker  = binDir + "checker -host %s -port %d -user %s -password %s %s"
+	checker  = binDir + "checker -L error -host %s -port %d -user %s -password %s %s"
 	mydumper = binDir + "mydumper -h %s -P %d -u %s -p %s -t 16 -F 128 -B %s --skip-tz-utc --no-locks -o %s"
 	loader   = binDir + "loader -h %s -P %d -u %s -p %s -t 4 -checkpoint=%s -d %s"
 
@@ -45,21 +45,16 @@ func (m *Mydumper) Transfer() (err error) {
 
 // Check 预先检查 TiDB 是否能支持需要迁移的 table schema
 func (m *Mydumper) Check() error {
-	// 权限检查
-	// dsn := fmt.Sprintf(mysqlDsn, m.Src.User, m.Src.Password, m.Src.IP, m.Src.Port, m.Src.Database)
-	// have, err := havePrivilege(dsn, m.Src.User, "RELOAD")
-	// if err != nil {
-	// 	return err
-	// }
-	// if !have {
-	// 	return errors.New("please set RELOAD PRIVILEGES for mydumper")
-	// }
+	dsn := fmt.Sprintf(mysqlDsn, m.Src.User, m.Src.Password, m.Src.IP, m.Src.Port, m.Src.Database)
+	err := execMysqlCommand(dsn, "SELECT 1")
+	if err != nil {
+		return fmt.Errorf("Ping mysql %s timeout: %v", dsn, err)
+	}
 	cmd := fmt.Sprintf(checker, m.Src.IP, m.Src.Port, m.Src.User, m.Src.Password, m.Src.Database)
 	o, err := execShell(cmd)
 	if err != nil {
-		return fmt.Errorf("%v:\n%s", err, o)
+		return fmt.Errorf("%s", o)
 	}
-	logs.Debug("Check result: %s", o)
 	return nil
 }
 
@@ -103,17 +98,11 @@ func creteDir(dir string) error {
 	return nil
 }
 
-func execShell(cmd string) (string, error) {
+func execShell(cmd string) ([]byte, error) {
 	logs.Info("Command is %s", cmd)
 	// splitting head => g++ parts => rest of the command
 	parts := strings.Fields(cmd)
 	head := parts[0]
 	parts = parts[1:len(parts)]
-
-	out, err := exec.Command(head, parts...).Output()
-	rs := string(out)
-	if err != nil {
-		return rs, err
-	}
-	return rs, nil
+	return exec.Command(head, parts...).CombinedOutput()
 }

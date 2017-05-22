@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"os/exec"
 	"testing"
 )
 
@@ -11,12 +12,22 @@ func Test_execShell(t *testing.T) {
 
 func TestMysql_Checker(t *testing.T) {
 	m := Mydumper{
-		Src: *NewMysql("cqjtest0", "10.213.125.70", 14392, "cqjtest0", "cqjtest0"),
+		Src: *NewMysql("rds", "10.213.43.158", 10044, "root", "pubsub"),
 	}
 	err := m.Check()
 	if err != nil {
 		t.Errorf("%v", err)
 	}
+}
+
+func TestMysql_execShell(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "/home/admin/go/src/github.com/ffan/tidb-k8s/mysql/bin/checker -host 10.213.43.158 -port 10044 -user root -password pubsub rds")
+	_, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		// fmt.Printf("%s", stdoutStderr)
+	}
+	// fmt.Printf("%s\n", stdoutStderr)
 }
 
 func Test_creteDir(t *testing.T) {

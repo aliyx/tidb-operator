@@ -41,8 +41,8 @@ k8s:
   volume: ""
   proxys: "10.213.44.128,10.213.129.73,10.213.129.74"
 approvalConditions:
-  kvReplicas: 2
-  dbReplicas: 2
+  kvReplicas: 3
+  dbReplicas: 1
 `
 
 var (
