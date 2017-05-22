@@ -1,18 +1,18 @@
-# 构建kubernetes集群
+# Build kubernetes cluster
 
-局域网中安装kubernetes集群
+Install the kubernetes cluster in the company's local area network.
 
 ## Install
 
-先上传k8s需要的4个rpm包(*kubectl-1.6.1-0.x86_64.rpm,*kubeadm-1.6.1-0.x86_64.rpm,*kubelet-1.6.1-0.x86_64.rpm,*kubernetes-cni-0.5.1-0.x86_64.rpm)到需要安装的服务器，再执行以下脚本:
+First upload k8s need 4 rpm package (*kubectl-1.6.1-0.x86_64.rpm, *kubeadm-1.6.1-0.x86_64.rpm, *kubelet-1.6.1-0.x86_64.rpm, *Kubernetes-cni-0.5.1-0.x86_64.rpm) to the server you want to install, and then execute the following script:
 
 ```bash
-./install.sh . # .表示rpm的位置
+./install.sh . # .Indicates the location of rpm
 ```
 
 ## Master
 
-在指定的master节点上执行：
+Execute on the specified master node：
 
 ```bash
 ./kube-master.sh
@@ -20,13 +20,13 @@
 
 ## Node
 
-在指定的node节点上执行：
+Execute on the specified slve node：
 
 ```bash
-./kube-node.sh ip # ip指的是master节点的ip地址
+./kube-node.sh ip # Ip refers to the master node ip address
 ```
 
-## 设置proxy and prometheus
+## Set proxy and prometheus
 
 ```bash
 # add
@@ -44,7 +44,7 @@ kubectl label nodes name --overwrite  node-role-
 kubectl label nodes name --overwrite  node-role-
 ```
 
-## 访问
+## Access
 
-k8s apiserver对外暴露的port是10218, dashboard的port是12801，pod端口范围是12800-14999，由于公司的出口端口范围是10000-14999.
-访问dashboard：masterip:12801
+K8s apiserver exposed port is 10218, dashboard port is 12801, pod port range is 12800-14999, because the company's export port range is 10000-14999.
+Visit dashboard: {masterip}:12801

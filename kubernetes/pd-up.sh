@@ -10,7 +10,6 @@ cpu=${PD_CPU:-200}
 mem=${PD_MEM:-256}
 replicas=${PD_REPLICAS:-3}
 registry=${REGISTRY}
-etcd=${ETCD_GLOBAL}
 cell=`echo $CELL`
 # Create the client service and replication controller.
 sed_script=""

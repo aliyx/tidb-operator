@@ -6,6 +6,9 @@ if (( $EUID != 0 )); then
     exit
 fi
 
+# docker private registries
+registries=10.209.224.13:10500
+
 # First through the proxy pull image and push to docker server
 #===========================================================================1
 
@@ -84,9 +87,6 @@ yum remove -y kubectl kubelet kubeadm kubernetes-cni
 # Remove old docker
 yum remove -y ebtables docker docker-common container-selinux docker-selinux docker-engine socat
 echo "Cleaning old ...............................................ok"
-
-# docker private registries
-registries=10.209.224.13:10500
 
 # Install
 # check docker version

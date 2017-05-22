@@ -27,5 +27,3 @@ DATA_VOLUME=${DATA_VOLUME:-'/tmp/tidb'}
 
 # image version
 VERSION=${VERSION:-'latest'}
-
-ETCD_GLOBAL=${ETCD_GLOBAL:-'http://10.213.44.128:12379'}

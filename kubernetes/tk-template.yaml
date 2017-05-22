@@ -1,9 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: tidb-k8s
+  name: tidb-k8s
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: tidb-k8s
+  labels:
+    app: tidb-k8s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: tidb-k8s
+  namespace: kube-system
+---
 kind: Service
 apiVersion: v1
 metadata:
   labels:
     app: tidb-k8s
   name: tidb-k8s
+  namespace: kube-system
 spec:
   type: NodePort
   ports:
@@ -19,6 +43,7 @@ metadata:
   labels:
     app: tidb-k8s
   name: tidb-k8s
+  namespace: kube-system
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -38,12 +63,11 @@ spec:
         - bash
         - "-c"
         - |
-          export RunMode=dev
-          export HTTPAddr=${POD_IP}
+          export RunMode={{env}}
           export EtcdAddress={{etcd}}
           export K8sAddr={{k8s}}
+          export HTTPAddr=${POD_IP}
           export ForceInitMd=false
-          export PdScaleFactor=0.5
           tidb-k8s
         image: {{registry}}/tidb-k8s:{{version}}
         imagePullPolicy: Always
@@ -53,7 +77,7 @@ spec:
         livenessProbe:
           failureThreshold: 8
           httpGet:
-            path: /api/v1/dbtypes/tidb/health/
+            path: /tidb/api/v1/health/
             port: 10228
             scheme: HTTP
           initialDelaySeconds: 30

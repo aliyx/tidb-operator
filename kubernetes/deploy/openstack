@@ -1,0 +1,17 @@
+# set utc
+cp  /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+sudo cat > /etc/sysconfig/clock <<-EOF
+ZONE="Asia/Shanghai"
+UTC=false
+ARC=false
+EOF
+
+clock -w
+
+# openstack init... 
+echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
+# k8s master
+/usr/local/kubernetes/kube-master.sh
+# k8s node
+/usr/local/kubernetes/kube-node.sh {masterip}
