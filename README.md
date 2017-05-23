@@ -59,6 +59,8 @@ Access endpoint: 127.0.0.1:10228/swagger
 
 ### Startup tk on kubernetes
 
+Please set your environment variable in `tk-up.sh`.
+
 ```bash
 ./kubernetes/tk-up.sh # run this shell on kubernetes master
 ```

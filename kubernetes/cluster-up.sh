@@ -14,7 +14,7 @@ kv_replicas=${KV_REPLICAS:-3}
 db_replicas=${DB_REPLICAS:-2}
 
 PD_TEMPLATE=${PD_TEMPLATE:-'pd-template.yaml'}
-TIKV_TEMPLATE=${TIKV_TEMPLATE:-'tikv-deployment.yaml'}
+TIKV_TEMPLATE=${TIKV_TEMPLATE:-'tikv-pod.yaml'}
 TIDB_TEMPLATE=${TIDB_TEMPLATE:-'tidb-template.yaml'}
 MAX_TASK_WAIT_RETRIES=${MAX_TASK_WAIT_RETRIES:-300}
 
@@ -90,7 +90,7 @@ echo "*  Tikv count: $kv_replicas"
 echo "*  Tidb count: $db_replicas"
 echo "****************************"
 
-#echo 'Running namespace-up.sh' && ./namespace-up.sh
+# echo 'Running namespace-up.sh' && ./namespace-up.sh
 
 echo 'Running pd-up.sh' && ./pd-up.sh
 wait_for_running_tasks pd-$cell $pd_replicas

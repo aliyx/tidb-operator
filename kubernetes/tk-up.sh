@@ -16,8 +16,12 @@ registry=${REGISTRY}
 k8s=${K8sAddr:-$ip}
 env=${RunMode:-'dev'}
 
-echo "etcd address: $etcd"
-echo "run mode: $env"
+echo "****************************"
+echo "*Creating tidb-k8s namespace: $NS"
+echo "*  Etcd address: $etcd"
+echo "*  Run mode: $env"
+echo "****************************"
+
 # Create the tidb-k8s service and deployment.
 sed_script=""
 for var in etcd k8s version registry env; do

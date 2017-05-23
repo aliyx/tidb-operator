@@ -11,7 +11,7 @@ import (
 
 const (
 	// Path components
-	tidbRoot       = "/dbs/tidb"
+	tidbRoot       = "/tk/tidb"
 	tidbNamespace  = "tidbs"
 	metaNamespace  = "metadata"
 	userNamespace  = "users"
