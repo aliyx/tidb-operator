@@ -43,7 +43,7 @@ function wait_for_running_tasks () {
   while [ $counter -lt $MAX_TASK_WAIT_RETRIES ]; do
     # Get status column of pods with name starting with $task_name,
     # count how many are in state Running
-    num_running=`$KUBECTL get pods --namespace=$TIDB_NAME | grep ^$task_name | grep Running | wc -l`
+    num_running=`$KUBECTL $KUBECTL_OPTIONS get pods | grep ^$task_name | grep Running | wc -l`
 
     echo -en "\r$task_name: $num_running out of $num_tasks in state Running..."
     if [ $num_running -eq $num_tasks ]
@@ -108,12 +108,12 @@ tidb_status_server=''
 echo Geting tidb external port
 tp=''
 until [ $tp ]; do
-  tp=`$KUBECTL get -o template --template '{{index (index .spec.ports 1) "nodePort"}}' service tidb-$cell --namespace=$NS`
+  tp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 1) "nodePort"}}' service tidb-$cell`
   sleep 1
 done
 tsp=''
 until [ $tsp ]; do
-  tsp=`$KUBECTL get -o template --template '{{index (index .spec.ports 0) "nodePort"}}' service tidb-$cell --namespace=$NS`
+  tsp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 0) "nodePort"}}' service tidb-$cell`
   sleep 1
 done
 tidb_server="$(hostname -i):$tp"

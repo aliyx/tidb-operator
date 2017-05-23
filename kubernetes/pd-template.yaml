@@ -3,7 +3,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}
+  name: pd-{{cell}}
   labels:
     component: pd
     cell: {{cell}}
