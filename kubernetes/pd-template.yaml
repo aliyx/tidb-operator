@@ -62,7 +62,7 @@ spec:
       containers:
         - name: pd
           image: {{registry}}/pd:{{version}}
-          imagePullPolicy: IfNotPresent
+          # imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: datadir
               mountPath: /data
@@ -153,6 +153,7 @@ spec:
                 --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
                 --peer-urls="$PEER_URLS" \
                 --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                --initial-cluster-state=new \
                 --initial-cluster=$urls \
                 --config="/etc/pd/config.toml"
               fi
