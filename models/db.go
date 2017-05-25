@@ -15,6 +15,12 @@ var (
 	ErrRepop = errors.New("the previous operation is being executed")
 )
 
+const (
+	transfering = "Transfering"
+	transferErr = "Error"
+	transferFin = "Finish"
+)
+
 // InitTidb 初始化
 func InitTidb(cell string) (err error) {
 	e := NewEvent(cell, "tidb", "init")
@@ -38,17 +44,17 @@ func InitTidb(cell string) (err error) {
 	return nil
 }
 
-// Transfer 指定的mysql的数据到当前tidb
-func Transfer(cell string, src tsql.Mysql) error {
+// Migrate the mysql data to the current tidb
+func Migrate(cell string, src tsql.Mysql) error {
 	td, err := GetTidb(cell)
 	if err != nil {
 		return err
 	}
-	if td.Transfer != "" {
-		return errors.New("can not migrate multiple times")
-	}
 	if !td.isOk() {
 		return fmt.Errorf("tidb is not available")
+	}
+	if td.Transfer != "" {
+		return errors.New("can not migrate multiple times")
 	}
 	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
 		return fmt.Errorf("invalid database %+v", src)
@@ -59,9 +65,9 @@ func Transfer(cell string, src tsql.Mysql) error {
 	var net Net
 	for _, n := range td.Nets {
 		if n.Name == portMysql {
+			net = n
+			break
 		}
-		net = n
-		break
 	}
 	my := &tsql.Mydumper{
 		Src:  src,
@@ -70,20 +76,19 @@ func Transfer(cell string, src tsql.Mysql) error {
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, cell, err)
 	}
-	td.Transfer = "Running"
-	if err := td.update(); err != nil {
+	td.Transfer = transfering
+	if err := td.Update(); err != nil {
 		return err
 	}
 	go func() {
 		defer func() {
 			if err != nil {
-				td.Transfer = "Error"
+				td.Transfer = transferErr
 			} else {
-				td.Transfer = "Finish"
+				td.Transfer = transferFin
 			}
-			td.update()
+			td.Update()
 		}()
-
 		e := NewEvent(cell, "transfer", "dumper")
 		if err = my.Dump(); err != nil {
 			logs.Error(`Dump database "%+v" error: %v`, my.Src, err)

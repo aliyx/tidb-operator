@@ -43,20 +43,6 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"],
 		beego.ControllerComments{
-			Method: "Post",
-			Router: `/`,
-			AllowHTTPMethods: []string{"post"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"],
-		beego.ControllerComments{
-			Method: "Delete",
-			Router: `/:cell`,
-			AllowHTTPMethods: []string{"delete"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:PdController"],
-		beego.ControllerComments{
 			Method: "Get",
 			Router: `/:cell`,
 			AllowHTTPMethods: []string{"get"},
@@ -123,20 +109,6 @@ func init() {
 			Method: "Status",
 			Router: `/:cell/status`,
 			AllowHTTPMethods: []string{"patch"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"],
-		beego.ControllerComments{
-			Method: "Post",
-			Router: `/`,
-			AllowHTTPMethods: []string{"post"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"],
-		beego.ControllerComments{
-			Method: "Delete",
-			Router: `/:cell`,
-			AllowHTTPMethods: []string{"delete"},
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"],

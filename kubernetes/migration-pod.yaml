@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migration-{{cell}}
+  labels:
+    app: tidb
+    cell: {{cell}}
+    component: migration
+spec:
+  volumes:
+    - name: syslog
+      hostPath: {path: /dev/log}
+    - name: zone
+      hostPath: {path: /etc/localtime}
+  containers:
+  - name: migration
+    image: {{registry}}/migration:{{version}}
+    resources:
+      limits:
+        cpu: "300m"
+        memory: "512Mi"
+    volumeMounts:
+      - name: zone
+        mountPath: /etc/localtime
+    env: 
+    - name: SRC_HOST
+      value:{{sh}}
+    - name: SRC_PORT
+      value:{{sP}}
+    - name: SRC_USER
+      value:{{su}}
+    - name: SRC_PASSWORD
+      value:{{sp}}
+    - name: SRC_DB
+      value:{{db}}
+    - name: DEST_HOST
+      value:{{dh}}
+    - name: DEST_PORT
+      value:{{dP}}
+    - name: DEST_USER
+      value:{{duser}}
+    - name: DEST_PASSWORD
+      value:{{dp}}
+    - name: API_STAT
+      value:{{api}}

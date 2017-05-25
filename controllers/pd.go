@@ -15,44 +15,6 @@ type PdController struct {
 	beego.Controller
 }
 
-// Post 创建pd
-// @Title CreatePd
-// @Description create pds
-// @Param	body	body 	models.Pd	true	"body for pd content"
-// @Success 200
-// @Failure 403 body is empty
-// @router / [post]
-func (pc *PdController) Post() {
-	pd := models.NewPd()
-	if err := json.Unmarshal(pc.Ctx.Input.RequestBody, pd); err != nil {
-		pc.CustomAbort(400, fmt.Sprintf("Parse body for pd error: %v", err))
-	}
-	if err := pd.Create(); err != nil {
-		logs.Error("Create pd-%s error: %v", pd.Cell, err)
-		pc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Create pd-%s error: %v", pd.Cell, err))
-	}
-	pc.Data["json"] = pd.Cell
-	pc.ServeJSON()
-}
-
-// Delete 删除pd
-// @Title Delete
-// @Description delete the pd service
-// @Param	cell	path 	string	true "The cell you want to delete"
-// @Success 200 {string} delete success!
-// @Failure 403 cell is empty
-// @router /:cell [delete]
-func (pc *PdController) Delete() {
-	cell := pc.GetString(":cell")
-	err := models.DeletePd(cell)
-	if err != nil {
-		logs.Error("Cannt delete pd-%s: %v", cell, err)
-		pc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt delete pd-%s: %v", cell, err))
-	}
-	pc.Data["json"] = 1
-	pc.ServeJSON()
-}
-
 // Get 获取pd数据
 // @Title Get
 // @Description get pd by cell

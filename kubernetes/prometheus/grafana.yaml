@@ -33,6 +33,9 @@ spec:
       containers:
       - name: grafana
         image:  grafana/grafana
+        env:
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
         ports:
           - containerPort: 3000
         volumeMounts:

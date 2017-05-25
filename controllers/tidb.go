@@ -32,15 +32,10 @@ func (dc *TidbController) Post() {
 	if err := json.Unmarshal(b, db); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	err := db.Create()
+	err := db.Save()
 	if err != nil {
 		logs.Error("Create tidb-%s error: %v", db.Cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Create tidb-%s error: %v", db.Cell, err))
-	}
-	// 权限初始化
-	if err := models.InitTidb(db.Cell); err != nil {
-		logs.Error("Init tidb-%s privilege error: %v", db.Cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Init tidb-%s error: %v", db.Cell, err))
 	}
 	dc.Data["json"] = db.Cell
 	dc.ServeJSON()
@@ -127,9 +122,9 @@ func (dc *TidbController) Transfer() {
 	if err := json.Unmarshal(b, src); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	if err := models.Transfer(cell, *src); err != nil {
-		logs.Error(`Transfer mysql "%s" to tidb error: %v`, cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Transfer mysql "%s" to tidb error: %v`, cell, err))
+	if err := models.Migrate(cell, *src); err != nil {
+		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
+		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}
 }
 
@@ -157,7 +152,7 @@ func (dc *TidbController) GetEvents() {
 // @Title status
 // @Description start/stop/restart tidb server
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	status	true	"The body data type is {'status': int}"
+// @Param	body	body 	status	true	"The body data type is {'type': string, status': string}"
 // @Success 200
 // @Failure 400 body is empty
 // @Failure 403 unsupport operation
@@ -168,27 +163,43 @@ func (dc *TidbController) Status() {
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
-	switch s.Status {
-	case 0:
-		if err := models.Start(cell); err != nil {
-			logs.Error("Start tidb %s error: %v", cell, err)
-			dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Start tidb %s error: %v", cell, err))
-		}
-	case 1:
-		if err := models.Stop(cell, nil); err != nil {
-			logs.Error("Stop tidb %s error: %v", cell, err)
-			dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Stop tidb %s error: %v", cell, err))
-		}
-	case 2:
-		if err := models.Restart(cell); err != nil {
-			logs.Error("Restart tidb %s error: %v", cell, err)
-			dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Restart tidb %s error: %v", cell, err))
+	switch s.Type {
+	case "migrate":
+		td, err := models.GetTidb(cell)
+		errHandler(dc.Controller, err, "Patch tidb status")
+		td.Transfer = s.Status
+		if err = td.Update(); err != nil {
+			errHandler(dc.Controller, err, "Patch tidb status")
 		}
 	default:
-		dc.CustomAbort(403, "unsupport operation")
+		switch s.Status {
+		case "start":
+			if err := models.Start(cell); err != nil {
+				errHandler(dc.Controller, err, fmt.Sprintf("Start tidb %s", cell))
+			}
+		case "stop":
+			if err := models.Stop(cell, nil); err != nil {
+				errHandler(dc.Controller, err, fmt.Sprintf("Stop tidb %s", cell))
+			}
+		case "retart":
+			if err := models.Restart(cell); err != nil {
+				errHandler(dc.Controller, err, fmt.Sprintf("Restart tidb %s", cell))
+			}
+		default:
+			dc.CustomAbort(403, "unsupport operation")
+		}
 	}
 }
 
+func errHandler(c beego.Controller, err error, msg string) {
+	if err == nil {
+		return
+	}
+	logs.Error("%s: %v", msg, err)
+	c.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%s: %v", msg, err))
+}
+
 type status struct {
-	Status int `json:"status"`
+	Type   string `json:"type"`
+	Status string `json:"status"`
 }

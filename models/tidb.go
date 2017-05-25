@@ -103,97 +103,20 @@ func NewTidb(cell ...string) *Tidb {
 	return &td
 }
 
-// Create 创建tidb服务
-func (db *Tidb) Create() (err error) {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	if err = db.save(); err != nil {
-		return err
-	}
-	if err = db.Run(); err != nil {
-		return fmt.Errorf(`create service "tidb-%s" error: %v`, db.Cell, err)
-	}
-	return nil
-}
-
-// 只保存tidb模块的信息
-func (db *Tidb) save() (err error) {
-	if err = db.beforeSave(); err != nil {
-		return err
-	}
-	if err = db.update(); err != nil {
-		return err
-	}
-	if err = db.afterSave(); err != nil {
-		return err
-	}
-	return err
-}
-
-// beforeSave 创建之前的检查工作
-func (db *Tidb) beforeSave() error {
-	if err := db.validate(); err != nil {
-		return err
-	}
-	td, _ := GetTidb(db.Cell)
-	if td == nil {
-		return fmt.Errorf("no tidb %s", td.Cell)
-	}
-	db.recover(td)
-	// 判断tidb是否已经调用了create方法
-	if !td.isNil() {
-		return fmt.Errorf(`tidb "%s" has created`, td.Cell)
-	}
-	kv := td.Tikv
-	if kv == nil {
-		return fmt.Errorf(`tikv "%s" not created`, kv.Cell)
-	}
-	if !kv.Ok {
-		return fmt.Errorf(`tikv "%s" not started`, kv.Cell)
-	}
-	md, err := GetMetadata()
-	if err != nil {
-		return err
-	}
-	db.Registry = md.K8s.Registry
-	return nil
-}
-
-func (db *Tidb) recover(a *Tidb) {
-	db.Pd = a.Pd
-	db.Tikv = a.Tikv
-	db.Status = a.Status
-	db.User = a.User
-	db.Password = a.Password
-}
-
-func (db *Tidb) validate() error {
-	if err := db.K8sInfo.validate(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (db *Tidb) afterSave() error {
-	return rollout(db.Cell, TidbPending)
-}
-
 // Save tidb/tikv/pd info
 func (db *Tidb) Save() error {
 	if db.Cell == "" {
 		return errors.New("cell is nil")
 	}
 	db.Pd.Cell = db.Cell
-	db.Tikv.Cell = db.Cell
 	if err := db.Pd.beforeSave(); err != nil {
 		return err
 	}
-	// check tikv
-	if err := db.Tikv.beforeSave(false); err != nil {
+	db.Tikv.Cell = db.Cell
+	if err := db.Tikv.beforeSave(); err != nil {
 		return err
 	}
-	// check tidb
-	if err := db.beforeSaveIgnoreTikv(); err != nil {
+	if err := db.beforeSave(); err != nil {
 		return err
 	}
 	j, err := json.Marshal(db)
@@ -207,7 +130,7 @@ func (db *Tidb) Save() error {
 }
 
 // beforeSave 创建之前的检查工作
-func (db *Tidb) beforeSaveIgnoreTikv() error {
+func (db *Tidb) beforeSave() error {
 	if err := db.validate(); err != nil {
 		return err
 	}
@@ -222,7 +145,15 @@ func (db *Tidb) beforeSaveIgnoreTikv() error {
 	return nil
 }
 
-func (db *Tidb) update() error {
+func (db *Tidb) validate() error {
+	if err := db.K8sInfo.validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Update tidb metadata
+func (db *Tidb) Update() error {
 	if db.Cell == "" {
 		return fmt.Errorf("cell is nil")
 	}
@@ -239,12 +170,7 @@ func rollout(cell string, s TidbStatus) error {
 	if err != nil {
 		return err
 	}
-	db.Status = s
-	j, err := json.Marshal(db)
-	if err != nil {
-		return err
-	}
-	return tidbS.Update(db.Cell, j)
+	return db.Update()
 }
 
 func isPdOk(cell string) bool {
@@ -254,7 +180,7 @@ func isPdOk(cell string) bool {
 	return true
 }
 
-// GetTidb 获取tidb元数据,返回tidb指针对象
+// GetTidb get a Tidb instance
 func GetTidb(cell string) (*Tidb, error) {
 	bs, err := tidbS.Get(cell)
 	if err != nil {
@@ -267,36 +193,6 @@ func GetTidb(cell string) (*Tidb, error) {
 	return db, nil
 }
 
-// GetAllTidbs 获取所有的tidb元数据
-func GetAllTidbs(perPage, page int) (int, []Tidb, error) {
-	cells, err := tidbS.ListKey("tidbs")
-	if err != nil {
-		return 0, nil, err
-	}
-	le := len(cells)
-	if le < 1 {
-		return 0, nil, nil
-	}
-	start, end := perPage*(page-1), perPage*page
-	if le < start {
-		return 0, nil, nil
-	}
-	logs.Debug("start: %d, end； %d, total: %d", start, end, le)
-	if le < end {
-		end = le
-	}
-	cells = cells[start:end]
-	tidbs := make([]Tidb, len(cells))
-	for i, cell := range cells {
-		d, err := GetTidb(cell)
-		if err != nil {
-			return 0, nil, err
-		}
-		tidbs[i] = *d
-	}
-	return le, tidbs, nil
-}
-
 // Run 启动tidb服务
 func (db *Tidb) Run() (err error) {
 	e := NewEvent(db.Cell, "tidb", "start")
@@ -306,7 +202,7 @@ func (db *Tidb) Run() (err error) {
 			st = TidbStartFailed
 		} else {
 			db.Ok = true
-			if err = db.update(); err != nil {
+			if err = db.Update(); err != nil {
 				st = TidbStartFailed
 			}
 		}
@@ -384,7 +280,7 @@ func EraseTidb(cell string) error {
 	}
 	d.clear()
 	logs.Debug("%+v", d)
-	if err = d.update(); err != nil {
+	if err = d.Update(); err != nil {
 		return err
 	}
 	return nil
@@ -401,7 +297,7 @@ func (db *Tidb) stop() (err error) {
 		db.Nets = nil
 		db.Ok = false
 		e.Trace(err, "Stop tidb replicationcontrollers")
-		db.update()
+		db.Update()
 		rollout(db.Cell, st)
 	}()
 	if err = delRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
@@ -511,7 +407,7 @@ func ScaleTidbs(replicas int, cell string) error {
 	if err = db.validate(); err != nil {
 		return err
 	}
-	db.update()
+	db.Update()
 	if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", cell), replicas); err != nil {
 		return nil
 	}

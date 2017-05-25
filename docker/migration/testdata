@@ -1,0 +1,12 @@
+export SRC_HOST=10.213.125.210
+export SRC_PORT=13306
+export SRC_USER=root
+export SRC_PASSWORD=EJq4dspojdY3FmVF?TYVBkEMB
+export SRC_DB=cqjtest0
+
+export DEST_HOST=10.213.44.128
+export DEST_PORT=14729
+export DEST_USER=cqjtest0
+export DEST_PASSWORD=cqjtest0
+
+export API_STAT=http://192.168.14.8:10228/tidb/api/v1/tidbs/019-cqjtest0/status

@@ -25,37 +25,6 @@ func NewPd() *Pd {
 	return &Pd{}
 }
 
-// Create 创建pd服务
-func (p *Pd) Create() (err error) {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	if err = p.Save(); err != nil {
-		return err
-	}
-	if err = p.Run(); err != nil {
-		return fmt.Errorf(`create rc "pd-%s" error: %v`, p.Cell, err)
-	}
-	return nil
-}
-
-// Save pd to storage
-func (p *Pd) Save() error {
-	if err := p.beforeSave(); err != nil {
-		return err
-	}
-	db, _ := GetTidb(p.Cell)
-	if db == nil {
-		db = NewTidb()
-	}
-	db.Cell = p.Cell
-	db.Status = PdPending
-	db.Pd = p
-	if err := db.update(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (p *Pd) beforeSave() error {
 	if err := p.validate(); err != nil {
 		return err
@@ -83,7 +52,7 @@ func (p *Pd) validate() error {
 	return nil
 }
 
-// GetPd  retuan a Pd
+// GetPd  return a Pd
 func GetPd(cell string) (*Pd, error) {
 	db, err := GetTidb(cell)
 	if err != nil {
@@ -104,7 +73,7 @@ func (p *Pd) Update() error {
 		return err
 	}
 	db.Pd = p
-	if err := db.update(); err != nil {
+	if err := db.Update(); err != nil {
 		return err
 	}
 	return nil
@@ -180,7 +149,7 @@ func (p *Pd) delete() error {
 		return err
 	}
 	db.Pd = nil
-	return db.update()
+	return db.Update()
 }
 
 func (p *Pd) stop() (err error) {

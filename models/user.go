@@ -79,7 +79,7 @@ func (d *Db) Save() (err error) {
 			return err
 		}
 	} else {
-		if err = d.Tidb.update(); err != nil {
+		if err = d.Tidb.Update(); err != nil {
 			return err
 		}
 	}

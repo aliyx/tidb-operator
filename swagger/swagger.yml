@@ -79,23 +79,6 @@ paths:
           description: bad request
         "500":
           description: cannt store specifications
-  /pds/:
-    post:
-      tags:
-      - pds
-      description: create pds
-      operationId: PdController.CreatePd
-      parameters:
-      - in: body
-        name: body
-        description: body for pd content
-        required: true
-        schema:
-          $ref: '#/definitions/models.Pd'
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
   /pds/{cell}:
     get:
       tags:
@@ -114,22 +97,6 @@ paths:
             $ref: '#/definitions/models.Pd'
         "404":
           description: :key not found
-    delete:
-      tags:
-      - pds
-      description: delete the pd service
-      operationId: PdController.Delete
-      parameters:
-      - in: path
-        name: cell
-        description: The cell you want to delete
-        required: true
-        type: string
-      responses:
-        "200":
-          description: '{string} delete success!'
-        "403":
-          description: cell is empty
   /pds/{cell}/scale:
     patch:
       tags:
@@ -307,23 +274,6 @@ paths:
         "200": {}
         "403":
           description: body is empty
-  /tikvs/:
-    post:
-      tags:
-      - tikvs
-      description: create tikvs
-      operationId: TikvController.CreateTikv
-      parameters:
-      - in: body
-        name: body
-        description: body for tikv content
-        required: true
-        schema:
-          $ref: '#/definitions/models.Tikv'
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
   /tikvs/{cell}:
     get:
       tags:
@@ -342,22 +292,6 @@ paths:
             $ref: '#/definitions/models.Tikv'
         "404":
           description: :key not found
-    delete:
-      tags:
-      - tikvs
-      description: delete the tikv service
-      operationId: TikvController.Delete
-      parameters:
-      - in: path
-        name: cell
-        description: The cell you want to delete
-        required: true
-        type: string
-      responses:
-        "200":
-          description: '{string} delete success!'
-        "403":
-          description: cell is empty
   /tikvs/{cell}/scale:
     patch:
       tags:

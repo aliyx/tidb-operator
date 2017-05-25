@@ -12,14 +12,6 @@ registries=10.209.224.13:10500
 # First through the proxy pull image and push to docker server
 #===========================================================================1
 
-# sudo cat > /etc/systemd/system/docker.service.d/http-proxy.conf <<-EOF
-# [Service]
-# Environment="http_proxy=http://192.168.14.1:1080/"
-# EOF
-
-# sudo systemctl daemon-reload
-# sudo systemctl restart docker
-
 images=(gcr.io/google_containers/kube-apiserver-amd64:v1.6.0 gcr.io/google_containers/kube-controller-manager-amd64:v1.6.0 gcr.io/google_containers/kube-scheduler-amd64:v1.6.0  gcr.io/google_containers/kube-proxy-amd64:v1.6.0 gcr.io/google_containers/etcd-amd64:3.0.17 gcr.io/google_containers/pause-amd64:3.0 gcr.io/google_containers/k8s-dns-sidecar-amd64:1.14.1 gcr.io/google_containers/k8s-dns-kube-dns-amd64:1.14.1  gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64:1.14.1 gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.0)
 # for imageName in ${images[@]} ; do
 #   docker pull $imageName

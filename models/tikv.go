@@ -38,63 +38,13 @@ func NewTikv() *Tikv {
 	return &Tikv{}
 }
 
-// Create 创建tikv服务
-func (kv *Tikv) Create() (err error) {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	if err = kv.Save(); err != nil {
-		return err
-	}
-	if err = kv.Run(); err != nil {
-		return fmt.Errorf(`create pods "tikv-%s-*" error: %v`, kv.Cell, err)
-	}
-	return nil
-}
-
-// Save tikv to storage
-func (kv *Tikv) Save() error {
-	if err := kv.beforeSave(true); err != nil {
-		return err
-	}
-	db, err := GetTidb(kv.Cell)
-	if err != nil {
-		return err
-	}
-	db.Tikv = kv
-	db.Status = TikvPending
-	if err := db.update(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // beforeSave 创建之前的检查工作
-func (kv *Tikv) beforeSave(checkPd bool) error {
+func (kv *Tikv) beforeSave() error {
 	if old, _ := GetTikv(kv.Cell); old != nil {
 		return fmt.Errorf(`tikv "%s" has been created`, kv.Cell)
 	}
 	if err := kv.validate(); err != nil {
 		return err
-	}
-	// 验证pd服务是否已经ok
-	if checkPd {
-		pd, err := GetPd(kv.Cell)
-		if err != nil || !pd.Ok {
-			return fmt.Errorf(`please create pd "%v" first`, kv.Cell)
-		}
-		kv.Db = pd.Db
-		h := pd.Nets[0].String()
-		if _, err = pdLeaderGet(h); err != nil {
-			return err
-		}
-		// FIX: check pd中是否存在历史的tikv，目前对tikv的重复创建存在问题，所以只支持新增不支持删除单个的tikv
-		j, err := pdStoresGet(h)
-		if err == nil {
-			ret := gjson.Get(j, "count")
-			if ret.Int() > 0 {
-				return fmt.Errorf("please delete pd after the start tidb process, currently does not support the repeated creation of tikv")
-			}
-		}
 	}
 	md, err := GetMetadata()
 	if err != nil {
@@ -132,7 +82,7 @@ func (kv *Tikv) Update() error {
 		return err
 	}
 	db.Tikv = kv
-	if err := db.update(); err != nil {
+	if err := db.Update(); err != nil {
 		return err
 	}
 	return nil
@@ -367,7 +317,7 @@ func (kv *Tikv) delete() error {
 		return err
 	}
 	db.Tikv = nil
-	return db.update()
+	return db.Update()
 }
 
 func (kv *Tikv) isNil() bool {
