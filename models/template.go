@@ -366,6 +366,7 @@ spec:
       hostPath: {path: /dev/log}
     - name: zone
       hostPath: {path: /etc/localtime}
+  terminationGracePeriodSeconds: 5
   containers:
   - name: migration
     image: {{image}}

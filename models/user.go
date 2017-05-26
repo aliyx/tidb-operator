@@ -134,7 +134,11 @@ func (u *Creater) Delete() error {
 
 // Delete user and tidb
 func (d *Db) Delete() (err error) {
-	if err = d.Tidb.Delete(func() {
+	td, err := GetTidb(d.Cell)
+	if err != nil {
+		return err
+	}
+	if err = td.Delete(func() {
 		if err := d.Creater.Delete(); err != nil {
 			logs.Error("Delete user: %v", err)
 		}
