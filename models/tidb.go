@@ -563,28 +563,13 @@ func Stop(cell string, ch chan int) (err error) {
 				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
 				time.Sleep(time.Second)
 			} else {
-				db.reset()
+				rollout(cell, Undefined)
 				break
 			}
 		}
 		e.Trace(nil, fmt.Sprintf("Stop tidb pods on k8s"))
 	}()
 	return err
-}
-
-func (db *Tidb) reset() {
-	db.Pd.Ok = false
-	db.Pd.Nets = nil
-
-	db.Tikv.Ok = false
-	db.Tikv.Nets = nil
-	db.Tikv.cur = ""
-
-	db.Ok = false
-	db.Transfer = ""
-	db.Status = Undefined
-	db.Nets = nil
-	db.Update()
 }
 
 // Restart first stop tidb, second start tidb
