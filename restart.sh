@@ -27,6 +27,8 @@ if [ -z "$e" ]; then
 elif [ "$e" == "test" ]; then
   echo "Current environment: test"
   export HTTPAddr=10.213.44.128
+  export EtcdAddress=http://10.213.44.128:12379
+  export K8sAddr=http://10.213.44.128:10218
 elif [ "$e" == "prod" ]; then
   echo "Current environment: prod"
 else
