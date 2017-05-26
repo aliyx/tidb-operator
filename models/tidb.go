@@ -545,11 +545,15 @@ func Stop(cell string, ch chan int) (err error) {
 	if err = db.stop(); err != nil {
 		return err
 	}
-	if err = db.Tikv.stop(); err != nil {
-		return err
+	if db.Tikv != nil {
+		if err = db.Tikv.stop(); err != nil {
+			return err
+		}
 	}
-	if err = db.Pd.stop(); err != nil {
-		return err
+	if db.Pd != nil {
+		if err = db.Pd.stop(); err != nil {
+			return err
+		}
 	}
 	// waitring for all pod deleted
 	go func() {
