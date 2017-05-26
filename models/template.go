@@ -70,7 +70,7 @@ spec:
         - name: zone
           hostPath: {path: /etc/localtime}
       # 默认是30s
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 10
       containers:
         - name: pd
           image: {{registry}}/pd:{{version}}

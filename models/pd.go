@@ -47,10 +47,6 @@ func GetPd(cell string) (*Pd, error) {
 	return pd, nil
 }
 
-func (p *Pd) update() error {
-	return p.Db.Update()
-}
-
 func (p *Pd) stop() (err error) {
 	e := NewEvent(p.Db.Cell, "Pd", "stop")
 	defer func() {
@@ -58,7 +54,10 @@ func (p *Pd) stop() (err error) {
 		if err != nil {
 			st = PdStopFailed
 		}
-		rollout(p.Db.Cell, st)
+		p.Nets = nil
+		p.Ok = false
+		p.Db.Status = st
+		p.Db.Update()
 		e.Trace(err, "Stop pd replicationcontrollers")
 	}()
 	if err = delRc(fmt.Sprintf("pd-%s", p.Db.Cell)); err != nil {
