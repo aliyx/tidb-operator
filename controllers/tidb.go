@@ -80,15 +80,15 @@ func (dc *TidbController) Patch() {
 	// dc.ServeJSON()
 }
 
-// Transfer data to tidb
-// @Title Transfer
-// @Description Transfer mysql data to tidb
+// Migrate data to tidb
+// @Title Migrate
+// @Description migrate mysql data to tidb
 // @Param 	cell 	path 	string	true	"The database name for tidb"
 // @Param	body	body 	mysql.Mysql	true	"Body for src mysql"
 // @Success 200
 // @Failure 403 body is empty
-// @router /:cell/transfer [post]
-func (dc *TidbController) Transfer() {
+// @router /:cell/migrate [post]
+func (dc *TidbController) Migrate() {
 	cell := dc.GetString(":cell")
 	if len(cell) < 1 {
 		dc.CustomAbort(403, "cell is nil")

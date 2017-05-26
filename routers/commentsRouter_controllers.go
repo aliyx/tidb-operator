@@ -64,8 +64,8 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "Transfer",
-			Router: `/:cell/transfer`,
+			Method: "Migrate",
+			Router: `/:cell/migrate`,
 			AllowHTTPMethods: []string{"post"},
 			Params: nil})
 

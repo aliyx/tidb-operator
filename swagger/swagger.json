@@ -204,6 +204,39 @@
                 }
             }
         },
+        "/tidbs/{cell}/migrate": {
+            "post": {
+                "tags": [
+                    "tidbs"
+                ],
+                "description": "migrate mysql data to tidb",
+                "operationId": "TidbController.Migrate",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "cell",
+                        "description": "The database name for tidb",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "Body for src mysql",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mysql.Mysql"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {},
+                    "403": {
+                        "description": "body is empty"
+                    }
+                }
+            }
+        },
         "/tidbs/{cell}/scale": {
             "patch": {
                 "tags": [
@@ -263,39 +296,6 @@
                     },
                     "403": {
                         "description": "unsupport operation"
-                    }
-                }
-            }
-        },
-        "/tidbs/{cell}/transfer": {
-            "post": {
-                "tags": [
-                    "tidbs"
-                ],
-                "description": "Transfer mysql data to tidb",
-                "operationId": "TidbController.Transfer",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The database name for tidb",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "Body for src mysql",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/mysql.Mysql"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {},
-                    "403": {
-                        "description": "body is empty"
                     }
                 }
             }
