@@ -19,7 +19,7 @@ type Tikv struct {
 	Volume   string `json:"tidbdata_volume"`
 	Capatity int    `json:"capatity,omitempty"`
 
-	Db Tidb `json:"-"`
+	Db *Tidb `json:"-"`
 
 	cur    string
 	Stores map[string]Store `json:"stores,omitempty"`
@@ -40,9 +40,6 @@ func NewTikv() *Tikv {
 
 // beforeSave 创建之前的检查工作
 func (kv *Tikv) beforeSave() error {
-	if old, _ := GetTikv(kv.Cell); old != nil {
-		return fmt.Errorf(`tikv "%s" has been created`, kv.Cell)
-	}
 	if err := kv.validate(); err != nil {
 		return err
 	}
@@ -50,7 +47,6 @@ func (kv *Tikv) beforeSave() error {
 	if err != nil {
 		return err
 	}
-	kv.Registry = md.K8s.Registry
 	kv.Volume = strings.Trim(md.K8s.Volume, " ")
 	if len(kv.Volume) == 0 {
 		kv.Volume = "emptyDir: {}"
@@ -75,17 +71,8 @@ func (kv *Tikv) validate() error {
 	return nil
 }
 
-// Update tikv
-func (kv *Tikv) Update() error {
-	db, err := GetTidb(kv.Cell)
-	if err != nil {
-		return err
-	}
-	db.Tikv = kv
-	if err := db.Update(); err != nil {
-		return err
-	}
-	return nil
+func (kv *Tikv) update() error {
+	return kv.Db.Update()
 }
 
 // GetTikv 获取tikv元数据
@@ -94,17 +81,14 @@ func GetTikv(cell string) (*Tikv, error) {
 	if err != nil {
 		return nil, err
 	}
-	if db.Tikv == nil {
-		return nil, ErrNoNode
-	}
 	kv := db.Tikv
-	kv.Db = *db
+	kv.Db = db
 	return kv, nil
 }
 
-// Run 启动tikv集群
-func (kv *Tikv) Run() (err error) {
-	e := NewEvent(kv.Cell, "tikv", "start")
+// Run tikv
+func (kv *Tikv) run() (err error) {
+	e := NewEvent(kv.Db.Cell, "tikv", "start")
 	kv.Stores = make(map[string]Store)
 	defer func() {
 		st := TikvStarted
@@ -114,20 +98,20 @@ func (kv *Tikv) Run() (err error) {
 			kv.Ok = true
 		}
 		e.Trace(err, fmt.Sprintf("Start tikv %d pods on k8s", kv.Replicas))
-		kv.Update()
-		rollout(kv.Cell, st)
+		kv.update()
+		rollout(kv.Db.Cell, st)
 	}()
 	for r := 1; r <= kv.Replicas; r++ {
-		if err = kv.run(r); err != nil {
+		if err = kv._run(r); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func (kv *Tikv) run(r int) (err error) {
+func (kv *Tikv) _run(r int) (err error) {
 	// 先设置，防止tikv启动失败的情况下，没有保存tikv信息，导致delete时失败
-	kv.cur = fmt.Sprintf("tikv-%s-%d", kv.Cell, r)
+	kv.cur = fmt.Sprintf("tikv-%s-%d", kv.Db.Cell, r)
 	kv.Stores[kv.cur] = Store{}
 	if err = createPod(kv.getK8sTemplate(k8sTikvPod, r)); err != nil {
 		return err
@@ -147,8 +131,8 @@ func (kv *Tikv) getK8sTemplate(t string, id int) string {
 		"{{capacity}}", fmt.Sprintf("%v", kv.Capatity),
 		"{{tidbdata_volume}}", fmt.Sprintf("%v", kv.Volume),
 		"{{id}}", fmt.Sprintf("%v", id),
-		"{{registry}}", kv.Registry,
-		"{{cell}}", kv.Cell,
+		"{{registry}}", dockerRegistry,
+		"{{cell}}", kv.Db.Cell,
 		"{{namespace}}", getNamespace())
 	s := r.Replace(t)
 	return s
@@ -204,32 +188,9 @@ func (kv *Tikv) waitForComplete(wait time.Duration) error {
 	return nil
 }
 
-// DeleteTikv 删除tikv服务
-func DeleteTikv(cell string) (err error) {
-	var db *Tidb
-	db, err = GetTidb(cell)
-	if err != nil {
-		return err
-	}
-	if db != nil && !db.isNil() {
-		return fmt.Errorf(`please delete tidb "%s" first`, cell)
-	}
-	kv := db.Tikv
-	if kv == nil {
-		return ErrNoNode
-	}
-	if err = kv.stop(); err != nil {
-		return err
-	}
-	if err = kv.delete(); err != nil {
-		return err
-	}
-	logs.Warn(`Tikv "%s" deleted`, kv.Cell)
-	return nil
-}
-
 func (kv *Tikv) stop() (err error) {
-	e := NewEvent(kv.Cell, "tikv", "stop")
+	cell := kv.Db.Cell
+	e := NewEvent(cell, "tikv", "stop")
 	defer func() {
 		st := TikvStoped
 		if err != nil {
@@ -238,23 +199,21 @@ func (kv *Tikv) stop() (err error) {
 		kv.Ok = false
 		kv.Stores = nil
 		e.Trace(err, fmt.Sprintf("Stop tikv %d pods", kv.Replicas))
-		kv.Update()
-		rollout(kv.Cell, st)
+		kv.update()
+		rollout(cell, st)
 	}()
 	if len(kv.Stores) > 0 {
-		if err := delPodsBy(kv.Cell, "tikv"); err != nil {
+		if err := delPodsBy(cell, "tikv"); err != nil {
 			return err
 		}
 	} else {
-		logs.Error(`No pods "tikv-%s-*", if it exists, please delete it manually`, kv.Cell)
+		logs.Error(`No pods "tikv-%s-*", if it exists, please delete it manually`, cell)
 	}
 	return err
 }
 
 // ScaleTikvs 扩容tikv模块,目前replicas只能增减不能减少
 func ScaleTikvs(replicas int, cell string) error {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
 	kv, err := GetTikv(cell)
 	if err != nil || kv == nil || !kv.Ok {
 		return fmt.Errorf("module tikv not started: %v", err)
@@ -271,7 +230,7 @@ func ScaleTikvs(replicas int, cell string) error {
 	default:
 		return nil
 	}
-	if uerr := kv.Update(); uerr != nil || err != nil {
+	if uerr := kv.update(); uerr != nil || err != nil {
 		return fmt.Errorf("%v\n%v", err, uerr)
 	}
 	return nil
@@ -294,7 +253,7 @@ func (kv *Tikv) increase(replicas int) (err error) {
 	logs.Debug("max:%d src:%d desc:%d", max, kv.Replicas, replicas)
 	for i := max + 1; i <= max+(replicas-kv.Replicas); i++ {
 		kv.Replicas = kv.Replicas + 1
-		if err = kv.run(i); err != nil {
+		if err = kv._run(i); err != nil {
 			return err
 		}
 	}
@@ -309,15 +268,6 @@ func getMapSortedKeys(m map[string]Store) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func (kv *Tikv) delete() error {
-	db, err := GetTidb(kv.Cell)
-	if err != nil {
-		return err
-	}
-	db.Tikv = nil
-	return db.Update()
 }
 
 func (kv *Tikv) isNil() bool {

@@ -17,23 +17,23 @@ const (
 	userNamespace  = "users"
 	eventNamespace = "events"
 
-	// k8sReqTimeout 访问k8s api的tiemeout
-	k8sReqTimeout = 3 * time.Second
-	// pdReqTimeout 访问pd api服务的请求imeout
+	// k8sAPITimeout access k8s api tiemeout
+	k8sAPITimeout = 3 * time.Second
+	// pdReqTimeout access the request timeout for the pd api service
 	pdReqTimeout = 3 * time.Second
-	// startTidbTimeout 启动tidb三个子模块pd/tikv/tidb的timeout
+	// startTidbTimeout start tidb three sub-module pd / tikv / tidb timeout
 	startTidbTimeout = 60 * time.Second
-	// storageTimeout 数据存储的timeout
+	// storageTimeout data storage timeout
 	storageTimeout = 3 * time.Second
 )
 
 var (
+	// docker
 	dockerRegistry string
 	k8sAddr        string
 
-	etcdAddress   string
-	forceInitMd   bool
-	pdScaleFactor float64
+	etcdAddress string // storage
+	forceInitMd bool
 )
 
 func configInit() {
@@ -60,12 +60,5 @@ func configInit() {
 		logs.Warn("No set forceInitMd")
 	} else {
 		forceInitMd = md
-	}
-
-	sf, err := beego.AppConfig.Float("pdScaleFactor")
-	if err != nil {
-		logs.Warn("No set pdScaleFactor")
-	} else {
-		pdScaleFactor = sf
 	}
 }

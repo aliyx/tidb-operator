@@ -122,99 +122,6 @@
                 }
             }
         },
-        "/pds/replicas": {
-            "get": {
-                "tags": [
-                    "pds"
-                ],
-                "description": "get pd replicas",
-                "operationId": "PdController.Get",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "tikv",
-                        "description": "tikv replicas",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    {
-                        "in": "query",
-                        "name": "tidb",
-                        "description": "tidb replicas",
-                        "required": true,
-                        "type": "integer",
-                        "format": "int64"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{int}"
-                    },
-                    "403": {
-                        "description": "invalid replicas"
-                    }
-                }
-            }
-        },
-        "/pds/{cell}": {
-            "get": {
-                "tags": [
-                    "pds"
-                ],
-                "description": "get pd by cell",
-                "operationId": "PdController.Get",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The cell for pd name",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/models.Pd"
-                        }
-                    },
-                    "404": {
-                        "description": ":key not found"
-                    }
-                }
-            }
-        },
-        "/pds/{cell}/scale": {
-            "patch": {
-                "tags": [
-                    "pds"
-                ],
-                "description": "scale pds",
-                "operationId": "PdController.ScalePds",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The cell for pd name",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body for patch content",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {},
-                    "403": {
-                        "description": "body is empty"
-                    }
-                }
-            }
-        },
         "/tidbs/": {
             "post": {
                 "tags": [
@@ -265,30 +172,6 @@
                     },
                     "404": {
                         "description": ":key not found"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "tidbs"
-                ],
-                "description": "delete the tidb service",
-                "operationId": "TidbController.Delete",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The cell you want to delete",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{string} delete success!"
-                    },
-                    "403": {
-                        "description": "cell is empty"
                     }
                 }
             }
@@ -369,7 +252,7 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The body data type is {'status': int}",
+                        "description": "The body data type is {'type': string, status': string}",
                         "required": true
                     }
                 ],
@@ -712,9 +595,6 @@
                 "pd": {
                     "$ref": "#/definitions/models.Pd"
                 },
-                "registry": {
-                    "type": "string"
-                },
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
@@ -794,9 +674,6 @@
             "title": "K8sInfo",
             "type": "object",
             "properties": {
-                "cell": {
-                    "type": "string"
-                },
                 "cpu": {
                     "type": "integer",
                     "format": "int64"
@@ -813,9 +690,6 @@
                 },
                 "ok": {
                     "type": "boolean"
-                },
-                "registry": {
-                    "type": "string"
                 },
                 "replicas": {
                     "type": "integer",
@@ -868,9 +742,6 @@
             "title": "K8sInfo",
             "type": "object",
             "properties": {
-                "cell": {
-                    "type": "string"
-                },
                 "cpu": {
                     "type": "integer",
                     "format": "int64"
@@ -887,9 +758,6 @@
                 },
                 "ok": {
                     "type": "boolean"
-                },
-                "registry": {
-                    "type": "string"
                 },
                 "replicas": {
                     "type": "integer",
@@ -999,9 +867,6 @@
                 "pd": {
                     "$ref": "#/definitions/models.Pd"
                 },
-                "registry": {
-                    "type": "string"
-                },
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
@@ -1041,9 +906,6 @@
                     "type": "integer",
                     "format": "int64"
                 },
-                "cell": {
-                    "type": "string"
-                },
                 "cpu": {
                     "type": "integer",
                     "format": "int64"
@@ -1063,9 +925,6 @@
                 },
                 "ok": {
                     "type": "boolean"
-                },
-                "registry": {
-                    "type": "string"
                 },
                 "replicas": {
                     "type": "integer",
@@ -1172,10 +1031,6 @@
         {
             "name": "metadata",
             "description": "Operations about metadata\n"
-        },
-        {
-            "name": "pds",
-            "description": "Operations about pd\n"
         },
         {
             "name": "tikvs",

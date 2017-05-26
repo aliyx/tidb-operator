@@ -8,7 +8,7 @@ retval=-1
 
 if [ -z "$db" ]
 then
-    echo -e "\033[31mnot set variable "SRC_DB" in env\033[0m"
+    echo -e "\033[31mnot set variable "M_SRC_DB" in env\033[0m"
     exit 1
 fi
 
@@ -26,7 +26,7 @@ sync_migration_stat() {
     data="{\"type\":\"migrate\",\"status\":\"$1\"}"
     for i in `seq 1 30`; 
     do
-        curl -X PATCH --connect-timeout 3 --header "Content-Type: application/json" -d "$data" $api
+        curl -X PATCH --connect-timeout 3 --silent --output /dev/null --header "Content-Type: application/json" -d "$data" $api
         if [ ! "$?" == 0 ]; then
             echo -e >&2 "\033[31m[$(date)] sync migration status error, waiting for a maximum of 1 hour retry\033[0m"
             sleep $[i*3]

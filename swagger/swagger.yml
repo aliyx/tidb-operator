@@ -79,68 +79,6 @@ paths:
           description: bad request
         "500":
           description: cannt store specifications
-  /pds/{cell}:
-    get:
-      tags:
-      - pds
-      description: get pd by cell
-      operationId: PdController.Get
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for pd name
-        required: true
-        type: string
-      responses:
-        "200":
-          schema:
-            $ref: '#/definitions/models.Pd'
-        "404":
-          description: :key not found
-  /pds/{cell}/scale:
-    patch:
-      tags:
-      - pds
-      description: scale pds
-      operationId: PdController.ScalePds
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for pd name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: body for patch content
-        required: true
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
-  /pds/replicas:
-    get:
-      tags:
-      - pds
-      description: get pd replicas
-      operationId: PdController.Get
-      parameters:
-      - in: query
-        name: tikv
-        description: tikv replicas
-        required: true
-        type: integer
-        format: int64
-      - in: query
-        name: tidb
-        description: tidb replicas
-        required: true
-        type: integer
-        format: int64
-      responses:
-        "200":
-          description: '{int}'
-        "403":
-          description: invalid replicas
   /tidbs/:
     post:
       tags:
@@ -176,22 +114,6 @@ paths:
             $ref: '#/definitions/models.Tidb'
         "404":
           description: :key not found
-    delete:
-      tags:
-      - tidbs
-      description: delete the tidb service
-      operationId: TidbController.Delete
-      parameters:
-      - in: path
-        name: cell
-        description: The cell you want to delete
-        required: true
-        type: string
-      responses:
-        "200":
-          description: '{string} delete success!'
-        "403":
-          description: cell is empty
   /tidbs/{cell}/events:
     get:
       tags:
@@ -244,7 +166,7 @@ paths:
         type: string
       - in: body
         name: body
-        description: 'The body data type is {''status'': int}'
+        description: 'The body data type is {''type'': string, status'': string}'
         required: true
       responses:
         "200": {}
@@ -472,8 +394,6 @@ definitions:
         type: string
       pd:
         $ref: '#/definitions/models.Pd'
-      registry:
-        type: string
       replicas:
         type: integer
         format: int64
@@ -528,8 +448,6 @@ definitions:
     title: K8sInfo
     type: object
     properties:
-      cell:
-        type: string
       cpu:
         type: integer
         format: int64
@@ -542,8 +460,6 @@ definitions:
           $ref: '#/definitions/models.Net'
       ok:
         type: boolean
-      registry:
-        type: string
       replicas:
         type: integer
         format: int64
@@ -579,8 +495,6 @@ definitions:
     title: K8sInfo
     type: object
     properties:
-      cell:
-        type: string
       cpu:
         type: integer
         format: int64
@@ -593,8 +507,6 @@ definitions:
           $ref: '#/definitions/models.Net'
       ok:
         type: boolean
-      registry:
-        type: string
       replicas:
         type: integer
         format: int64
@@ -669,8 +581,6 @@ definitions:
         type: string
       pd:
         $ref: '#/definitions/models.Pd'
-      registry:
-        type: string
       replicas:
         type: integer
         format: int64
@@ -698,8 +608,6 @@ definitions:
       capatity:
         type: integer
         format: int64
-      cell:
-        type: string
       cpu:
         type: integer
         format: int64
@@ -714,8 +622,6 @@ definitions:
           $ref: '#/definitions/models.Net'
       ok:
         type: boolean
-      registry:
-        type: string
       replicas:
         type: integer
         format: int64
@@ -789,9 +695,6 @@ tags:
 - name: metadata
   description: |
     Operations about metadata
-- name: pds
-  description: |
-    Operations about pd
 - name: tikvs
   description: |
     Operations about tikv

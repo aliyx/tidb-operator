@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	"text/template"
 
@@ -31,6 +32,8 @@ var (
 	rcPatch = `{"spec": {"replicas": %d}}`
 
 	errPodScheduled = "Unschedulable"
+
+	k8sMu sync.Mutex
 )
 
 // Net tidb子模块对外ip和port
@@ -47,24 +50,16 @@ func (n Net) String() string {
 
 // K8sInfo 描述pd/tikv/tidb在kubernertes上的信息
 type K8sInfo struct {
-	Nets []Net `json:"nets,omitempty"`
-	Ok   bool  `json:"ok,omitempty"`
-
-	Version  string `json:"version"`
-	Cell     string `json:"cell"`
 	CPU      int    `json:"cpu"`
 	Mem      int    `json:"mem"`
+	Version  string `json:"version"`
 	Replicas int    `json:"replicas"`
-	Registry string `json:"registry,omitempty"`
 
-	Md Metadata `json:"-"`
+	Nets []Net `json:"nets,omitempty"`
+	Ok   bool  `json:"ok,omitempty"`
 }
 
 func (k *K8sInfo) validate() error {
-	if k.Cell == "" {
-		return fmt.Errorf("cell is nil")
-	}
-	k.Cell = strings.Trim(k.Cell, " ")
 	if k.CPU < 200 || k.CPU > 2000 {
 		return fmt.Errorf("cpu must be between 200-2000")
 	}
@@ -78,6 +73,8 @@ func (k *K8sInfo) validate() error {
 }
 
 func createNamespace(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sNamespaceURL, k8sAddr)
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -91,7 +88,7 @@ func createNamespace(s string) error {
 
 func delNamespace(name string) error {
 	var err error
-	if err = utils.Delete(fmt.Sprintf(k8sNamespaceURL+"/%s", k8sAddr, name), k8sReqTimeout); err != nil {
+	if err = utils.Delete(fmt.Sprintf(k8sNamespaceURL+"/%s", k8sAddr, name), k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Namespace "%s" deleted`, name)
@@ -116,6 +113,8 @@ func getServiceProperties(name, tem string) (string, error) {
 }
 
 func createService(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sServiceURL, k8sAddr, getNamespace())
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -130,7 +129,7 @@ func createService(s string) error {
 func delSrvs(names ...string) error {
 	for _, name := range names {
 		uri := fmt.Sprintf(k8sServiceURL+"/%s", k8sAddr, getNamespace(), name)
-		if err := utils.Delete(uri, k8sReqTimeout); err != nil {
+		if err := utils.Delete(uri, k8sAPITimeout); err != nil {
 			return err
 		}
 		logs.Warn(`Service "%s" deleted`, name)
@@ -139,11 +138,13 @@ func delSrvs(names ...string) error {
 }
 
 func scaleReplicationcontroller(name string, replicas int) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	if replicas < 0 {
 		replicas = 0
 	}
 	pt := []byte(fmt.Sprintf(rcPatch, replicas))
-	err := utils.Patch(fmt.Sprintf(k8sRcURL+"/%s/scale", k8sAddr, getNamespace(), name), pt, k8sReqTimeout)
+	err := utils.Patch(fmt.Sprintf(k8sRcURL+"/%s/scale", k8sAddr, getNamespace(), name), pt, k8sAPITimeout)
 	if err != nil {
 		return err
 	}
@@ -152,11 +153,13 @@ func scaleReplicationcontroller(name string, replicas int) error {
 }
 
 func scaleReplicaSet(name string, replicas int) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	if replicas < 0 {
 		replicas = 0
 	}
 	pt := []byte(fmt.Sprintf(rcPatch, replicas))
-	err := utils.Patch(fmt.Sprintf(k8sRsURL+"/%s/scale", k8sAddr, getNamespace(), name), pt, k8sReqTimeout)
+	err := utils.Patch(fmt.Sprintf(k8sRsURL+"/%s/scale", k8sAddr, getNamespace(), name), pt, k8sAPITimeout)
 	if err != nil {
 		return err
 	}
@@ -165,6 +168,8 @@ func scaleReplicaSet(name string, replicas int) error {
 }
 
 func createRc(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sRcURL, k8sAddr, getNamespace())
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -189,7 +194,7 @@ func delRc(name string) error {
 	if err = scaleReplicationcontroller(name, 0); err != nil {
 		return err
 	}
-	if err = utils.Delete(fmt.Sprintf(k8sRcURL+"/%s", k8sAddr, getNamespace(), name), k8sReqTimeout); err != nil {
+	if err = utils.Delete(fmt.Sprintf(k8sRcURL+"/%s", k8sAddr, getNamespace(), name), k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Replicationcontroller "%s" deleted`, name)
@@ -197,6 +202,8 @@ func delRc(name string) error {
 }
 
 func createDeployment(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sDeploymentURL, k8sAddr, getNamespace())
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -210,7 +217,7 @@ func createDeployment(s string) error {
 
 func delDeployment(name string, cascade bool) error {
 	uri := fmt.Sprintf(k8sDeploymentURL+"/%s", k8sAddr, getNamespace(), name)
-	if err := utils.Delete(uri, k8sReqTimeout); err != nil {
+	if err := utils.Delete(uri, k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Deployment "%s" deleted`, name)
@@ -226,6 +233,8 @@ func delDeployment(name string, cascade bool) error {
 }
 
 func createRs(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sRsURL, k8sAddr, getNamespace())
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -242,7 +251,7 @@ func delRs(name string) error {
 	if err = scaleReplicaSet(name, 0); err != nil {
 		return err
 	}
-	if err = utils.Delete(fmt.Sprintf(k8sRsURL+"/%s", k8sAddr, getNamespace(), name), k8sReqTimeout); err != nil {
+	if err = utils.Delete(fmt.Sprintf(k8sRsURL+"/%s", k8sAddr, getNamespace(), name), k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`ReplicaSet "%s" deleted`, name)
@@ -255,7 +264,7 @@ func delReplicasets(params url.Values) error {
 		queryString = params.Encode()
 	}
 	uri := fmt.Sprintf(k8sRsURL+"?%s", k8sAddr, getNamespace(), queryString)
-	if err := utils.Delete(uri, k8sReqTimeout); err != nil {
+	if err := utils.Delete(uri, k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Replicasets "%s" deleted`, queryString)
@@ -267,6 +276,8 @@ func delReplicasets(params url.Values) error {
 }
 
 func createPod(s string) error {
+	k8sMu.Lock()
+	defer k8sMu.Unlock()
 	logs.Info("yaml: %s", s)
 	url := fmt.Sprintf(k8sPodsURL, k8sAddr, getNamespace())
 	j, _ := yaml.YAMLToJSON([]byte(s))
@@ -355,7 +366,7 @@ func delPodsBy(cell, component string) error {
 	setLabelSelector(params, cell, component)
 	qs := params.Encode()
 	uri := fmt.Sprintf(k8sPodsURL+"?%s", k8sAddr, getNamespace(), qs)
-	if err := utils.Delete(uri, k8sReqTimeout); err != nil {
+	if err := utils.Delete(uri, k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Pods "%s" deleted`, qs)
@@ -368,7 +379,7 @@ func delPods(params url.Values) error {
 		queryString = params.Encode()
 	}
 	uri := fmt.Sprintf(k8sPodsURL+"?%s", k8sAddr, getNamespace(), queryString)
-	if err := utils.Delete(uri, k8sReqTimeout); err != nil {
+	if err := utils.Delete(uri, k8sAPITimeout); err != nil {
 		return err
 	}
 	logs.Warn(`Pods "%s" deleted`, queryString)
@@ -387,7 +398,7 @@ func listPodNames(cell, component string) ([]string, error) {
 	params.Add("labelSelector", labels)
 	queryString := params.Encode()
 	uri := fmt.Sprintf(k8sPodsURL+"?%s", k8sAddr, getNamespace(), queryString)
-	bs, err := utils.Get(uri, k8sReqTimeout)
+	bs, err := utils.Get(uri, k8sAPITimeout)
 	if err != nil {
 		return nil, err
 	}

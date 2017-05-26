@@ -41,27 +41,6 @@ func (dc *TidbController) Post() {
 	dc.ServeJSON()
 }
 
-// Delete 删除tidb服务
-// @Title Delete
-// @Description delete the tidb service
-// @Param	cell	path 	string	true "The cell you want to delete"
-// @Success 200 {string} delete success!
-// @Failure 403 cell is empty
-// @router /:cell [delete]
-func (dc *TidbController) Delete() {
-	cell := dc.GetString(":cell")
-	if len(cell) < 1 {
-		dc.CustomAbort(403, "tidb name is nil")
-	}
-	err := models.EraseTidb(cell)
-	if err != nil {
-		logs.Error(`Cannt delete tidb-%s: %v`, cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Cannt delete tidb-%s: %v`, cell, err))
-	}
-	dc.Data["json"] = 1
-	dc.ServeJSON()
-}
-
 // Get 获取tidb数据
 // @Title Get
 // @Description get tidb by cell
@@ -122,7 +101,11 @@ func (dc *TidbController) Transfer() {
 	if err := json.Unmarshal(b, src); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	if err := models.Migrate(cell, *src, false); err != nil {
+	db, err := models.GetTidb(cell)
+	if err != nil {
+		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
+	}
+	if err := db.Migrate(*src, false); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}

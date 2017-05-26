@@ -16,7 +16,7 @@ dh=${M_DEST_HOST}
 dP=${M_DEST_PORT}
 duser=${M_DEST_USER}
 dp=${M_DEST_PASSWORD}
-api=${M_API_STAT}
+api=${M_STAT_API}
 sync=${M_SYNC}
 
 cell=`echo $CELL`

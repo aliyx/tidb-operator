@@ -72,16 +72,9 @@ func (d *Db) Save() (err error) {
 		return err
 	}
 
-	// compatible single-step creation
 	logs.Debug("tidb: %+v", d.Tidb)
-	if !d.Tidb.isNil() {
-		if err = d.Tidb.Save(); err != nil {
-			return err
-		}
-	} else {
-		if err = d.Tidb.Update(); err != nil {
-			return err
-		}
+	if err = d.Tidb.Save(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -132,8 +125,7 @@ func (u *Creater) Update() error {
 
 // Delete user
 func (u *Creater) Delete() error {
-	key := getUserKey(u.ID, u.DatabaseID)
-	if err := userS.Delete(key); err != nil {
+	if err := userS.Delete(getUserKey(u.ID, u.DatabaseID)); err != nil {
 		return err
 	}
 	logs.Warn(`DatabaseID "%s" deleted`, u.DatabaseID)

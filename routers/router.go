@@ -18,11 +18,6 @@ func init() {
 				&controllers.MetadataController{},
 			),
 		),
-		beego.NSNamespace("/pds",
-			beego.NSInclude(
-				&controllers.PdController{},
-			),
-		),
 		beego.NSNamespace("/tikvs",
 			beego.NSInclude(
 				&controllers.TikvController{},

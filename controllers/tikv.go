@@ -51,3 +51,8 @@ func (tc *TikvController) Patch() {
 		tc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Scale tikv-%s error: %v", cell, err))
 	}
 }
+
+// patch 接收所有patch请求的body
+type patch struct {
+	Replicas int `json:"replicas"`
+}
