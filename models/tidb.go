@@ -185,8 +185,12 @@ func GetTidb(cell string) (*Tidb, error) {
 	if err := json.Unmarshal(bs, db); err != nil {
 		return nil, err
 	}
-	db.Pd.Db = db
-	db.Tikv.Db = db
+	if db.Pd != nil {
+		db.Pd.Db = db
+	}
+	if db.Tikv != nil {
+		db.Tikv.Db = db
+	}
 	return db, nil
 }
 
@@ -293,8 +297,12 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 		return nil
 	}
 	db.stop()
-	db.Tikv.stop()
-	db.Pd.stop()
+	if db.Tikv != nil {
+		db.Tikv.stop()
+	}
+	if db.Pd != nil {
+		db.Pd.stop()
+	}
 	if err = delEventsBy(db.Cell); err != nil {
 		logs.Error("Delete events: %v", err)
 		return err

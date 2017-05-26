@@ -107,7 +107,7 @@ func (dc *TidbController) Migrate() {
 	if err != nil {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
-	if err := db.Migrate(*src, sync != ""); err != nil {
+	if err := db.Migrate(*src, sync != "true"); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}
