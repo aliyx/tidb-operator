@@ -97,9 +97,9 @@ func (kv *Tikv) run() (err error) {
 		} else {
 			kv.Ok = true
 		}
+		kv.Db.Status = st
+		kv.Db.Update()
 		e.Trace(err, fmt.Sprintf("Start tikv %d pods on k8s", kv.Replicas))
-		kv.update()
-		rollout(kv.Db.Cell, st)
 	}()
 	for r := 1; r <= kv.Replicas; r++ {
 		if err = kv._run(r); err != nil {

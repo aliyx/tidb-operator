@@ -79,8 +79,8 @@ func (p *Pd) run() (err error) {
 		} else {
 			p.Ok = true
 		}
-		p.update()
-		rollout(p.Db.Cell, st)
+		p.Db.Status = st
+		p.Db.Update()
 		e.Trace(err, fmt.Sprintf("Start pd replicationcontrollers with %d replicas on k8s", p.Replicas))
 	}()
 	if err = createService(p.getK8sTemplate(k8sPdService)); err != nil {

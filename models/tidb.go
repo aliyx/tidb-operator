@@ -159,12 +159,12 @@ func (db *Tidb) Update() error {
 	return tidbS.Update(db.Cell, j)
 }
 
-// tidbRollout 更新tidb的状态
 func rollout(cell string, s TidbStatus) error {
 	db, err := GetTidb(cell)
 	if err != nil {
 		return err
 	}
+	db.Status = s
 	return db.Update()
 }
 
@@ -206,8 +206,9 @@ func (db *Tidb) run() (err error) {
 				st = TidbStartFailed
 			}
 		}
+		db.Status = st
+		db.Update()
 		e.Trace(err, fmt.Sprintf("Start tidb replicationcontrollers with %d replicas on k8s", db.Replicas))
-		rollout(db.Cell, st)
 	}()
 	if err = createService(db.getK8sTemplate(k8sTidbService)); err != nil {
 		return err
@@ -407,87 +408,6 @@ func (db *Tidb) initSchema() (err error) {
 	return nil
 }
 
-// Migrate the mysql data to the current tidb
-func (db *Tidb) Migrate(src tsql.Mysql, sync bool) error {
-	if !db.isOk() {
-		return fmt.Errorf("tidb is not available")
-	}
-	// if td.Transfer != "" {
-	// 	return errors.New("can not migrate multiple times")
-	// }
-	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
-		return fmt.Errorf("invalid database %+v", src)
-	}
-	if db.Schema != src.Database {
-		return fmt.Errorf("both schemas must be the same")
-	}
-	var net Net
-	for _, n := range db.Nets {
-		if n.Name == portMysql {
-			net = n
-			break
-		}
-	}
-	my := &tsql.Mydumper{
-		Src:  src,
-		Dest: *tsql.NewMysql(db.Schema, net.IP, net.Port, db.User, db.Password),
-
-		IncrementalSync: sync,
-	}
-	if err := my.Check(); err != nil {
-		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
-	}
-	db.Transfer = migrating
-	if err := db.Update(); err != nil {
-		return err
-	}
-	return db.startMigrateTask(my)
-}
-
-// UpdateMigrateStat update tidb migrate stat
-func (db *Tidb) UpdateMigrateStat(s string) error {
-	db.Transfer = s
-	if err := db.Update(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
-	sync := ""
-	if my.IncrementalSync {
-		sync = "sync"
-	}
-	r := strings.NewReplacer(
-		"{{namespace}}", getNamespace(),
-		"{{cell}}", db.Cell,
-		"{{image}}", fmt.Sprintf("%s/migration:latest", dockerRegistry),
-		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
-		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
-		"{{db}}", my.Src.Database,
-		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
-		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
-		"{{sync}}", sync,
-		"{{api}}", my.NotifyAPI)
-	s := r.Replace(k8sMigrate)
-	if err = createPod(s); err != nil {
-		return err
-	}
-	go func() {
-		e := NewEvent(db.Cell, "Tidb", "migration")
-		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
-			db.Transfer = migStartMigrateErr
-			db.Update()
-		}
-		e.Trace(err, "start migration task on k8s")
-	}()
-	return nil
-}
-
-func stopMigrateTask(cell string) error {
-	return delPodsBy(cell, "migration")
-}
-
 // Start tidb server
 func Start(cell string) (err error) {
 	if started(cell) {
@@ -599,4 +519,85 @@ func Restart(cell string) (err error) {
 		}
 	}()
 	return err
+}
+
+// Migrate the mysql data to the current tidb
+func (db *Tidb) Migrate(src tsql.Mysql, sync bool) error {
+	if !db.isOk() {
+		return fmt.Errorf("tidb is not available")
+	}
+	// if td.Transfer != "" {
+	// 	return errors.New("can not migrate multiple times")
+	// }
+	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
+		return fmt.Errorf("invalid database %+v", src)
+	}
+	if db.Schema != src.Database {
+		return fmt.Errorf("both schemas must be the same")
+	}
+	var net Net
+	for _, n := range db.Nets {
+		if n.Name == portMysql {
+			net = n
+			break
+		}
+	}
+	my := &tsql.Mydumper{
+		Src:  src,
+		Dest: *tsql.NewMysql(db.Schema, net.IP, net.Port, db.User, db.Password),
+
+		IncrementalSync: sync,
+	}
+	if err := my.Check(); err != nil {
+		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
+	}
+	db.Transfer = migrating
+	if err := db.Update(); err != nil {
+		return err
+	}
+	return db.startMigrateTask(my)
+}
+
+// UpdateMigrateStat update tidb migrate stat
+func (db *Tidb) UpdateMigrateStat(s string) error {
+	db.Transfer = s
+	if err := db.Update(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
+	sync := ""
+	if my.IncrementalSync {
+		sync = "sync"
+	}
+	r := strings.NewReplacer(
+		"{{namespace}}", getNamespace(),
+		"{{cell}}", db.Cell,
+		"{{image}}", fmt.Sprintf("%s/migration:latest", dockerRegistry),
+		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
+		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
+		"{{db}}", my.Src.Database,
+		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
+		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
+		"{{sync}}", sync,
+		"{{api}}", my.NotifyAPI)
+	s := r.Replace(k8sMigrate)
+	if err = createPod(s); err != nil {
+		return err
+	}
+	go func() {
+		e := NewEvent(db.Cell, "Tidb", "migration")
+		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
+			db.Transfer = migStartMigrateErr
+			db.Update()
+		}
+		e.Trace(err, "start migration task on k8s")
+	}()
+	return nil
+}
+
+func stopMigrateTask(cell string) error {
+	return delPodsBy(cell, "migration")
 }
