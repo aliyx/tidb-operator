@@ -83,6 +83,7 @@ func (dc *TidbController) Patch() {
 // Migrate data to tidb
 // @Title Migrate
 // @Description migrate mysql data to tidb
+// @Param   sync	query   string  false       "increment sync"
 // @Param 	cell 	path 	string	true	"The database name for tidb"
 // @Param	body	body 	mysql.Mysql	true	"Body for src mysql"
 // @Success 200
@@ -93,6 +94,7 @@ func (dc *TidbController) Migrate() {
 	if len(cell) < 1 {
 		dc.CustomAbort(403, "cell is nil")
 	}
+	sync := dc.GetString("sync")
 	src := &mysql.Mysql{}
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
@@ -105,7 +107,7 @@ func (dc *TidbController) Migrate() {
 	if err != nil {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
-	if err := db.Migrate(*src, false); err != nil {
+	if err := db.Migrate(*src, sync != ""); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}

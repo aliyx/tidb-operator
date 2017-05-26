@@ -139,6 +139,10 @@ paths:
       description: migrate mysql data to tidb
       operationId: TidbController.Migrate
       parameters:
+      - in: query
+        name: sync
+        description: increment sync
+        type: string
       - in: path
         name: cell
         description: The database name for tidb
