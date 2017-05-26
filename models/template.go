@@ -232,7 +232,7 @@ spec:
       {{tidbdata_volume}}
     - name: zone
       hostPath: {path: /etc/localtime}
-  terminationGracePeriodSeconds: 60
+  terminationGracePeriodSeconds: 30
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}
@@ -330,6 +330,7 @@ spec:
           hostPath: {path: /dev/log}
         - name: zone
           hostPath: {path: /etc/localtime}
+      terminationGracePeriodSeconds: 10
       containers:
         - name: tidb
           image: {{registry}}/tidb:{{version}}
@@ -366,7 +367,7 @@ spec:
       hostPath: {path: /dev/log}
     - name: zone
       hostPath: {path: /etc/localtime}
-  terminationGracePeriodSeconds: 5
+  terminationGracePeriodSeconds: 10
   containers:
   - name: migration
     image: {{image}}

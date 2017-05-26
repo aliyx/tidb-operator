@@ -50,7 +50,6 @@ func NewEvent(cell, comp, key string) *Event {
 
 // Trace record event
 func (e *Event) Trace(err error, msg ...string) {
-	fmt.Printf("%v", err)
 	e.Type = Eok
 	e.Message = msg[0]
 	if len(msg) > 1 {

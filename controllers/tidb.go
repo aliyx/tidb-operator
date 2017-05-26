@@ -11,6 +11,11 @@ import (
 	"github.com/ffan/tidb-k8s/mysql"
 )
 
+var (
+	// advertiseIP=beego.BConfig.Listen.HTTPSAddr
+	statAPI = "%s:%d/tidb/api/v1/tidbs/%s/status"
+)
+
 // Operations about tidb
 type TidbController struct {
 	beego.Controller
@@ -107,7 +112,8 @@ func (dc *TidbController) Migrate() {
 	if err != nil {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
-	if err := db.Migrate(*src, sync != "true"); err != nil {
+	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
+	if err := db.Migrate(*src, api, sync != "true"); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}

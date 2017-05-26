@@ -38,7 +38,7 @@ spec:
       {{tidbdata_volume}}
     - name: zone
       hostPath: {path: /etc/localtime}
-  terminationGracePeriodSeconds: 60
+  terminationGracePeriodSeconds: 30
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}

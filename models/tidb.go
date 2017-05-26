@@ -297,12 +297,8 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 	if len(db.Cell) < 1 {
 		return nil
 	}
-	db.stop()
-	if db.Tikv != nil {
-		db.Tikv.stop()
-	}
-	if db.Pd != nil {
-		db.Pd.stop()
+	if err = Stop(db.Cell, nil); err != nil {
+		return err
 	}
 	if err = delEventsBy(db.Cell); err != nil {
 		logs.Error("Delete events: %v", err)
@@ -462,6 +458,9 @@ func Stop(cell string, ch chan int) (err error) {
 			e.Trace(err, fmt.Sprintf("Delete tidb pods on k8s"))
 		}
 	}()
+	if err = stopMigrateTask(cell); err != nil {
+		return err
+	}
 	if err = db.stop(); err != nil {
 		return err
 	}
@@ -522,7 +521,7 @@ func Restart(cell string) (err error) {
 }
 
 // Migrate the mysql data to the current tidb
-func (db *Tidb) Migrate(src tsql.Mysql, sync bool) error {
+func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if !db.isOk() {
 		return fmt.Errorf("tidb is not available")
 	}
