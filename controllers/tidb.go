@@ -113,7 +113,7 @@ func (dc *TidbController) Migrate() {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
 	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
-	if err := db.Migrate(*src, api, sync != "true"); err != nil {
+	if err := db.Migrate(*src, api, sync == "true"); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}

@@ -546,6 +546,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 		Dest: *tsql.NewMysql(db.Schema, net.IP, net.Port, db.User, db.Password),
 
 		IncrementalSync: sync,
+		NotifyAPI:       notify,
 	}
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)

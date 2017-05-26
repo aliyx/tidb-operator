@@ -18,6 +18,5 @@ func main() {
 		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
 	}
 	models.Init()
-	logs.Debug("==========%s", beego.BConfig.Listen.HTTPAddr)
 	beego.Run()
 }
