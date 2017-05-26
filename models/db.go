@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"time"
 
@@ -16,9 +17,10 @@ var (
 )
 
 const (
-	transfering = "Transfering"
-	transferErr = "Error"
-	transferFin = "Finish"
+	migrating          = "Migrating"
+	migStartMigrateErr = "StartMigrationTaskError"
+	transferErr        = "Error"
+	transferFin        = "Finish"
 )
 
 // InitTidb 初始化
@@ -45,7 +47,7 @@ func InitTidb(cell string) (err error) {
 }
 
 // Migrate the mysql data to the current tidb
-func Migrate(cell string, src tsql.Mysql) error {
+func Migrate(cell string, src tsql.Mysql, sync bool) error {
 	td, err := GetTidb(cell)
 	if err != nil {
 		return err
@@ -53,9 +55,9 @@ func Migrate(cell string, src tsql.Mysql) error {
 	if !td.isOk() {
 		return fmt.Errorf("tidb is not available")
 	}
-	if td.Transfer != "" {
-		return errors.New("can not migrate multiple times")
-	}
+	// if td.Transfer != "" {
+	// 	return errors.New("can not migrate multiple times")
+	// }
 	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
 		return fmt.Errorf("invalid database %+v", src)
 	}
@@ -71,40 +73,87 @@ func Migrate(cell string, src tsql.Mysql) error {
 	}
 	my := &tsql.Mydumper{
 		Src:  src,
-		Desc: *tsql.NewMysql(td.Schema, net.IP, net.Port, td.User, td.Password),
+		Dest: *tsql.NewMysql(td.Schema, net.IP, net.Port, td.User, td.Password),
+
+		IncrementalSync: sync,
 	}
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, cell, err)
 	}
-	td.Transfer = transfering
+	td.Transfer = migrating
 	if err := td.Update(); err != nil {
 		return err
 	}
-	go func() {
-		defer func() {
-			if err != nil {
-				td.Transfer = transferErr
-			} else {
-				td.Transfer = transferFin
-			}
-			td.Update()
-		}()
-		e := NewEvent(cell, "transfer", "dumper")
-		if err = my.Dump(); err != nil {
-			logs.Error(`Dump database "%+v" error: %v`, my.Src, err)
-		}
-		e.Trace(err, fmt.Sprintf(`Dump mysql %s to local`, src.IP))
-		if err != nil {
-			return
-		}
 
-		e = NewEvent(cell, "transfer", "loader")
-		if err = my.Load(); err != nil {
-			logs.Error(`Load data to tidb "%+v" error: %v`, my.Desc, err)
+	return startMigrateTask(td, my)
+	// go func() {
+	// 	defer func() {
+	// 		if err != nil {
+	// 			td.Transfer = transferErr
+	// 		} else {
+	// 			td.Transfer = transferFin
+	// 		}
+	// 		td.Update()
+	// 	}()
+	// 	e := NewEvent(cell, "transfer", "dumper")
+	// 	if err = my.Dump(); err != nil {
+	// 		logs.Error(`Dump database "%+v" error: %v`, my.Src, err)
+	// 	}
+	// 	e.Trace(err, fmt.Sprintf(`Dump mysql %s to local`, src.IP))
+	// 	if err != nil {
+	// 		return
+	// 	}
+
+	// 	e = NewEvent(cell, "transfer", "loader")
+	// 	if err = my.Load(); err != nil {
+	// 		logs.Error(`Load data to tidb "%+v" error: %v`, my.Desc, err)
+	// 	}
+	// 	e.Trace(err, "Load data to tidb")
+	// }()
+}
+
+// UpdateMigrateStat update tidb migrate stat
+func (db *Tidb) UpdateMigrateStat(s string) error {
+	db.Transfer = s
+	if err := db.Update(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func startMigrateTask(db *Tidb, my *tsql.Mydumper) (err error) {
+	sync := ""
+	if my.IncrementalSync {
+		sync = "sync"
+	}
+	r := strings.NewReplacer(
+		"{{namespace}}", getNamespace(),
+		"{{cell}}", db.Cell,
+		"{{image}}", fmt.Sprintf("%s/migration:latest", dockerRegistry),
+		"{{sh}}", my.Src.IP, "{{sP}}", my.Src.IP,
+		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
+		"{{db}}", my.Src.Database,
+		"{{dh}}", my.Dest.IP, "{{dP}}", my.Dest.IP,
+		"{{du}}", my.Dest.User, "{{dp}}", my.Dest.Password,
+		"{{sync}}", sync,
+		"{{api}}", my.NotifyAPI)
+	s := r.Replace(k8sMigrate)
+	if err = createPod(s); err != nil {
+		return err
+	}
+	go func() {
+		e := NewEvent(db.Cell, "Tidb", "migration")
+		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
+			db.Transfer = migStartMigrateErr
+			db.Update()
 		}
-		e.Trace(err, "Load data to tidb")
+		e.Trace(err, "start migration task on k8s")
 	}()
 	return nil
+}
+
+func stopMigrateTask(cell string) error {
+	return delPodsBy(cell, "migration")
 }
 
 // Start tidb server

@@ -25,9 +25,12 @@ var (
 // Mydumper mysql dumper
 type Mydumper struct {
 	Src     Mysql
-	Desc    Mysql
+	Dest    Mysql
 	Tables  []string
 	DataDir string
+	
+	IncrementalSync bool
+	NotifyAPI       string
 }
 
 // Transfer data from src mysql scheme to tidb scheme
@@ -38,7 +41,7 @@ func (m *Mydumper) Transfer() (err error) {
 		return fmt.Errorf(`dump database "%+v" error: %v`, m.Src, err)
 	}
 	if err := m.Load(); err != nil {
-		return fmt.Errorf(`load data to tidb "%+v" error: %v`, m.Desc, err)
+		return fmt.Errorf(`load data to tidb "%+v" error: %v`, m.Dest, err)
 	}
 	return nil
 }
@@ -77,7 +80,7 @@ func (m *Mydumper) Dump() error {
 // Load 数据到tidb
 func (m *Mydumper) Load() error {
 	checkpoint := fmt.Sprintf("%s/%s", m.DataDir, "loader.checkpoint")
-	cmd := fmt.Sprintf(loader, m.Desc.IP, m.Desc.Port, m.Desc.User, m.Desc.Password, checkpoint, m.DataDir)
+	cmd := fmt.Sprintf(loader, m.Dest.IP, m.Dest.Port, m.Dest.User, m.Dest.Password, checkpoint, m.DataDir)
 	o, err := execShell(cmd)
 	if err != nil {
 		return fmt.Errorf("%v:\n%s", err, o)

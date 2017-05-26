@@ -14,32 +14,41 @@ spec:
       hostPath: {path: /etc/localtime}
   containers:
   - name: migration
-    image: {{registry}}/migration:{{version}}
+    image: {{image}}
     resources:
       limits:
-        cpu: "300m"
+        cpu: "200m"
         memory: "512Mi"
+    command:
+      - bash
+      - "-c"
+      - |
+        migrate {{sync}}
+        while true; do
+          echo "Waiting for the pod to closed"
+          sleep 10
+        done
     volumeMounts:
       - name: zone
         mountPath: /etc/localtime
     env: 
-    - name: SRC_HOST
-      value:{{sh}}
-    - name: SRC_PORT
-      value:{{sP}}
-    - name: SRC_USER
-      value:{{su}}
-    - name: SRC_PASSWORD
-      value:{{sp}}
-    - name: SRC_DB
-      value:{{db}}
-    - name: DEST_HOST
-      value:{{dh}}
-    - name: DEST_PORT
-      value:{{dP}}
-    - name: DEST_USER
-      value:{{duser}}
-    - name: DEST_PASSWORD
-      value:{{dp}}
-    - name: API_STAT
-      value:{{api}}
+    - name: M_SRC_HOST
+      value: "{{sh}}"
+    - name: M_SRC_PORT
+      value: "{{sP}}"
+    - name: M_SRC_USER
+      value: "{{su}}"
+    - name: M_SRC_PASSWORD
+      value: "{{sp}}"
+    - name: M_SRC_DB
+      value: "{{db}}"
+    - name: M_DEST_HOST
+      value: "{{dh}}"
+    - name: M_DEST_PORT
+      value: "{{dP}}"
+    - name: M_DEST_USER
+      value: "{{duser}}"
+    - name: M_DEST_PASSWORD
+      value: "{{dp}}"
+    - name: M_STAT_API
+      value: "{{api}}"

@@ -351,6 +351,62 @@ spec:
           command: ["/tidb-server"]
           args: ["-P=4000", "--store=tikv", "--path=pd-{{cell}}:2379"]
 `
+var k8sMigrate = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migration-{{cell}}
+  labels:
+    app: tidb
+    cell: {{cell}}
+    component: migration
+spec:
+  volumes:
+    - name: syslog
+      hostPath: {path: /dev/log}
+    - name: zone
+      hostPath: {path: /etc/localtime}
+  containers:
+  - name: migration
+    image: {{image}}
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "512Mi"
+    command:
+      - bash
+      - "-c"
+      - |
+        migrate {{sync}}
+        while true; do
+          echo "Waiting for the pod to closed"
+          sleep 10
+        done
+    volumeMounts:
+      - name: zone
+        mountPath: /etc/localtime
+    env: 
+    - name: M_SRC_HOST
+      value: "{{sh}}"
+    - name: M_SRC_PORT
+      value: "{{sP}}"
+    - name: M_SRC_USER
+      value: "{{su}}"
+    - name: M_SRC_PASSWORD
+      value: "{{sp}}"
+    - name: M_SRC_DB
+      value: "{{db}}"
+    - name: M_DEST_HOST
+      value: "{{dh}}"
+    - name: M_DEST_PORT
+      value: "{{dP}}"
+    - name: M_DEST_USER
+      value: "{{duser}}"
+    - name: M_DEST_PASSWORD
+      value: "{{dp}}"
+    - name: M_STAT_API
+      value: "{{api}}"
+`
 
 func getResourceName(s string) string {
 	j, _ := yaml.YAMLToJSON([]byte(s))

@@ -122,7 +122,7 @@ func (dc *TidbController) Transfer() {
 	if err := json.Unmarshal(b, src); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	if err := models.Migrate(cell, *src); err != nil {
+	if err := models.Migrate(cell, *src, false); err != nil {
 		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
 	}
@@ -167,8 +167,7 @@ func (dc *TidbController) Status() {
 	case "migrate":
 		td, err := models.GetTidb(cell)
 		errHandler(dc.Controller, err, "Patch tidb status")
-		td.Transfer = s.Status
-		if err = td.Update(); err != nil {
+		if err = td.UpdateMigrateStat(s.Status); err != nil {
 			errHandler(dc.Controller, err, "Patch tidb status")
 		}
 	default:

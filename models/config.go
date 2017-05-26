@@ -28,13 +28,21 @@ const (
 )
 
 var (
-	k8sAddr       string
+	dockerRegistry string
+	k8sAddr        string
+
 	etcdAddress   string
 	forceInitMd   bool
 	pdScaleFactor float64
 )
 
 func configInit() {
+	dr := beego.AppConfig.String("dockerRegistry")
+	if dr == "" {
+		panic(fmt.Errorf("No set docker registry addr"))
+	}
+	dockerRegistry = dr
+
 	k8s := beego.AppConfig.String("k8sAddr")
 	if k8s == "" {
 		panic(fmt.Errorf("No set kubernetes master addr"))

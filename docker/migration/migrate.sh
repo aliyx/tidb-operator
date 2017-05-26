@@ -1,73 +1,83 @@
 #!/bin/bash
 
-set -x
+# set -ex
 
-db=$SRC_DB
+# global var
+db=$M_SRC_DB
+retval=-1
+
 if [ -z "$db" ]
 then
-    echo 'not set variable "SRC_DB" in env'
+    echo -e "\033[31mnot set variable "SRC_DB" in env\033[0m"
     exit 1
 fi
 
-# global var
-retval=-1
+reset() {
+    retval=-1
+}
 
-sync_stat() {
-    api=$API_STAT
+# Will try again when an error occurs
+sync_migration_stat() {
+    api=$M_STAT_API
     if [ -z "$api" ]; then
-        echo "no set stat api in env"
-        return 
+        echo -e >&2 "\033[33m[Warining]: no set stat api in env \033[0m"
+        return 1
     fi
     data="{\"type\":\"migrate\",\"status\":\"$1\"}"
-    curl -X PATCH --connect-timeout 3 --header "Content-Type: application/json" -d "$data" $api
-    if [ ! "$?" == 0 ]; then
-        exit 1
-    fi
+    for i in `seq 1 30`; 
+    do
+        curl -X PATCH --connect-timeout 3 --header "Content-Type: application/json" -d "$data" $api
+        if [ ! "$?" == 0 ]; then
+            echo -e >&2 "\033[31m[$(date)] sync migration status error, waiting for a maximum of 1 hour retry\033[0m"
+            sleep $[i*3]
+        else
+            return 0
+        fi
+    done
+    exit 1
 }
 
 # dump mysql data to local
 dump() {
     # read env
-    h=$SRC_HOST
-    P=$SRC_PORT
-    u=$SRC_USER
-    p=$SRC_PASSWORD
-    db=$SRC_DB
-    if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" -o -z "$db" ] 
+    h=$M_SRC_HOST
+    P=$M_SRC_PORT
+    u=$M_SRC_USER
+    p=$M_SRC_PASSWORD
+    if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" ] 
     then
-        echo >&2 "Some mysql properites are not set..."
+        echo -e >&2 "\033[31msome mysql properites are not set\033[0m"
         retval=1
-        return
+        return $retval
     fi
-    /usr/local/mydumper-linux-amd64/bin/mydumper -h $h -P $P -u $u -p $p -t 16 -F 128 -B $db --no-views --skip-tz-utc --no-locks -o /tmp/$db
+    /usr/local/mydumper-linux-amd64/bin/mydumper -h $h -P $P -u $u -p $p -t 2 -F 128 -B $db --no-views --skip-tz-utc --no-locks -o /tmp/$db
     retval=$?
 }
 
 # load local data to tidb
 load() {
-    h=$DEST_HOST
-    P=$DEST_PORT
-    u=$DEST_USER
-    p=$DEST_PASSWORD
-    db=$SRC_DB
-    if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" -o -z "$db" ] 
+    h=$M_DEST_HOST
+    P=$M_DEST_PORT
+    u=$M_DEST_USER
+    p=$M_DEST_PASSWORD
+    if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" ] 
     then
-        echo >&2 "Some tidb properites are not set..."
+        echo -e >&2 "\033[31msome tidb properites are not set\033[0m"
         retval=1
-        return
+        return $retval
     fi
     /usr/local/tidb-tools-latest-linux-amd64/bin/loader -h $h -P $P -u $u -p $p -t 4 -checkpoint=/tmp/$db/loader.checkpoint -d /tmp/$db
     retval=$?
 }
 
-sync_config="/tmp/$db/config.toml"
-sync_meta="/tmp/$db/syncer.meta"
+syncer_config="/tmp/$db/config.toml"
+syncer_meta="/tmp/$db/syncer.meta"
 
-init_sync() {
+init_syncer() {
     # sync config
-    if ! [ -f $sync_config ]
+    if ! [ -f $syncer_config ]
     then
-tee > $sync_config <<- EOF
+tee > $syncer_config <<- EOF
 log-level = "info"
 server-id = 101
 
@@ -92,60 +102,46 @@ EOF
 
 sync() {
     echo "Starting incremental sync data"
-    if ! [ -f $sync_meta ]
+    if ! [ -f $syncer_meta ]
     then
         # set sync position
         dump_meta="/tmp/$db/metadata"
         binlog_name=$(cat $dump_meta |grep 'Log: ' | awk '{ print $2}')
         binlog_pos=$(cat $dump_meta |grep 'Pos: ' | awk '{ print $2}')
-tee > $sync_meta <<- EOF
+tee > $syncer_meta <<- EOF
 binlog-name = "$binlog_name"
 binlog-pos = $binlog_pos
 EOF
     fi
-    /usr/local/tidb-tools-latest-linux-amd64/bin/syncer -config $sync_config
+    /usr/local/tidb-tools-latest-linux-amd64/bin/syncer -config $syncer_config
 }
 
-errHandle() {
-     if [ ! "$retval" == 0 ]; then
-        sync_stat Error
-        exit 1
+err_handle() {
+    if [ ! "$retval" == 0 ]; then
+    sync_migration_stat $1
+    exit 1
     fi
 }
 
 cmd=$1
 if [ -z "$cmd" ]
 then
-    rm -rf /tmp/$db
-    sync_stat Dumping
+    sync_migration_stat Dumping
     dump
-    errHandle
-    sync_stat Loading
+    err_handle DumpError
+    sync_migration_stat Loading
     load
-    errHandle
-    sync_stat Finished
-elif [ "$cmd" == "dump" ]
-then
-    sync_stat Dumping
-    dump
-    errHandle
-    sync_stat Dumped
-elif [ "$cmd" == "load" ]
-then
-    sync_stat Loading
-    load
-    errHandle
-    sync_stat Loaded
+    err_handle LoadError
+    sync_migration_stat Finished
 elif [ "$cmd" == "sync" ]
 then
-    rm -rf /tmp/$db
-    sync_stat Dumping
+    sync_migration_stat Dumping
     dump
-   errHandle
-    sync_stat Loading
+    err_handle DumpError
+    sync_migration_stat Loading
     load
-    errHandle
-    sync_stat Syncing
-    init_sync
+    err_handle LoadError
+    sync_migration_stat Syncing
+    init_syncer
     sync
 fi

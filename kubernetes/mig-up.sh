@@ -5,25 +5,27 @@ set -e
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/env.sh
 
-version=${VERSION}
-sh=${SRC_HOST}
-sP=${SRC_PORT}
-su=${SRC_USER}
-sp=${SRC_PASSWORD}
-db=${SRC_DB}
+image="${REGISTRY}/migration:${VERSION}"
+sh=${M_SRC_HOST}
+sP=${M_SRC_PORT}
+su=${M_SRC_USER}
+sp=${M_SRC_PASSWORD}
+db=${M_SRC_DB}
 
-dh=${DEST_HOST}
-dP=${DEST_PORT}
-duser=${DEST_USER}
-dp=${DEST_PASSWORD}
+dh=${M_DEST_HOST}
+dP=${M_DEST_PORT}
+duser=${M_DEST_USER}
+dp=${M_DEST_PASSWORD}
+api=${M_API_STAT}
+sync=${M_SYNC}
 
-registry=${REGISTRY}
 cell=`echo $CELL`
 # Create the client service and replication controller.
 sed_script=""
-for var in cell version registry sh sP su sp db dh dP duser dp; do
+for var in cell image sh sP su sp db dh dP duser dp api sync; do
   sed_script+="s,{{$var}},${!var},g;"
 done
+echo sed_script
 echo "Creating migration pod for $cell cell..."
 cat migration-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 
