@@ -33,23 +33,23 @@ spec:
       - name: zone
         mountPath: /etc/localtime
     env: 
-    - name: M_SRC_HOST
+    - name: M_S_HOST
       value: "{{sh}}"
-    - name: M_SRC_PORT
+    - name: M_S_PORT
       value: "{{sP}}"
-    - name: M_SRC_USER
+    - name: M_S_USER
       value: "{{su}}"
-    - name: M_SRC_PASSWORD
+    - name: M_S_PASSWORD
       value: "{{sp}}"
-    - name: M_SRC_DB
+    - name: M_S_DB
       value: "{{db}}"
-    - name: M_DEST_HOST
+    - name: M_D_HOST
       value: "{{dh}}"
-    - name: M_DEST_PORT
+    - name: M_D_PORT
       value: "{{dP}}"
-    - name: M_DEST_USER
+    - name: M_D_USER
       value: "{{duser}}"
-    - name: M_DEST_PASSWORD
+    - name: M_D_PASSWORD
       value: "{{dp}}"
     - name: M_STAT_API
       value: "{{api}}"

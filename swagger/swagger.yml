@@ -2,15 +2,6 @@ swagger: "2.0"
 info: {}
 basePath: /tidb/api/v1
 paths:
-  /health/:
-    get:
-      tags:
-      - health
-      description: get health status
-      operationId: HealthController.Get
-      responses:
-        "200": {}
-        "404": {}
   /metadata/:
     get:
       tags:
@@ -693,9 +684,6 @@ definitions:
       user:
         type: string
 tags:
-- name: health
-  description: |
-    Operations about health
 - name: metadata
   description: |
     Operations about metadata

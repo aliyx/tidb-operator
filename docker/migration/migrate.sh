@@ -3,12 +3,12 @@
 # set -ex
 
 # global var
-db=$M_SRC_DB
+db=$M_S_DB
 retval=-1
 
 if [ -z "$db" ]
 then
-  echo -e "\033[31mnot set variable "M_SRC_DB" in env\033[0m"
+  echo -e "\033[31mnot set variable "M_S_DB" in env\033[0m"
   exit 1
 fi
 
@@ -40,10 +40,10 @@ sync_migration_stat() {
 # dump mysql data to local
 dump() {
   # read env
-  h=$M_SRC_HOST
-  P=$M_SRC_PORT
-  u=$M_SRC_USER
-  p=$M_SRC_PASSWORD
+  h=$M_S_HOST
+  P=$M_S_PORT
+  u=$M_S_USER
+  p=$M_S_PASSWORD
   if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" ] 
   then
     echo -e >&2 "\033[31msome mysql properites are not set\033[0m"
@@ -56,10 +56,10 @@ dump() {
 
 # load local data to tidb
 load() {
-  h=$M_DEST_HOST
-  P=$M_DEST_PORT
-  u=$M_DEST_USER
-  p=$M_DEST_PASSWORD
+  h=$M_D_HOST
+  P=$M_D_PORT
+  u=$M_D_USER
+  p=$M_D_PASSWORD
   if [ -z "$h" -o -z "$P" -o -z "$u" -o -z "$p" ] 
   then
       echo -e >&2 "\033[31msome tidb properites are not set\033[0m"
@@ -124,8 +124,7 @@ err_handle() {
 }
 
 cmd=$1
-if [ -z "$cmd" ]
-then
+if [ -z "$cmd" ]; then
   sync_migration_stat Dumping
   dump
   err_handle DumpError
@@ -133,8 +132,15 @@ then
   load
   err_handle LoadError
   sync_migration_stat Finished
-elif [ "$cmd" == "sync" ]
-then
+elif [ "$cmd" == "dump" ]; then
+  sync_migration_stat Dumping
+  dump
+  err_handle DumpError
+elif [ "$cmd" == "load" ]; then
+  sync_migration_stat Loading
+  dump
+  err_handle LoadError
+elif [ "$cmd" == "sync" ]; then
   sync_migration_stat Dumping
   dump
   err_handle DumpError

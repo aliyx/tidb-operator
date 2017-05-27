@@ -98,6 +98,7 @@ spec:
               export PD_NAME=$(getid {{cell}})
               # 保存pdname到本地文件，prestop hook会用来删除member
               echo $PD_NAME > pod
+              echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
               # Pd 会根据$PD_DATA_DIR目录是否存在来判断是否为一个新的member,还是resuming
               # 在此不做任何处理. main.go:55

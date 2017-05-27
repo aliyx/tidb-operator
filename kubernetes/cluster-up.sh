@@ -108,16 +108,17 @@ tidb_status_server=''
 echo Geting tidb external port
 tp=''
 until [ $tp ]; do
-  tp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 1) "nodePort"}}' service tidb-$cell`
+  tp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 0) "nodePort"}}' service tidb-$cell`
   sleep 1
 done
 tsp=''
 until [ $tsp ]; do
-  tsp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 0) "nodePort"}}' service tidb-$cell`
+  tsp=`$KUBECTL $KUBECTL_OPTIONS get -o template --template '{{index (index .spec.ports 1) "nodePort"}}' service tidb-$cell`
   sleep 1
 done
-tidb_server="$(hostname -i):$tp"
-tidb_status_server="$(hostname -i):$tsp/status"
+l_ip=$(/sbin/ifconfig eth0 | grep 'netmask ' | cut -d: -f2 | awk '{print $2}')
+tidb_server="$l_ip:$tp"
+tidb_status_server="$l_ip:$tsp/status"
 
 echo "****************************"
 echo "* Complete!"

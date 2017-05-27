@@ -6,16 +6,16 @@ script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/env.sh
 
 image="${REGISTRY}/migration:${VERSION}"
-sh=${M_SRC_HOST}
-sP=${M_SRC_PORT}
-su=${M_SRC_USER}
-sp=${M_SRC_PASSWORD}
-db=${M_SRC_DB}
+sh=${M_S_HOST}
+sP=${M_S_PORT}
+su=${M_S_USER}
+sp=${M_S_PASSWORD}
+db=${M_S_DB}
 
-dh=${M_DEST_HOST}
-dP=${M_DEST_PORT}
-duser=${M_DEST_USER}
-dp=${M_DEST_PASSWORD}
+dh=${M_D_HOST}
+dP=${M_D_PORT}
+duser=${M_D_USER}
+dp=${M_D_PASSWORD}
 api=${M_STAT_API}
 sync=${M_SYNC}
 

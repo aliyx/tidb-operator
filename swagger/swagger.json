@@ -5,19 +5,6 @@
     },
     "basePath": "/tidb/api/v1",
     "paths": {
-        "/health/": {
-            "get": {
-                "tags": [
-                    "health"
-                ],
-                "description": "get health status",
-                "operationId": "HealthController.Get",
-                "responses": {
-                    "200": {},
-                    "404": {}
-                }
-            }
-        },
         "/metadata/": {
             "get": {
                 "tags": [
@@ -1030,10 +1017,6 @@
         }
     },
     "tags": [
-        {
-            "name": "health",
-            "description": "Operations about health\n"
-        },
         {
             "name": "metadata",
             "description": "Operations about metadata\n"

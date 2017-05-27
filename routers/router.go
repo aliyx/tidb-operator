@@ -8,11 +8,6 @@ import (
 
 func init() {
 	ns := beego.NewNamespace("/tidb/api/v1",
-		beego.NSNamespace("/health",
-			beego.NSInclude(
-				&controllers.HealthController{},
-			),
-		),
 		beego.NSNamespace("/metadata",
 			beego.NSInclude(
 				&controllers.MetadataController{},

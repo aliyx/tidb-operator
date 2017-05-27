@@ -564,6 +564,7 @@ func (db *Tidb) UpdateMigrateStat(s string) error {
 	if err := db.Update(); err != nil {
 		return err
 	}
+	stopMigrateTask(db.Cell)
 	return nil
 }
 
