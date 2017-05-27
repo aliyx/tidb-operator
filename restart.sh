@@ -20,17 +20,17 @@ function fail() {
 # set env
 e=$1
 if [ -z "$e" ]; then
-  echo -e "\033[33mCurrent environment: dev033[0m"
+  echo -e "\033[33mCurrent environment: dev\033[0m"
   export RunMode=dev
   export EtcdAddress=http://10.213.44.128:12379
   export K8sAddr=http://10.213.44.128:10218
 elif [ "$e" == "test" ]; then
-  echo -e "\033[33mCurrent environment: test033[0m"
+  echo -e "\033[33mCurrent environment: test\033[0m"
   export HTTPAddr=10.213.131.54
   export EtcdAddress=http://10.213.44.128:12379
   export K8sAddr=http://10.213.131.54:10218
 elif [ "$e" == "prod" ]; then
-  echo -e "\033[33mCurrent environment: prod033[0m"
+  echo -e "\033[33mCurrent environment: prod\033[0m"
 else
   echo -e "\033[31m No environment: $e\033[0m"
   exit 1

@@ -42,6 +42,10 @@ func (uc *UserController) Post() {
 		logs.Error(`Save tidb "%s" to user: %v`, db.Cell, err)
 		uc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Save tidb "%s" to user: %v`, db.Cell, err))
 	}
+	// start is async
+	if db.Status == models.Undefined {
+		models.Start(db.Cell)
+	}
 	uc.Data["json"] = db.Cell
 	uc.ServeJSON()
 }
