@@ -37,6 +37,8 @@ type Creater struct {
 	ID         string `json:"userid"` //user
 	Name       string `json:"username"`
 	DatabaseID string `json:"dbid"`
+	Desc       string `json:"desc"`
+	Reason     string `json:"reason"`
 
 	Uscale UScale `json:"uscale,omitempty"`
 }
