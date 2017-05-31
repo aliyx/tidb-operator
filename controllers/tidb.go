@@ -192,4 +192,5 @@ func errHandler(c beego.Controller, err error, msg string) {
 type status struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
+	Desc   string `json:"desc"`
 }

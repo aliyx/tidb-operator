@@ -1,4 +1,4 @@
-FROM centos:latest
+FROM 1science/alpine:latest
 
 MAINTAINER yangxin45
 

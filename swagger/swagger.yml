@@ -332,6 +332,33 @@ paths:
           description: '{string} delete success!'
         "403":
           description: cell is empty
+  /users/{user}/tidbs/{cell}/status:
+    patch:
+      tags:
+      - users
+      description: modify db status
+      operationId: UserController.status
+      parameters:
+      - in: path
+        name: user
+        description: The user id
+        required: true
+        type: string
+      - in: path
+        name: cell
+        description: The cell for tidb name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: 'The body data type is {''type'': string, status'': string}'
+        required: true
+      responses:
+        "200": {}
+        "400":
+          description: body is empty
+        "403":
+          description: unsupport operation
 definitions:
   controllers.Dbs:
     title: Dbs
@@ -359,6 +386,10 @@ definitions:
     type: object
     properties:
       dbid:
+        type: string
+      desc:
+        type: string
+      reason:
         type: string
       uscale:
         $ref: '#/definitions/models.UScale'

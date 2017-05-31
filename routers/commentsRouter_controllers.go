@@ -6,13 +6,6 @@ import (
 
 func init() {
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:HealthController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:HealthController"],
-		beego.ControllerComments{
-			Method: "Get",
-			Router: `/`,
-			AllowHTTPMethods: []string{"get"},
-			Params: nil})
-
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
 		beego.ControllerComments{
 			Method: "GetAll",
@@ -130,6 +123,13 @@ func init() {
 			Method: "CheckResources",
 			Router: `/:user/limit`,
 			AllowHTTPMethods: []string{"post"},
+			Params: nil})
+
+	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
+		beego.ControllerComments{
+			Method: "Status",
+			Router: `/:user/tidbs/:cell/status`,
+			AllowHTTPMethods: []string{"patch"},
 			Params: nil})
 
 }

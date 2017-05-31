@@ -153,6 +153,50 @@ func (uc *UserController) CheckResources() {
 	uc.ServeJSON()
 }
 
+// Status modify db status
+// @Title status
+// @Description modify db status
+// @Param 	user 	path 	string 	true	"The user id"
+// @Param	cell	path	string	true	"The cell for tidb name"
+// @Param	body	body 	status	true	"The body data type is {'type': string, status': string}"
+// @Success 200
+// @Failure 400 body is empty
+// @Failure 403 unsupport operation
+// @router /:user/tidbs/:cell/status [patch]
+func (uc *UserController) Status() {
+	ID := uc.GetString(":user")
+	if len(ID) < 1 {
+		uc.CustomAbort(403, "user id is nil")
+	}
+	cell := uc.GetString(":cell")
+	if len(cell) < 1 {
+		uc.CustomAbort(403, "cell is nil")
+	}
+	var err error
+	s := status{}
+	if err = json.Unmarshal(uc.Ctx.Input.RequestBody, &s); err != nil {
+		uc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
+	}
+	switch s.Type {
+	case "roll":
+		var db *models.Db
+		var st int
+		if db, err = models.GetDb(ID, cell); err != nil {
+			errHandler(uc.Controller, err, "get db")
+		}
+		if st, err = strconv.Atoi(s.Status); err != nil {
+			errHandler(uc.Controller, err, "conv tidb status string to int")
+		}
+		db.Status = models.TidbStatus(st)
+		db.Reason = s.Desc
+		if err = db.Update(); err != nil {
+			errHandler(uc.Controller, err, "update tidb status")
+		}
+	default:
+		uc.CustomAbort(403, "unsupport status")
+	}
+}
+
 // Dbs db array
 type Dbs struct {
 	Total int         `json:"total"`
