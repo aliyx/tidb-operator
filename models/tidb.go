@@ -353,6 +353,9 @@ func (db *Tidb) delete() error {
 
 // ScaleTidbs 扩容tidb模块
 func ScaleTidbs(replicas int, cell string) error {
+	if replicas < 1 {
+		return nil
+	}
 	td, err := GetTidb(cell)
 	if err != nil {
 		return err
@@ -616,7 +619,7 @@ func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
 		e = NewEvent(db.Cell, "migration", "load")
 		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
 	case "Finished":
-		e = NewEvent(db.Cell, "migration", "load")
+		e = NewEvent(db.Cell, "tidb", "migration")
 		err = stopMigrateTask(db.Cell)
 		e.Trace(err, "End the full migration and delete migration docker on k8s")
 	case "Syncing":

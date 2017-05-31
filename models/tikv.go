@@ -214,6 +214,9 @@ func (kv *Tikv) stop() (err error) {
 
 // ScaleTikvs 扩容tikv模块,目前replicas只能增减不能减少
 func ScaleTikvs(replicas int, cell string) error {
+	if replicas < 1 {
+		return nil
+	}
 	smu.Lock()
 	defer smu.Unlock()
 	td, err := GetTidb(cell)

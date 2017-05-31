@@ -12,10 +12,14 @@ import (
 
 func main() {
 	logs.SetLogger("console")
-
-	if beego.BConfig.RunMode == "dev" {
+	switch beego.BConfig.RunMode {
+	case "dev":
 		beego.BConfig.WebConfig.DirectoryIndex = true
 		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
+	case "test":
+		beego.SetLevel(beego.LevelInformational)
+	case "pord":
+		beego.SetLevel(beego.LevelInformational)
 	}
 	models.Init()
 	beego.Run()
