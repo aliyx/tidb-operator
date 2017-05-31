@@ -594,25 +594,26 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 
 // UpdateMigrateStat update tidb migrate stat
 func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
-	e := NewEvent(db.Cell, "Tidb", "migration")
+	var e *Event
 	db.MigrateState = s
 	if err := db.Update(); err != nil {
 		return err
 	}
 	switch s {
 	case "Dumping":
-		e.Trace(err, "Dumping mysql data to local")
+		e = NewEvent(db.Cell, "migration", "dump")
 	case "DumpError":
 		e.Trace(fmt.Errorf("Unknow"), "Dumped mysql data to local error")
 	case "Loading":
-		e.Trace(err, "Loading local data to tidb")
+		e.Trace(nil, "Dumped mysql data to local")
+		e = NewEvent(db.Cell, "migration", "load")
 	case "LoadError":
 		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
 	case "Finished":
 		err = stopMigrateTask(db.Cell)
-		e.Trace(err, "End migration task")
+		e.Trace(err, "End the full migration task")
 	case "Syncing":
-		e.Trace(err, "Syncing mysql data to tidb")
+		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	}
 	return nil
 }
