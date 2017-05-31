@@ -66,23 +66,26 @@ func (dc *TidbController) Get() {
 
 // Patch 对指定的tidb进行扩容/缩容
 // @Title ScaleTidbs
-// @Description scale tidbs
+// @Description scale tidb
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	patch	true	"body for patch content"
+// @Param	body	body 	patch	true	"The body data type is {dbReplica: int, kvReplica: int} for scale content"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/scale [patch]
 func (dc *TidbController) Patch() {
 	cell := dc.GetString(":cell")
-	p := patch{}
-	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &p); err != nil {
+	s := scale{}
+	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
-	if err := models.ScaleTidbs(p.Replicas, cell); err != nil {
+	if err := models.ScaleTikvs(s.KvReplica, cell); err != nil {
+		logs.Error("Scale tikv-%s error: %v", cell, err)
+		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Scale tikv-%s error: %v", cell, err))
+	}
+	if err := models.ScaleTidbs(s.DbReplica, cell); err != nil {
 		logs.Error("Scale tidb-%s error: %v", cell, err)
 		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Scale tidb-%s error: %v", cell, err))
 	}
-	// dc.ServeJSON()
 }
 
 // Migrate data to tidb
@@ -149,6 +152,7 @@ func (dc *TidbController) GetEvents() {
 // @Failure 403 unsupport operation
 // @router /:cell/status [patch]
 func (dc *TidbController) Status() {
+	var err error
 	cell := dc.GetString(":cell")
 	s := status{}
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
@@ -156,9 +160,11 @@ func (dc *TidbController) Status() {
 	}
 	switch s.Type {
 	case "migrate":
-		td, err := models.GetTidb(cell)
-		errHandler(dc.Controller, err, "Patch tidb status")
-		if err = td.UpdateMigrateStat(s.Status); err != nil {
+		var td *models.Tidb
+		if td, err = models.GetTidb(cell); err != nil {
+			errHandler(dc.Controller, err, "Patch tidb status")
+		}
+		if err = td.UpdateMigrateStat(s.Status, ""); err != nil {
 			errHandler(dc.Controller, err, "Patch tidb status")
 		}
 	default:
@@ -193,4 +199,9 @@ type status struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
 	Desc   string `json:"desc"`
+}
+
+type scale struct {
+	DbReplica int `json:"dbReplica"`
+	KvReplica int `json:"kvReplica"`
 }

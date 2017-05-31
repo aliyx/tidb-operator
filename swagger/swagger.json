@@ -235,7 +235,7 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "scale tidbs",
+                "description": "scale tidb",
                 "operationId": "TidbController.ScaleTidbs",
                 "parameters": [
                     {
@@ -248,7 +248,7 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body for patch content",
+                        "description": "The body data type is {dbReplica: int, kvReplica: int} for scale content",
                         "required": true
                     }
                 ],
@@ -289,64 +289,6 @@
                     },
                     "403": {
                         "description": "unsupport operation"
-                    }
-                }
-            }
-        },
-        "/tikvs/{cell}": {
-            "get": {
-                "tags": [
-                    "tikvs"
-                ],
-                "description": "get tikv by cell",
-                "operationId": "TikvController.Get",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The cell for tikv name",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/models.Tikv"
-                        }
-                    },
-                    "404": {
-                        "description": ":key not found"
-                    }
-                }
-            }
-        },
-        "/tikvs/{cell}/scale": {
-            "patch": {
-                "tags": [
-                    "tikvs"
-                ],
-                "description": "scale tikvs",
-                "operationId": "TikvController.ScaleTikvs",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "cell",
-                        "description": "The cell for pd name",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body for patch content",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {},
-                    "403": {
-                        "description": "body is empty"
                     }
                 }
             }
@@ -638,6 +580,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "scale": {
+                    "type": "string"
+                },
                 "schema": {
                     "type": "string"
                 },
@@ -910,6 +855,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "scale": {
+                    "type": "string"
+                },
                 "schema": {
                     "type": "string"
                 },
@@ -1066,10 +1014,6 @@
         {
             "name": "metadata",
             "description": "Operations about metadata\n"
-        },
-        {
-            "name": "tikvs",
-            "description": "Operations about tikv\n"
         },
         {
             "name": "tidbs",

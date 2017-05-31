@@ -13,11 +13,6 @@ func init() {
 				&controllers.MetadataController{},
 			),
 		),
-		beego.NSNamespace("/tikvs",
-			beego.NSInclude(
-				&controllers.TikvController{},
-			),
-		),
 		beego.NSNamespace("/tidbs",
 			beego.NSInclude(
 				&controllers.TidbController{},

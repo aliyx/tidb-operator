@@ -76,20 +76,6 @@ func init() {
 			AllowHTTPMethods: []string{"patch"},
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"],
-		beego.ControllerComments{
-			Method: "Get",
-			Router: `/:cell`,
-			AllowHTTPMethods: []string{"get"},
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TikvController"],
-		beego.ControllerComments{
-			Method: "Patch",
-			Router: `/:cell/scale`,
-			AllowHTTPMethods: []string{"patch"},
-			Params: nil})
-
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
 		beego.ControllerComments{
 			Method: "Post",

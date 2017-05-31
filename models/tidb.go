@@ -13,6 +13,7 @@ import (
 
 	"errors"
 	"strconv"
+	"sync"
 )
 
 // TidbStatus 描述tidb的创建/扩容/删除过程中每个节点的状态
@@ -67,6 +68,10 @@ const (
 
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
+
+	scaling      = "Scaling"
+	tikvScaleErr = "TikvScaleError"
+	tidbScaleErr = "TikvScaleError"
 )
 
 var (
@@ -75,6 +80,8 @@ var (
 	errCellIsNil = errors.New("cell is nil")
 	// ErrRepop is returned by functions to specify the operation is executing.
 	ErrRepop = errors.New("the previous operation is being executed")
+
+	smu sync.Mutex
 )
 
 func tidbInit() {
@@ -97,9 +104,10 @@ type Tidb struct {
 	Pd   *Pd   `json:"pd"`
 	Tikv *Tikv `json:"tikv"`
 
-	Status     TidbStatus `json:"status"`
-	TimeCreate time.Time  `json:"timecreate,omitempty"`
-	Transfer   string     `json:"transfer,omitempty"`
+	Status       TidbStatus `json:"status"`
+	TimeCreate   time.Time  `json:"timecreate,omitempty"`
+	MigrateState string     `json:"transfer,omitempty"`
+	ScaleState   string     `json:"scale,omitempty"`
 }
 
 // NewTidb create a tidb instance
@@ -343,39 +351,64 @@ func (db *Tidb) delete() error {
 
 // ScaleTidbs 扩容tidb模块
 func ScaleTidbs(replicas int, cell string) error {
-	db, err := GetTidb(cell)
+	td, err := GetTidb(cell)
 	if err != nil {
 		return err
 	}
-	if !db.Ok {
+	if !td.Ok {
 		return fmt.Errorf("tidbs not started")
 	}
-	if replicas == db.Replicas {
+	if replicas == td.Replicas {
 		return nil
 	}
-	md, _ := GetMetadata()
-	if replicas > md.Units.Tidb.Max {
-		return fmt.Errorf("the replicas of tidb exceeds max %d", md.Units.Tidb.Max)
-	}
-	if replicas > db.Replicas*3 || db.Replicas > replicas*3 {
-		return fmt.Errorf("each expansion can not more or less then 2 times")
-	}
-	e := NewEvent(cell, "tidb", "scale")
-	defer func() {
-		e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, cell, db.Replicas, replicas))
+	td.Update()
+	go func() {
+		// Waiting for the end of the previous scale
+		for i := 0; i < 60; i++ {
+			td, err = GetTidb(cell)
+			if err != nil || td.Status != TidbInited {
+				logs.Error("tidb not started: %v", err)
+				return
+			}
+			if td.ScaleState != scaling {
+				td.ScaleState = scaling
+				td.Update()
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		e := NewEvent(cell, "tidb", "scale")
+		defer func(r int) {
+			st := ""
+			if err != nil {
+				st = tidbScaleErr
+			}
+			td.ScaleState = st
+			td.Update()
+			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, cell, r, replicas))
+		}(td.Replicas)
+		md, _ := GetMetadata()
+		if replicas > md.Units.Tidb.Max {
+			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Units.Tidb.Max)
+			return
+		}
+		if replicas > td.Replicas*3 || td.Replicas > replicas*3 {
+			err = fmt.Errorf("each scale can not more or less then 2 times")
+			return
+		}
+		logs.Info(`Scale "tidb-%s" from %d to %d`, cell, td.Replicas, replicas)
+		td.Replicas = replicas
+		if err = td.validate(); err != nil {
+			return
+		}
+		td.Update()
+		if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", cell), replicas); err != nil {
+			return
+		}
+		if err = waitComponentRuning(startTidbTimeout, cell, "tidb"); err != nil {
+			return
+		}
 	}()
-	logs.Info(`Scale "tidb-%s" from %d to %d`, cell, db.Replicas, replicas)
-	db.Replicas = replicas
-	if err = db.validate(); err != nil {
-		return err
-	}
-	db.Update()
-	if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", cell), replicas); err != nil {
-		return nil
-	}
-	if err = waitComponentRuning(startTidbTimeout, cell, "tidb"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -464,15 +497,11 @@ func Stop(cell string, ch chan int) (err error) {
 	if err = db.stop(); err != nil {
 		return err
 	}
-	if db.Tikv != nil {
-		if err = db.Tikv.stop(); err != nil {
-			return err
-		}
+	if err = db.Tikv.stop(); err != nil {
+		return err
 	}
-	if db.Pd != nil {
-		if err = db.Pd.stop(); err != nil {
-			return err
-		}
+	if err = db.Pd.stop(); err != nil {
+		return err
 	}
 	// waitring for all pod deleted
 	go func() {
@@ -481,7 +510,7 @@ func Stop(cell string, ch chan int) (err error) {
 				ch <- 0
 			}
 		}()
-		for {
+		for i := 0; i < 60; i++ {
 			if started(cell) {
 				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
 				time.Sleep(time.Second)
@@ -490,7 +519,12 @@ func Stop(cell string, ch chan int) (err error) {
 				break
 			}
 		}
-		e.Trace(nil, fmt.Sprintf("Stop tidb pods on k8s"))
+		var serr error
+		if started(cell) {
+			rollout(cell, TidbStopFailed)
+			serr = errors.New("async delete pods timeout")
+		}
+		e.Trace(serr, fmt.Sprintf("Stop tidb pods on k8s"))
 	}()
 	return err
 }
@@ -525,7 +559,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if !db.isOk() {
 		return fmt.Errorf("tidb is not available")
 	}
-	// if td.Transfer != "" {
+	// if db.MigrateState != "" {
 	// 	return errors.New("can not migrate multiple times")
 	// }
 	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
@@ -551,7 +585,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
 	}
-	db.Transfer = migrating
+	db.MigrateState = migrating
 	if err := db.Update(); err != nil {
 		return err
 	}
@@ -559,13 +593,26 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 }
 
 // UpdateMigrateStat update tidb migrate stat
-func (db *Tidb) UpdateMigrateStat(s string) error {
-	db.Transfer = s
+func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
+	e := NewEvent(db.Cell, "Tidb", "migration")
+	db.MigrateState = s
 	if err := db.Update(); err != nil {
 		return err
 	}
-	if s == "Finished" {
-		stopMigrateTask(db.Cell)
+	switch s {
+	case "Dumping":
+		e.Trace(err, "Dumping mysql data to local")
+	case "DumpError":
+		e.Trace(fmt.Errorf("Unknow"), "Dumped mysql data to local error")
+	case "Loading":
+		e.Trace(err, "Loading local data to tidb")
+	case "LoadError":
+		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
+	case "Finished":
+		err = stopMigrateTask(db.Cell)
+		e.Trace(err, "End migration task")
+	case "Syncing":
+		e.Trace(err, "Syncing mysql data to tidb")
 	}
 	return nil
 }
@@ -587,16 +634,18 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 		"{{sync}}", sync,
 		"{{api}}", my.NotifyAPI)
 	s := r.Replace(k8sMigrate)
-	if err = createPod(s); err != nil {
-		return err
-	}
 	go func() {
 		e := NewEvent(db.Cell, "Tidb", "migration")
-		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
-			db.Transfer = migStartMigrateErr
-			db.Update()
+		defer func() {
+			e.Trace(err, "Start migration task on k8s")
+		}()
+		if err = createPod(s); err != nil {
+			return
 		}
-		e.Trace(err, "start migration task on k8s")
+		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
+			db.MigrateState = migStartMigrateErr
+			err = db.Update()
+		}
 	}()
 	return nil
 }

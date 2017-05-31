@@ -45,7 +45,6 @@ type Creater struct {
 
 // UScale store user scale request
 type UScale struct {
-	Pd     int `json:"pd"`
 	Tikv   int `json:"tikv"`
 	Tidb   int `json:"tidb"`
 	Status int `json:"status"`

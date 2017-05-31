@@ -214,25 +214,52 @@ func (kv *Tikv) stop() (err error) {
 
 // ScaleTikvs 扩容tikv模块,目前replicas只能增减不能减少
 func ScaleTikvs(replicas int, cell string) error {
-	kv, err := GetTikv(cell)
-	if err != nil || kv == nil || !kv.Ok {
-		return fmt.Errorf("module tikv not started: %v", err)
+	smu.Lock()
+	defer smu.Unlock()
+	td, err := GetTidb(cell)
+	if err != nil {
+		return err
 	}
-	e := NewEvent(cell, "tikv", "scale")
-	defer func() {
-		e.Trace(err, fmt.Sprintf(`Scale tikv "%s" from %d to %d`, cell, kv.Replicas, replicas))
-	}()
-	switch n := replicas - kv.Replicas; {
-	case n > 0:
-		err = kv.increase(replicas)
-	case n < 0:
-		err = kv.decrease(replicas)
-	default:
+	if td.Status != TidbInited {
+		return fmt.Errorf("tidb not started: %v", err)
+	}
+	kv := td.Tikv
+	if replicas == kv.Replicas {
 		return nil
 	}
-	if uerr := kv.update(); uerr != nil || err != nil {
-		return fmt.Errorf("%v\n%v", err, uerr)
-	}
+	go func() {
+		// Waiting for the end of the previous scale
+		for i := 0; i < 60; i++ {
+			td, err = GetTidb(cell)
+			if err != nil || td.Status != TidbInited {
+				logs.Error("tidb not started: %v", err)
+				return
+			}
+			if td.ScaleState != scaling {
+				td.ScaleState = scaling
+				td.Update()
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		kv = td.Tikv
+		e := NewEvent(cell, "tikv", "scale")
+		defer func(r int) {
+			st := ""
+			if err != nil {
+				st = tikvScaleErr
+			}
+			td.ScaleState = st
+			td.Update()
+			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" from %d to %d`, cell, r, replicas))
+		}(kv.Replicas)
+		switch n := replicas - kv.Replicas; {
+		case n > 0:
+			err = kv.increase(replicas)
+		case n < 0:
+			err = kv.decrease(replicas)
+		}
+	}()
 	return nil
 }
 
@@ -245,8 +272,8 @@ func (kv *Tikv) increase(replicas int) (err error) {
 	if replicas > md.Units.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Units.Tikv.Max)
 	}
-	if replicas > kv.Replicas*3 {
-		return fmt.Errorf("each expansion can not exceed 1 times")
+	if replicas > kv.Replicas*3 || kv.Replicas > replicas*3 {
+		return fmt.Errorf("each scale can not exceed 2 times")
 	}
 	keys := getMapSortedKeys(kv.Stores)
 	max, _ := strconv.Atoi(strings.Split(keys[len(keys)-1], "-")[2])

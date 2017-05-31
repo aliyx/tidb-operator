@@ -153,7 +153,7 @@ paths:
     patch:
       tags:
       - tidbs
-      description: scale tidbs
+      description: scale tidb
       operationId: TidbController.ScaleTidbs
       parameters:
       - in: path
@@ -163,7 +163,8 @@ paths:
         type: string
       - in: body
         name: body
-        description: body for patch content
+        description: 'The body data type is {dbReplica: int, kvReplica: int} for scale
+          content'
         required: true
       responses:
         "200": {}
@@ -191,44 +192,6 @@ paths:
           description: body is empty
         "403":
           description: unsupport operation
-  /tikvs/{cell}:
-    get:
-      tags:
-      - tikvs
-      description: get tikv by cell
-      operationId: TikvController.Get
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for tikv name
-        required: true
-        type: string
-      responses:
-        "200":
-          schema:
-            $ref: '#/definitions/models.Tikv'
-        "404":
-          description: :key not found
-  /tikvs/{cell}/scale:
-    patch:
-      tags:
-      - tikvs
-      description: scale tikvs
-      operationId: TikvController.ScaleTikvs
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for pd name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: body for patch content
-        required: true
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
   /users/:
     post:
       tags:
@@ -423,6 +386,8 @@ definitions:
       replicas:
         type: integer
         format: int64
+      scale:
+        type: string
       schema:
         type: string
       status:
@@ -610,6 +575,8 @@ definitions:
       replicas:
         type: integer
         format: int64
+      scale:
+        type: string
       schema:
         type: string
       status:
@@ -718,9 +685,6 @@ tags:
 - name: metadata
   description: |
     Operations about metadata
-- name: tikvs
-  description: |
-    Operations about tikv
 - name: tidbs
   description: |
     Operations about tidb
