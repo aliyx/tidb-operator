@@ -601,20 +601,26 @@ func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
 	if err := db.Update(); err != nil {
 		return err
 	}
+	logs.Info("Current tidb %s migrate status: %s", db.Cell, s)
 	switch s {
 	case "Dumping":
 		e = NewEvent(db.Cell, "migration", "dump")
+		e.Trace(nil, "Start Dumping mysql data to local")
 	case "DumpError":
+		e = NewEvent(db.Cell, "migration", "dump")
 		e.Trace(fmt.Errorf("Unknow"), "Dumped mysql data to local error")
 	case "Loading":
-		e.Trace(nil, "Dumped mysql data to local")
 		e = NewEvent(db.Cell, "migration", "load")
+		e.Trace(nil, "End dumped and start loading local to tidb")
 	case "LoadError":
+		e = NewEvent(db.Cell, "migration", "load")
 		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
 	case "Finished":
+		e = NewEvent(db.Cell, "migration", "load")
 		err = stopMigrateTask(db.Cell)
 		e.Trace(err, "End the full migration task")
 	case "Syncing":
+		e = NewEvent(db.Cell, "migration", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	}
 	return nil
@@ -640,7 +646,7 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 	go func() {
 		e := NewEvent(db.Cell, "Tidb", "migration")
 		defer func() {
-			e.Trace(err, "Start migration task on k8s")
+			e.Trace(err, "Startup migration task on k8s")
 		}()
 		if err = createPod(s); err != nil {
 			return
