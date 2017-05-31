@@ -285,9 +285,11 @@ func (db *Tidb) stop() (err error) {
 		}
 		db.Nets = nil
 		db.Ok = false
-		e.Trace(err, "Stop tidb replicationcontrollers")
+		db.Status = st
+		db.MigrateState = ""
+		db.ScaleState = ""
 		db.Update()
-		rollout(db.Cell, st)
+		e.Trace(err, "Stop tidb replicationcontrollers")
 	}()
 	if err = delRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
 		return err

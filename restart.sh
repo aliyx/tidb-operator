@@ -21,18 +21,18 @@ ip=$(/sbin/ifconfig eth0 | grep 'netmask ' | cut -d: -f2 | awk '{print $2}')
 if [ -z "$ip" ]; then
   ip=0.0.0.0
 fi
+export HTTPAddr=$ip
+
 # set env
 e=$1
 if [ -z "$e" ]; then
   echo -e "\033[33mCurrent environment: dev\033[0m"
   export RunMode=dev
-  export HTTPAddr=$ip
   export EtcdAddress=http://10.213.44.128:12379
   export K8sAddr=http://10.213.44.128:10218
 elif [ "$e" == "test" ]; then
   echo -e "\033[33mCurrent environment: test\033[0m"
   export RunMode=test
-  export HTTPAddr=$ip
   export EtcdAddress=http://10.213.131.54:12379
   export K8sAddr=http://10.213.131.54:10218
 elif [ "$e" == "prod" ]; then
