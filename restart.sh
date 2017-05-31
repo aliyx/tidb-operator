@@ -26,11 +26,13 @@ if [ -z "$e" ]; then
   export K8sAddr=http://10.213.44.128:10218
 elif [ "$e" == "test" ]; then
   echo -e "\033[33mCurrent environment: test\033[0m"
+  export RunMode=test
   export HTTPAddr=10.213.131.54
   export EtcdAddress=http://10.213.44.128:12379
   export K8sAddr=http://10.213.131.54:10218
 elif [ "$e" == "prod" ]; then
   echo -e "\033[33mCurrent environment: prod\033[0m"
+  export RunMode=prod
 else
   echo -e "\033[31m No environment: $e\033[0m"
   exit 1
