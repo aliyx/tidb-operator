@@ -618,7 +618,7 @@ func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
 	case "Finished":
 		e = NewEvent(db.Cell, "migration", "load")
 		err = stopMigrateTask(db.Cell)
-		e.Trace(err, "End the full migration task")
+		e.Trace(err, "End the full migration and delete migration docker on k8s")
 	case "Syncing":
 		e = NewEvent(db.Cell, "migration", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
@@ -644,9 +644,9 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 		"{{api}}", my.NotifyAPI)
 	s := r.Replace(k8sMigrate)
 	go func() {
-		e := NewEvent(db.Cell, "Tidb", "migration")
+		e := NewEvent(db.Cell, "tidb", "migration")
 		defer func() {
-			e.Trace(err, "Startup migration task on k8s")
+			e.Trace(err, "Startup migration docker on k8s")
 		}()
 		if err = createPod(s); err != nil {
 			return
