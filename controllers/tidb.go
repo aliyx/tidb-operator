@@ -37,11 +37,11 @@ func (dc *TidbController) Post() {
 	if err := json.Unmarshal(b, db); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	err := db.Save()
-	if err != nil {
-		logs.Error("Create tidb-%s error: %v", db.Cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Create tidb-%s error: %v", db.Cell, err))
-	}
+	errHandler(
+		dc.Controller,
+		db.Save(),
+		fmt.Sprintf("Create tidb %s", db.Cell),
+	)
 	dc.Data["json"] = db.Cell
 	dc.ServeJSON()
 }
@@ -56,10 +56,11 @@ func (dc *TidbController) Post() {
 func (dc *TidbController) Get() {
 	cell := dc.GetString(":cell")
 	db, err := models.GetTidb(cell)
-	if err != nil {
-		logs.Error("Cannt get tidb-%s: %v", cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get tidb-%s: %v", cell, err))
-	}
+	errHandler(
+		dc.Controller,
+		err,
+		fmt.Sprintf("Cannt get tidb %s", db.Cell),
+	)
 	dc.Data["json"] = *db
 	dc.ServeJSON()
 }
@@ -78,22 +79,19 @@ func (dc *TidbController) Patch() {
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
-	if err := models.ScaleTikvs(s.KvReplica, cell); err != nil {
-		logs.Error("Scale tikv-%s error: %v", cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Scale tikv-%s error: %v", cell, err))
-	}
-	if err := models.ScaleTidbs(s.DbReplica, cell); err != nil {
-		logs.Error("Scale tidb-%s error: %v", cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Scale tidb-%s error: %v", cell, err))
-	}
+	errHandler(
+		dc.Controller,
+		models.Scale(cell, s.KvReplica, s.DbReplica),
+		fmt.Sprintf("Scale tidb %s", cell),
+	)
 }
 
 // Migrate data to tidb
 // @Title Migrate
 // @Description migrate mysql data to tidb
-// @Param   sync	query   string  false       "increment sync"
-// @Param 	cell 	path 	string	true	"The database name for tidb"
-// @Param	body	body 	mysql.Mysql	true	"Body for src mysql"
+// @Param   sync	query	string	false       "increment sync"
+// @Param 	cell 	path	string	true	"The database name for tidb"
+// @Param	body	body	mysql.Mysql	true	"Body for src mysql"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/migrate [post]
@@ -116,10 +114,11 @@ func (dc *TidbController) Migrate() {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
 	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
-	if err := db.Migrate(*src, api, sync == "true"); err != nil {
-		logs.Error(`Migrate mysql "%s" to tidb error: %v`, cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf(`Migrate mysql "%s" to tidb error: %v`, cell, err))
-	}
+	errHandler(
+		dc.Controller,
+		db.Migrate(*src, api, sync == "true"),
+		fmt.Sprintf(`Migrate mysql "%s" to tidb `, cell),
+	)
 }
 
 // GetEvents get events
@@ -134,10 +133,11 @@ func (dc *TidbController) GetEvents() {
 		dc.CustomAbort(403, "cell is nil")
 	}
 	es, err := models.GetEventsBy(cell)
-	if err != nil {
-		logs.Error("get %s events error: %v", cell, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("get %s events error: %v", cell, err))
-	}
+	errHandler(
+		dc.Controller,
+		err,
+		fmt.Sprintf("get %s events", cell),
+	)
 	dc.Data["json"] = es
 	dc.ServeJSON()
 }
@@ -152,7 +152,6 @@ func (dc *TidbController) GetEvents() {
 // @Failure 403 unsupport operation
 // @router /:cell/status [patch]
 func (dc *TidbController) Status() {
-	var err error
 	cell := dc.GetString(":cell")
 	s := status{}
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
@@ -160,27 +159,30 @@ func (dc *TidbController) Status() {
 	}
 	switch s.Type {
 	case "migrate":
-		var td *models.Tidb
-		if td, err = models.GetTidb(cell); err != nil {
-			errHandler(dc.Controller, err, "Patch tidb status")
-		}
-		if err = td.UpdateMigrateStat(s.Status, ""); err != nil {
-			errHandler(dc.Controller, err, "Patch tidb status")
-		}
+		td, err := models.GetTidb(cell)
+		errHandler(dc.Controller, err, "Patch tidb status")
+		td.UpdateMigrateStat(s.Status, "")
+		errHandler(dc.Controller, err, "Patch tidb status")
 	default:
 		switch s.Status {
 		case "start":
-			if err := models.Start(cell); err != nil {
-				errHandler(dc.Controller, err, fmt.Sprintf("Start tidb %s", cell))
-			}
+			errHandler(
+				dc.Controller,
+				models.Start(cell),
+				fmt.Sprintf("Start tidb %s", cell),
+			)
 		case "stop":
-			if err := models.Stop(cell, nil); err != nil {
-				errHandler(dc.Controller, err, fmt.Sprintf("Stop tidb %s", cell))
-			}
+			errHandler(
+				dc.Controller,
+				models.Stop(cell, nil),
+				fmt.Sprintf("Stop tidb %s", cell),
+			)
 		case "retart":
-			if err := models.Restart(cell); err != nil {
-				errHandler(dc.Controller, err, fmt.Sprintf("Restart tidb %s", cell))
-			}
+			errHandler(
+				dc.Controller,
+				models.Restart(cell),
+				fmt.Sprintf("Restart tidb %s", cell),
+			)
 		default:
 			dc.CustomAbort(403, "unsupport operation")
 		}
@@ -192,7 +194,7 @@ func errHandler(c beego.Controller, err error, msg string) {
 		return
 	}
 	logs.Error("%s: %v", msg, err)
-	c.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%s: %v", msg, err))
+	c.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%s error: %v", msg, err))
 }
 
 type status struct {

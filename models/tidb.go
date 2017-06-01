@@ -81,7 +81,9 @@ var (
 	// ErrRepop is returned by functions to specify the operation is executing.
 	ErrRepop = errors.New("the previous operation is being executed")
 
-	smu sync.Mutex
+	scaleMu sync.Mutex
+
+	errInvalidReplica = errors.New("invalid replica")
 )
 
 func tidbInit() {
@@ -351,69 +353,79 @@ func (db *Tidb) delete() error {
 	return nil
 }
 
-// ScaleTidbs 扩容tidb模块
-func ScaleTidbs(replicas int, cell string) error {
-	if replicas < 1 {
-		return nil
-	}
-	td, err := GetTidb(cell)
-	if err != nil {
+// Scale tikv and tidb
+func Scale(cell string, kvReplica, dbReplica int) (err error) {
+	scaleMu.Lock()
+	defer scaleMu.Unlock()
+	var db *Tidb
+	if db, err = GetTidb(cell); err != nil {
 		return err
 	}
-	if !td.Ok {
-		return fmt.Errorf("tidbs not started")
+	if db.Status != TidbInited {
+		return fmt.Errorf("tidb %s not inited", cell)
 	}
-	if replicas == td.Replicas {
-		return nil
+	if db.ScaleState&scaling > 0 {
+		return fmt.Errorf("tidb %s is scaling", cell)
 	}
-	td.Update()
+	db.ScaleState |= scaling
+	db.Update()
+	var wg sync.WaitGroup
+	db.scaleTikvs(kvReplica, &wg)
+	db.scaleTidbs(dbReplica, &wg)
 	go func() {
-		// Waiting for the end of the previous scale
-		for i := 0; i < 60; i++ {
-			td, err = GetTidb(cell)
-			if err != nil || td.Status != TidbInited {
-				logs.Error("tidb not started: %v", err)
-				return
-			}
-			if td.ScaleState&scaling == 0 {
-				td.ScaleState |= scaling
-				td.Update()
-				break
-			}
-			time.Sleep(time.Second)
-		}
-		e := NewEvent(cell, "tidb", "scale")
+		wg.Wait()
+		db.ScaleState ^= scaling
+		db.Update()
+	}()
+	return nil
+}
+
+func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
+	if replica < 1 {
+		return
+	}
+	if replica == db.Replicas {
+		return
+	}
+	wg.Add(1)
+	go func() {
+		scaleMu.Lock()
+		defer func() {
+			scaleMu.Unlock()
+			wg.Done()
+		}()
+		var err error
+		e := NewEvent(db.Cell, "tidb", "scale")
 		defer func(r int) {
-			td.ScaleState ^= scaling
 			if err != nil {
-				td.ScaleState |= tidbScaleErr
+				db.ScaleState |= tidbScaleErr
 			}
-			td.Update()
-			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, cell, r, replicas))
-		}(td.Replicas)
+			db.Update()
+			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, db.Cell, r, replica))
+		}(db.Replicas)
 		md, _ := GetMetadata()
-		if replicas > md.Units.Tidb.Max {
+		if replica > md.Units.Tidb.Max {
 			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Units.Tidb.Max)
 			return
 		}
-		if replicas > td.Replicas*3 || td.Replicas > replicas*3 {
+		if replica > db.Replicas*3 || db.Replicas > replica*3 {
 			err = fmt.Errorf("each scale can not more or less then 2 times")
 			return
 		}
-		logs.Info(`Scale "tidb-%s" from %d to %d`, cell, td.Replicas, replicas)
-		td.Replicas = replicas
-		if err = td.validate(); err != nil {
+		old := db.Replicas
+		db.Replicas = replica
+		if err = db.validate(); err != nil {
+			db.Replicas = old
 			return
 		}
-		td.Update()
-		if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", cell), replicas); err != nil {
+		logs.Info(`Scale "tidb-%s" from %d to %d`, db.Cell, db.Replicas, replica)
+		if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
 			return
 		}
-		if err = waitComponentRuning(startTidbTimeout, cell, "tidb"); err != nil {
+		if err = waitComponentRuning(startTidbTimeout, db.Cell, "tidb"); err != nil {
 			return
 		}
 	}()
-	return nil
 }
 
 func (db *Tidb) isNil() bool {

@@ -358,6 +358,7 @@ func waitComponentRuning(timeout time.Duration, cell, component string) (err err
 	if err := waitPodsRuning(timeout, pods...); err != nil {
 		return err
 	}
+	logs.Info(`%s "%s" has ok`, component, cell)
 	return nil
 }
 
