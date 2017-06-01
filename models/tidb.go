@@ -401,7 +401,7 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 				db.ScaleState |= tidbScaleErr
 			}
 			db.Update()
-			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, db.Cell, r, replica))
+			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Cell, r, replica))
 		}(db.Replicas)
 		md, _ := GetMetadata()
 		if replica > md.Units.Tidb.Max {

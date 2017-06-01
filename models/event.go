@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -27,7 +28,8 @@ type Event struct {
 }
 
 var (
-	evtS Storage
+	evtMu sync.Mutex
+	evtS  Storage
 )
 
 func eventInit() {
@@ -63,6 +65,8 @@ func (e *Event) Trace(err error, msg ...string) {
 }
 
 func (e *Event) save() error {
+	evtMu.Lock()
+	defer evtMu.Unlock()
 	es, err := GetEventsBy(e.Cell)
 	if err != nil {
 		return err

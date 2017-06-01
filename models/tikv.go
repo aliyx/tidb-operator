@@ -236,7 +236,7 @@ func (td *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
 				td.ScaleState |= tikvScaleErr
 			}
 			td.Update()
-			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" from %d to %d`, td.Cell, r, replica))
+			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, td.Cell, r, replica))
 		}(kv.Replicas)
 		switch n := replica - kv.Replicas; {
 		case n > 0:
