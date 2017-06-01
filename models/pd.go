@@ -48,7 +48,7 @@ func GetPd(cell string) (*Pd, error) {
 }
 
 func (p *Pd) stop() (err error) {
-	e := NewEvent(p.Db.Cell, "Pd", "stop")
+	e := NewEvent(p.Db.Cell, "pd", "stop")
 	defer func() {
 		st := tidbClearing
 		if err != nil {
@@ -70,7 +70,7 @@ func (p *Pd) stop() (err error) {
 }
 
 func (p *Pd) run() (err error) {
-	e := NewEvent(p.Db.Cell, "Pd", "start")
+	e := NewEvent(p.Db.Cell, "pd", "start")
 	defer func() {
 		st := PdStarted
 		if err != nil {

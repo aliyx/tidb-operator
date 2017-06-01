@@ -9,6 +9,9 @@ import (
 
 func main() {
 	cell := os.Args[1]
+	if cell == "" {
+		return
+	}
 	_, addrs, err := net.LookupSRV("pd-server", "tcp", fmt.Sprintf("pd-%s-srv", cell))
 	if err != nil {
 		fmt.Printf("error: \n%v", err)
@@ -21,6 +24,7 @@ func main() {
 		id := strings.Split(addr.Target, ".")[0]
 		if len(id) < 1 {
 			fmt.Printf("error: \n%s\n", "target is nil")
+			return
 		}
 		ips, err := net.LookupIP(addr.Target)
 		if err != nil {

@@ -101,7 +101,7 @@ spec:
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
               # Pd 会根据$PD_DATA_DIR目录是否存在来判断是否为一个新的member,还是resuming
-              # 在此不做任何处理. main.go:55
+              # 在此不做任何处理. main.go:56
               if [ -d $PD_DATA_DIR ]; then
                 echo "Resuming with existing data dir:$PD_DATA_DIR"
               else

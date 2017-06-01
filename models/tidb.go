@@ -69,9 +69,9 @@ const (
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
 
-	scaling      = "Scaling"
-	tikvScaleErr = "TikvScaleError"
-	tidbScaleErr = "TikvScaleError"
+	scaling      = 1 << 8
+	tikvScaleErr = 1
+	tidbScaleErr = 1 << 1
 )
 
 var (
@@ -107,7 +107,7 @@ type Tidb struct {
 	Status       TidbStatus `json:"status"`
 	TimeCreate   time.Time  `json:"timecreate,omitempty"`
 	MigrateState string     `json:"transfer,omitempty"`
-	ScaleState   string     `json:"scale,omitempty"`
+	ScaleState   int        `json:"scale,omitempty"`
 }
 
 // NewTidb create a tidb instance
@@ -287,7 +287,7 @@ func (db *Tidb) stop() (err error) {
 		db.Ok = false
 		db.Status = st
 		db.MigrateState = ""
-		db.ScaleState = ""
+		db.ScaleState = 0
 		db.Update()
 		e.Trace(err, "Stop tidb replicationcontrollers")
 	}()
@@ -375,8 +375,8 @@ func ScaleTidbs(replicas int, cell string) error {
 				logs.Error("tidb not started: %v", err)
 				return
 			}
-			if td.ScaleState != scaling {
-				td.ScaleState = scaling
+			if td.ScaleState&scaling == 0 {
+				td.ScaleState |= scaling
 				td.Update()
 				break
 			}
@@ -384,11 +384,10 @@ func ScaleTidbs(replicas int, cell string) error {
 		}
 		e := NewEvent(cell, "tidb", "scale")
 		defer func(r int) {
-			st := ""
+			td.ScaleState ^= scaling
 			if err != nil {
-				st = tidbScaleErr
+				td.ScaleState |= tidbScaleErr
 			}
-			td.ScaleState = st
 			td.Update()
 			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" from %d to %d`, cell, r, replicas))
 		}(td.Replicas)
@@ -455,7 +454,7 @@ func Start(cell string) (err error) {
 	go func() {
 		e := NewEvent(cell, "tidb", "start")
 		defer func() {
-			e.Trace(err, "Start deploying tidb clusters on kubernetes")
+			e.Trace(err, "Start deploying tidb cluster on kubernete")
 		}()
 		rollout(cell, PdPending)
 		if err = db.Pd.run(); err != nil {

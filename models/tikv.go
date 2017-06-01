@@ -238,8 +238,8 @@ func ScaleTikvs(replicas int, cell string) error {
 				logs.Error("tidb not started: %v", err)
 				return
 			}
-			if td.ScaleState != scaling {
-				td.ScaleState = scaling
+			if td.ScaleState&scaling == 0 {
+				td.ScaleState |= scaling
 				td.Update()
 				break
 			}
@@ -248,11 +248,10 @@ func ScaleTikvs(replicas int, cell string) error {
 		kv = td.Tikv
 		e := NewEvent(cell, "tikv", "scale")
 		defer func(r int) {
-			st := ""
+			td.ScaleState ^= scaling
 			if err != nil {
-				st = tikvScaleErr
+				td.ScaleState |= tikvScaleErr
 			}
-			td.ScaleState = st
 			td.Update()
 			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" from %d to %d`, cell, r, replicas))
 		}(kv.Replicas)
@@ -279,8 +278,13 @@ func (kv *Tikv) increase(replicas int) (err error) {
 		return fmt.Errorf("each scale can not exceed 2 times")
 	}
 	keys := getMapSortedKeys(kv.Stores)
-	max, _ := strconv.Atoi(strings.Split(keys[len(keys)-1], "-")[2])
-	logs.Debug("max:%d src:%d desc:%d", max, kv.Replicas, replicas)
+	last := strings.Split(keys[len(keys)-1], "-")
+	var max int
+	max, err = strconv.Atoi(last[len(last)-1])
+	if err != nil {
+		return fmt.Errorf("cannt get tikv max seq: %v", err)
+	}
+	logs.Debug("scale tikv max:%d src:%d desc:%d", max, kv.Replicas, replicas)
 	for i := max + 1; i <= max+(replicas-kv.Replicas); i++ {
 		kv.Replicas = kv.Replicas + 1
 		if err = kv._run(i); err != nil {
