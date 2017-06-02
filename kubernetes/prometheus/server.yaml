@@ -5,7 +5,7 @@ metadata:
   labels:
     name: prom-server
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - port: 9090
   selector:
@@ -39,7 +39,6 @@ spec:
         volumeMounts:
           - name: datadir
             mountPath: /prometheus
-      tolerations:
-      - key: node-role.prometheus
-      # - key: node-role.kubernetes.io/master
-        effect: NoSchedule
+      # tolerations:
+      # - key: node-role.prometheus
+      #   effect: NoSchedule

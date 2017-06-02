@@ -90,7 +90,7 @@ spec:
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
               export PD_DATA_DIR=/data/$HOSTNAME
 
-              # 获取该pod在dns中的id
+              # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
               until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do
                 echo "Cannt get pod id in SRV record, $(echo $_pid | tr '\n' ' ')"
@@ -98,7 +98,7 @@ spec:
                 _pid=$(getid {{cell}})
               done
               export PD_NAME=$_pid
-              # 保存pdname到本地文件，prestop hook会用来删除member
+              # Save PD_NAME to the local file, prestop hook will be used to delete member
               echo $PD_NAME > pod
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
@@ -116,7 +116,7 @@ spec:
               else
                 echo "First run for this member"
                 # If there's already a functioning cluster, join it.
-                # 获取集群的leader，如果有的化则join it.重试3次(在扩容时会导致不能访问)，每次不超过3s
+                # Get the leader of the cluster, try again 3 times (at the scale will lead to can not access), each time no more than 3 seconds
                 resp=''
                 for i in $(seq 1 3)  
                 do  

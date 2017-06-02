@@ -8,6 +8,6 @@ if [ "$1" == "d" ]; then
 	c=delete
 fi
 
-$KUBECTL $KUBECTL_OPTIONS $c -f gateway-service.yaml
+$KUBECTL $KUBECTL_OPTIONS $c -f gateway.yaml
 $KUBECTL $KUBECTL_OPTIONS $c -f server.yaml
 $KUBECTL $KUBECTL_OPTIONS $c -f grafana-service.yaml
