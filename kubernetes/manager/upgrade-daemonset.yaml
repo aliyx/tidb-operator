@@ -1,0 +1,29 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: pull-image
+spec:
+  template:
+    metadata:
+      labels:
+        name: pull-image
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: none
+          image: 10.209.224.13:10500/ffan/rds/tidb:rc2
+          imagePullPolicy: Always
+          command:
+            - bash
+            - "-c"
+            - |
+              while:
+              do
+                sleep 10
+                echo "waiting close"
+              done
+          resources:
+            requests:
+              cpu: 10m
+      restartPolicy: Always

@@ -12,37 +12,27 @@ kubectl exec -it <podname> -- /bin/bash 类似于docker run -it <image> /bin/bas
 https://cdn.rawgit.com/pingcap/docs/master/op-guide/pd-api-v1.html#api-Default-pdApiV1StoresGet
 
 # swagger 测试数据
-user
 {
-  "cell": "test",
-  "id": "abc",
+  "userid": "test",
+  "username": "test",
+  "cpu": 200,
+  "mem": 256,
+  "replicas": 1,
+  "version": "latest",
+  "schema": "test",
   "user": "test",
-  "password": "test"
-}
-
-pd
-{
-  "cell": "test",
-  "cpu": 200,
-  "mem": 256,
-  "replicas": 3,
-  "version": "latest"
-}
-
-kv
-{
-  "cell": "test",
-  "cpu": 200,
-  "mem": 256,
-  "replicas": 3,
-  "version": "latest"
-}
-
-db
-{
-  "cell": "test",
-  "cpu": 200,
-  "mem": 256,
-  "replicas": 2,
-  "version": "latest"
+  "password": "test",
+  "pd": {
+    "cpu": 200,
+    "mem": 256,
+    "replicas": 4,
+    "version": "latest"
+  },
+  "tikv": {
+    "capatity": 100,
+    "cpu": 200,
+    "mem": 256,
+    "replicas": 3,
+    "version": "latest"
+  }
 }

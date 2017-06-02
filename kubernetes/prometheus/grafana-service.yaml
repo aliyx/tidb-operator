@@ -44,7 +44,6 @@ spec:
       volumes:
         - name: grafana-data
           hostPath: {path: /var/lib/grafana}
-      tolerations:
-      - key: node-role.prometheus
-      # - key: node-role.kubernetes.io/master
-        effect: NoSchedule
+      # tolerations:
+      # - key: node-role.prometheus
+      #   effect: NoSchedule
