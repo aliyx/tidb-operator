@@ -9,16 +9,14 @@ metadata:
     id: "{{id}}"
 spec:
   affinity:
-    # 防止数据丢失,设置亲缘的目的是该pod只能在该node上更新
-    podAffinity:
+    nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: id
-            operator: In
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role
+            operator: NotIn
             values:
-            - "{{id}}"
-        topologyKey: kubernetes.io/hostname
+            - prometheus
     # PD 和 TiKV 实例，建议每个实例单独部署一个硬盘，避免 IO 冲突，影响性能
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
