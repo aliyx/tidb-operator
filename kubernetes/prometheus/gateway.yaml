@@ -30,7 +30,7 @@ spec:
         node-role: prometheus
       containers:
       - name: prom-gateway
-        image: prom/pushgateway
+        image: 10.209.224.13:10500/rds/prometheus:latest
         ports:
           - containerPort: 9091
       # tolerations:

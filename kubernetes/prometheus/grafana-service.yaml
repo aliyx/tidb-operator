@@ -32,7 +32,7 @@ spec:
         node-role: prometheus
       containers:
       - name: grafana
-        image:  grafana/grafana
+        image:  10.209.224.13:10500/rds/grafana:latest
         env:
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
