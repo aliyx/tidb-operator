@@ -70,11 +70,11 @@ spec:
         - name: zone
           hostPath: {path: /etc/localtime}
       # 默认是30s
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 30
       containers:
         - name: pd
           image: {{registry}}/pd:{{version}}
-          imagePullPolicy: IfNotPresent
+          # imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: datadir
               mountPath: /data
@@ -102,69 +102,78 @@ spec:
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
               export PD_DATA_DIR=/data/$HOSTNAME
 
-              # 获取该pod在dns中的id
-              until [ $(getid {{cell}} | wc -l) -eq 1 ]; do
-                echo "Cannt get current pod id in SRV record, $(getid {{cell}} | tr '\n' '')"
+              # Gets the id of the pod in dns
+              _pid=$(getid {{cell}})
+              until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do
+                echo "Cannt get pod id in SRV record, $(echo $_pid | tr '\n' ' ')"
                 sleep 1
+                _pid=$(getid {{cell}})
               done
-              export PD_NAME=$(getid {{cell}})
-              # 保存pdname到本地文件，prestop hook会用来删除member
+              export PD_NAME=$_pid
+              # Save PD_NAME to the local file, prestop hook will be used to delete member
               echo $PD_NAME > pod
+              echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
-              # Pd 会根据$PD_DATA_DIR目录是否存在来判断是否为一个新的member,还是resuming
-              # 在此不做任何处理. main.go:55
               if [ -d $PD_DATA_DIR ]; then
                 echo "Resuming with existing data dir:$PD_DATA_DIR"
+                pd-server \
+                --name="$PD_NAME" \
+                --data-dir="$PD_DATA_DIR" \
+                --client-urls="$CLIENT_URLS" \
+                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+                --peer-urls="$PEER_URLS" \
+                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                --join="http://pd-{{cell}}:2379" \
+                --config="/etc/pd/config.toml"
               else
                 echo "First run for this member"
-              fi
+                # If there's already a functioning cluster, join it.
+                # Get the leader of the cluster, try again 3 times (at the scale will lead to can not access), each time no more than 3 seconds
+                resp=''
+                for i in $(seq 1 3)  
+                do  
+                  resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
+                  if [ $resp == 200 ]; then
+                    break
+                  fi
+                  sleep 1   
+                done  
+                if [ $resp == 200 ]; then
+                  echo "Joining existing cluster:http://pd-{{cell}}:2379"
+                  pd-server \
+                  --name="$PD_NAME" \
+                  --data-dir="$PD_DATA_DIR" \
+                  --client-urls="$CLIENT_URLS" \
+                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+                  --peer-urls="$PEER_URLS" \
+                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                  --join="http://pd-{{cell}}:2379" \
+                  --config="/etc/pd/config.toml"
+                else
+                  # Join failed. Assume we're trying to bootstrap.
+                  echo "Create a new pd cluster"
+                  # First wait for the desired number of replicas to show up.
+                  echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
+                  until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+                    echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
+                    sleep 1
+                  done
 
-              # If there's already a functioning cluster, join it.
-              # 获取集群的leader，如果有的化则join it.重试3次(在扩容时会导致不能访问)，每次不超过3s
-              resp=''
-              for i in $(seq 1 3)  
-              do  
-                resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
-                if [ $resp == 200 ]
-                then
-                  break
+                  urls=$(getpods {{cell}} | tr '\n' ',')
+                  urls=${urls%,}
+                  echo "Initial-cluster:$urls"
+
+                  # Now run
+                  pd-server \
+                  --name="$PD_NAME" \
+                  --data-dir="$PD_DATA_DIR" \
+                  --client-urls="$CLIENT_URLS" \
+                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+                  --peer-urls="$PEER_URLS" \
+                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                  --initial-cluster=$urls \
+                  --config="/etc/pd/config.toml"
                 fi
-                sleep 1   
-              done  
-              if [ $resp == 200 ]
-              then
-                echo "Joining existing cluster:http://pd-{{cell}}:2379"
-                pd-server \
-                --name="$PD_NAME" \
-                --data-dir="$PD_DATA_DIR" \
-                --client-urls="$CLIENT_URLS" \
-                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                --peer-urls="$PEER_URLS" \
-                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                --join="http://pd-{{cell}}:2379"
-              else
-                # Join failed. Assume we're trying to bootstrap.
-                echo "Create a new pd cluster"
-                # First wait for the desired number of replicas to show up.
-                echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
-                until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
-                  echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
-                  sleep 1
-                done
-
-                urls=$(getpods {{cell}} | tr '\n' ',')
-                urls=${urls%,}
-                echo "Initial-cluster:$urls"
-
-                # Now run
-                pd-server \
-                --name="$PD_NAME" \
-                --data-dir="$PD_DATA_DIR" \
-                --client-urls="$CLIENT_URLS" \
-                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                --peer-urls="$PEER_URLS" \
-                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                --initial-cluster=$urls
               fi
           lifecycle:
             preStop:
@@ -188,7 +197,7 @@ spec:
                     if [ $resp == 200 ]
                     then
                       echo 'Delete pd "$PD_NAME" success'
-                    fi                     
+                    fi             
 `
 
 var k8sTikvPod = `
@@ -260,7 +269,8 @@ spec:
         --addr="0.0.0.0:20160" \
         --capacity={{capacity}}GB \
         --advertise-addr="$POD_IP:20160" \
-        --pd="pd-{{cell}}:2379"
+        --pd="pd-{{cell}}:2379" \
+        --config="/etc/tikv/config.toml"
     env: 
       - name: POD_IP
         valueFrom:
@@ -350,7 +360,12 @@ spec:
               memory: "{{mem}}Mi"
               cpu: "{{cpu}}m"
           command: ["/tidb-server"]
-          args: ["-P=4000", "--store=tikv", "--path=pd-{{cell}}:2379"]
+          args: 
+            - -P=4000
+            - --store=tikv
+            - --path=pd-{{cell}}:2379
+            - --metrics-addr=prom-gateway:9091
+            - --metrics-interval=15
 `
 var k8sMigrate = `
 apiVersion: v1
