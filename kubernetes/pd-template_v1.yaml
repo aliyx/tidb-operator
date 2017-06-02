@@ -102,8 +102,29 @@ spec:
               echo $PD_NAME > pod
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
+              # Pd 会根据$PD_DATA_DIR目录是否存在来判断是否为一个新的member,还是resuming
+              # 在此不做任何处理. main.go:56
               if [ -d $PD_DATA_DIR ]; then
                 echo "Resuming with existing data dir:$PD_DATA_DIR"
+              else
+                echo "First run for this member"
+              fi
+
+              # If there's already a functioning cluster, join it.
+              # 获取集群的leader，如果有的化则join it.重试3次(在扩容时会导致不能访问)，每次不超过3s
+              resp=''
+              for i in $(seq 1 3)  
+              do  
+                resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
+                if [ $resp == 200 ]
+                then
+                  break
+                fi
+                sleep 1   
+              done  
+              if [ $resp == 200 ]
+              then
+                echo "Joining existing cluster:http://pd-{{cell}}:2379"
                 pd-server \
                 --name="$PD_NAME" \
                 --data-dir="$PD_DATA_DIR" \
@@ -114,54 +135,29 @@ spec:
                 --join="http://pd-{{cell}}:2379" \
                 --config="/etc/pd/config.toml"
               else
-                echo "First run for this member"
-                # If there's already a functioning cluster, join it.
-                # 获取集群的leader，如果有的化则join it.重试3次(在扩容时会导致不能访问)，每次不超过3s
-                resp=''
-                for i in $(seq 1 3)  
-                do  
-                  resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
-                  if [ $resp == 200 ]; then
-                    break
-                  fi
-                  sleep 1   
-                done  
-                if [ $resp == 200 ]; then
-                  echo "Joining existing cluster:http://pd-{{cell}}:2379"
-                  pd-server \
-                  --name="$PD_NAME" \
-                  --data-dir="$PD_DATA_DIR" \
-                  --client-urls="$CLIENT_URLS" \
-                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                  --peer-urls="$PEER_URLS" \
-                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                  --join="http://pd-{{cell}}:2379" \
-                  --config="/etc/pd/config.toml"
-                else
-                  # Join failed. Assume we're trying to bootstrap.
-                  echo "Create a new pd cluster"
-                  # First wait for the desired number of replicas to show up.
-                  echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
-                  until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
-                    echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
-                    sleep 1
-                  done
+                # Join failed. Assume we're trying to bootstrap.
+                echo "Create a new pd cluster"
+                # First wait for the desired number of replicas to show up.
+                echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
+                until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+                  echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
+                  sleep 1
+                done
 
-                  urls=$(getpods {{cell}} | tr '\n' ',')
-                  urls=${urls%,}
-                  echo "Initial-cluster:$urls"
+                urls=$(getpods {{cell}} | tr '\n' ',')
+                urls=${urls%,}
+                echo "Initial-cluster:$urls"
 
-                  # Now run
-                  pd-server \
-                  --name="$PD_NAME" \
-                  --data-dir="$PD_DATA_DIR" \
-                  --client-urls="$CLIENT_URLS" \
-                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                  --peer-urls="$PEER_URLS" \
-                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                  --initial-cluster=$urls \
-                  --config="/etc/pd/config.toml"
-                fi
+                # Now run
+                pd-server \
+                --name="$PD_NAME" \
+                --data-dir="$PD_DATA_DIR" \
+                --client-urls="$CLIENT_URLS" \
+                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+                --peer-urls="$PEER_URLS" \
+                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                --initial-cluster=$urls \
+                --config="/etc/pd/config.toml"
               fi
           lifecycle:
             preStop:
