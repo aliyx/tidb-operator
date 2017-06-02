@@ -91,11 +91,13 @@ spec:
               export PD_DATA_DIR=/data/$HOSTNAME
 
               # 获取该pod在dns中的id
-              until [ $(getid {{cell}} | wc -l) -eq 1 ]; do
-                echo "Cannt get current pod id in SRV record, $(getid {{cell}} | tr '\n' '')"
+              _pid=$(getid {{cell}})
+              until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do
+                echo "Cannt get pod id in SRV record, $(echo $_pid | tr '\n' ' ')"
                 sleep 1
+                _pid=$(getid {{cell}})
               done
-              export PD_NAME=$(getid {{cell}})
+              export PD_NAME=$_pid
               # 保存pdname到本地文件，prestop hook会用来删除member
               echo $PD_NAME > pod
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
