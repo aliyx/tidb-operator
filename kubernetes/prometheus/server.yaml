@@ -33,7 +33,7 @@ spec:
           hostPath: {path: /var/lib/prometheus}
       containers:
       - name: prom-server
-        image: 10.209.224.13:10500/rds/prom-server
+        image: 10.209.224.13:10500/rds/prom-server:latest
         ports:
           - containerPort: 9090
         volumeMounts:
