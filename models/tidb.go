@@ -54,9 +54,9 @@ const (
 	TikvStoped
 	// PdStopFailed fail to stop tikv
 	PdStopFailed
-	// tidbClearing wait for k8s to close all pods
-	tidbClearing
-	// tidbDeleting wait for k8s to close all pods
+	// PdStoped  delete pd pods from k8s
+	PdStoped
+	// tidbDeleting wait for delete tidb
 	tidbDeleting
 )
 
@@ -68,6 +68,8 @@ const (
 
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
+
+	defaultStopTidbTimeout = 60 // 60s
 
 	scaling      = 1 << 8
 	tikvScaleErr = 1
@@ -504,7 +506,7 @@ func Stop(cell string, ch chan int) (err error) {
 	e := NewEvent(cell, "tidb", "stop")
 	defer func() {
 		if err != nil {
-			e.Trace(err, fmt.Sprintf("Delete tidb pods on k8s"))
+			e.Trace(err, "Stop tidb pods on k8s")
 		}
 	}()
 	if err = stopMigrateTask(cell); err != nil {
@@ -519,28 +521,30 @@ func Stop(cell string, ch chan int) (err error) {
 	if err = db.Pd.stop(); err != nil {
 		return err
 	}
-	// waitring for all pod deleted
+	// waiting for all pods deleted
 	go func() {
 		defer func() {
-			if ch != nil {
-				ch <- 0
+			stoped := 1
+			st := Undefined
+			if started(cell) {
+				st = TidbStopFailed
+				stoped = 0
+				err = errors.New("async delete pods timeout")
 			}
+			rollout(cell, st)
+			if ch != nil {
+				ch <- stoped
+			}
+			e.Trace(err, "Stop tidb pods on k8s")
 		}()
-		for i := 0; i < 60; i++ {
+		for i := 0; i < defaultStopTidbTimeout; i++ {
 			if started(cell) {
 				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
 				time.Sleep(time.Second)
 			} else {
-				rollout(cell, Undefined)
 				break
 			}
 		}
-		var serr error
-		if started(cell) {
-			rollout(cell, TidbStopFailed)
-			serr = errors.New("async delete pods timeout")
-		}
-		e.Trace(serr, fmt.Sprintf("Stop tidb pods on k8s"))
 	}()
 	return err
 }
@@ -559,8 +563,10 @@ func Restart(cell string) (err error) {
 			return
 		}
 		// waiting for all pod deleted
-		select {
-		case <-ch:
+		stoped := <-ch
+		if stoped == 0 {
+			logs.Error("stop tidb %s timeout", cell)
+			return
 		}
 		if err = Start(cell); err != nil {
 			logs.Error("Create tidb %s pods on k8s error: %v", cell, err)

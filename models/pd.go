@@ -50,7 +50,7 @@ func GetPd(cell string) (*Pd, error) {
 func (p *Pd) stop() (err error) {
 	e := NewEvent(p.Db.Cell, "pd", "stop")
 	defer func() {
-		st := tidbClearing
+		st := PdStoped
 		if err != nil {
 			st = PdStopFailed
 		}
