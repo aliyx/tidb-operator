@@ -15,9 +15,15 @@ import:
   version: v1.3
 - package: github.com/tidwall/gjson
 - package: google.golang.org/grpc
-  version: v1.3.0
+  version: v1.2.1
   subpackages:
   - codes
 - package: gopkg.in/yaml.v2
 - package: k8s.io/client-go
   version: v3.0.0-beta.0
+- package: k8s.io/apimachinery
+  subpackages:
+  - '...'
+- package: github.com/howeyc/gopass
+- package: github.com/imdario/mergo
+  version: ^0.2.2

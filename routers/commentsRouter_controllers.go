@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/context/param"
 )
 
 func init() {
@@ -11,6 +12,7 @@ func init() {
 			Method: "GetAll",
 			Router: `/`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
@@ -18,6 +20,7 @@ func init() {
 			Method: "PutAll",
 			Router: `/`,
 			AllowHTTPMethods: []string{"put"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
@@ -25,6 +28,7 @@ func init() {
 			Method: "Get",
 			Router: `/:key`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
@@ -32,6 +36,7 @@ func init() {
 			Method: "PutSpec",
 			Router: `/specifications`,
 			AllowHTTPMethods: []string{"put"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -39,6 +44,7 @@ func init() {
 			Method: "Post",
 			Router: `/`,
 			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -46,6 +52,7 @@ func init() {
 			Method: "Get",
 			Router: `/:cell`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -53,6 +60,7 @@ func init() {
 			Method: "Patch",
 			Router: `/:cell/scale`,
 			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -60,6 +68,7 @@ func init() {
 			Method: "Migrate",
 			Router: `/:cell/migrate`,
 			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -67,6 +76,7 @@ func init() {
 			Method: "GetEvents",
 			Router: `/:cell/events`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
@@ -74,6 +84,7 @@ func init() {
 			Method: "Status",
 			Router: `/:cell/status`,
 			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -81,6 +92,7 @@ func init() {
 			Method: "Post",
 			Router: `/`,
 			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -88,6 +100,7 @@ func init() {
 			Method: "Delete",
 			Router: `/:user/tidbs/:cell`,
 			AllowHTTPMethods: []string{"delete"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -95,6 +108,7 @@ func init() {
 			Method: "Get",
 			Router: `/:user/tidbs/:cell`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -102,6 +116,7 @@ func init() {
 			Method: "GetAll",
 			Router: `/:user/tidbs`,
 			AllowHTTPMethods: []string{"get"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -109,6 +124,7 @@ func init() {
 			Method: "CheckResources",
 			Router: `/:user/limit`,
 			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
@@ -116,6 +132,7 @@ func init() {
 			Method: "Status",
 			Router: `/:user/tidbs/:cell/status`,
 			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
 			Params: nil})
 
 }

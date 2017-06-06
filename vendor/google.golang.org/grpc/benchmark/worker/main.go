@@ -38,8 +38,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
 	"runtime"
 	"strconv"
 	"time"
@@ -52,10 +50,8 @@ import (
 )
 
 var (
-	driverPort    = flag.Int("driver_port", 10000, "port for communication with driver")
-	serverPort    = flag.Int("server_port", 0, "port for benchmark server if not specified by server config message")
-	pprofPort     = flag.Int("pprof_port", -1, "Port for pprof debug server to listen on. Pprof server doesn't start if unset")
-	blockProfRate = flag.Int("block_prof_rate", 0, "fraction of goroutine blocking events to report in blocking profile")
+	driverPort = flag.Int("driver_port", 10000, "port for communication with driver")
+	serverPort = flag.Int("server_port", 0, "port for benchmark server if not specified by server config message")
 )
 
 type byteBufCodec struct {
@@ -230,15 +226,6 @@ func main() {
 		time.Sleep(time.Second)
 		s.Stop()
 	}()
-
-	runtime.SetBlockProfileRate(*blockProfRate)
-
-	if *pprofPort >= 0 {
-		go func() {
-			grpclog.Println("Starting pprof server on port " + strconv.Itoa(*pprofPort))
-			grpclog.Println(http.ListenAndServe("localhost:"+strconv.Itoa(*pprofPort), nil))
-		}()
-	}
 
 	s.Serve(lis)
 }

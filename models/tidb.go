@@ -9,7 +9,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/models/utils"
 
-	tsql "github.com/ffan/tidb-k8s/mysql"
+	tsql "github.com/ffan/tidb-k8s/models/mysql"
 
 	"errors"
 	"strconv"
