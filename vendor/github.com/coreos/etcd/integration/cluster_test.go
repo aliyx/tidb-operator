@@ -447,7 +447,9 @@ func TestRejectUnhealthyRemove(t *testing.T) {
 // (see https://github.com/coreos/etcd/issues/7512 for more).
 func TestRestartRemoved(t *testing.T) {
 	defer testutil.AfterTest(t)
+
 	capnslog.SetGlobalLogLevel(capnslog.INFO)
+	defer capnslog.SetGlobalLogLevel(defaultLogLevel)
 
 	// 1. start single-member cluster
 	c := NewCluster(t, 1)
@@ -566,5 +568,25 @@ func TestTransferLeader(t *testing.T) {
 	// new leader must be different than the old leader
 	if oldLeadID == newLeadIDs[0] {
 		t.Fatalf("expected old leader %d != new leader %d", oldLeadID, newLeadIDs[0])
+	}
+}
+
+func TestSpeedyTerminate(t *testing.T) {
+	defer testutil.AfterTest(t)
+	clus := NewClusterV3(t, &ClusterConfig{Size: 3})
+	// Stop/Restart so requests will time out on lost leaders
+	for i := 0; i < 3; i++ {
+		clus.Members[i].Stop(t)
+		clus.Members[i].Restart(t)
+	}
+	donec := make(chan struct{})
+	go func() {
+		defer close(donec)
+		clus.Terminate(t)
+	}()
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("cluster took too long to terminate")
+	case <-donec:
 	}
 }

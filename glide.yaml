@@ -1,0 +1,23 @@
+package: github.com/ffan/tidb-k8s
+import:
+- package: github.com/astaxie/beego
+  version: v1.8.3
+  subpackages:
+  - logs
+- package: github.com/coreos/etcd
+  version: v3.2.0-rc.1
+  subpackages:
+  - clientv3
+  - etcdserver/api/v3rpc/rpctypes
+- package: github.com/ghodss/yaml
+  version: v1.0.0
+- package: github.com/go-sql-driver/mysql
+  version: v1.3
+- package: github.com/tidwall/gjson
+- package: google.golang.org/grpc
+  version: v1.3.0
+  subpackages:
+  - codes
+- package: gopkg.in/yaml.v2
+- package: k8s.io/client-go
+  version: v3.0.0-beta.0

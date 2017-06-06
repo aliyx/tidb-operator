@@ -17,16 +17,20 @@ package integration
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	"github.com/coreos/etcd/pkg/testutil"
+	"github.com/coreos/etcd/pkg/transport"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -1372,6 +1376,164 @@ func TestTLSGRPCAcceptSecureAll(t *testing.T) {
 	if _, err := toGRPC(client).KV.Put(context.TODO(), reqput); err != nil {
 		t.Fatalf("unexpected error on put over tls (%v)", err)
 	}
+}
+
+// TestTLSReloadAtomicReplace ensures server reloads expired/valid certs
+// when all certs are atomically replaced by directory renaming.
+// And expects server to reject client requests, and vice versa.
+func TestTLSReloadAtomicReplace(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(os.TempDir(), "fixtures-tmp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir)
+
+	certsDir, err := ioutil.TempDir(os.TempDir(), "fixtures-to-load")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(certsDir)
+
+	certsDirExp, err := ioutil.TempDir(os.TempDir(), "fixtures-expired")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(certsDirExp)
+
+	cloneFunc := func() transport.TLSInfo {
+		tlsInfo, err := copyTLSFiles(testTLSInfo, certsDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = copyTLSFiles(testTLSInfoExpired, certsDirExp); err != nil {
+			t.Fatal(err)
+		}
+		return tlsInfo
+	}
+	replaceFunc := func() {
+		if err = os.Rename(certsDir, tmpDir); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Rename(certsDirExp, certsDir); err != nil {
+			t.Fatal(err)
+		}
+		// after rename,
+		// 'certsDir' contains expired certs
+		// 'tmpDir' contains valid certs
+		// 'certsDirExp' does not exist
+	}
+	revertFunc := func() {
+		if err = os.Rename(tmpDir, certsDirExp); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Rename(certsDir, tmpDir); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Rename(certsDirExp, certsDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	testTLSReload(t, cloneFunc, replaceFunc, revertFunc)
+}
+
+// TestTLSReloadCopy ensures server reloads expired/valid certs
+// when new certs are copied over, one by one. And expects server
+// to reject client requests, and vice versa.
+func TestTLSReloadCopy(t *testing.T) {
+	certsDir, err := ioutil.TempDir(os.TempDir(), "fixtures-to-load")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(certsDir)
+
+	cloneFunc := func() transport.TLSInfo {
+		tlsInfo, err := copyTLSFiles(testTLSInfo, certsDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tlsInfo
+	}
+	replaceFunc := func() {
+		if _, err = copyTLSFiles(testTLSInfoExpired, certsDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	revertFunc := func() {
+		if _, err = copyTLSFiles(testTLSInfo, certsDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	testTLSReload(t, cloneFunc, replaceFunc, revertFunc)
+}
+
+func testTLSReload(t *testing.T, cloneFunc func() transport.TLSInfo, replaceFunc func(), revertFunc func()) {
+	defer testutil.AfterTest(t)
+
+	// 1. separate copies for TLS assets modification
+	tlsInfo := cloneFunc()
+
+	// 2. start cluster with valid certs
+	clus := NewClusterV3(t, &ClusterConfig{Size: 1, PeerTLS: &tlsInfo, ClientTLS: &tlsInfo})
+	defer clus.Terminate(t)
+
+	// 3. concurrent client dialing while certs become expired
+	errc := make(chan error, 1)
+	go func() {
+		for {
+			cc, err := tlsInfo.ClientConfig()
+			if err != nil {
+				// errors in 'go/src/crypto/tls/tls.go'
+				// tls: private key does not match public key
+				// tls: failed to find any PEM data in key input
+				// tls: failed to find any PEM data in certificate input
+				// Or 'does not exist', 'not found', etc
+				t.Log(err)
+				continue
+			}
+			cli, cerr := clientv3.New(clientv3.Config{
+				Endpoints:   []string{clus.Members[0].GRPCAddr()},
+				DialTimeout: time.Second,
+				TLS:         cc,
+			})
+			if cerr != nil {
+				errc <- cerr
+				return
+			}
+			cli.Close()
+		}
+	}()
+
+	// 4. replace certs with expired ones
+	replaceFunc()
+
+	// 5. expect dial time-out when loading expired certs
+	select {
+	case gerr := <-errc:
+		if gerr != grpc.ErrClientConnTimeout {
+			t.Fatalf("expected %v, got %v", grpc.ErrClientConnTimeout, gerr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("failed to receive dial timeout error")
+	}
+
+	// 6. replace expired certs back with valid ones
+	revertFunc()
+
+	// 7. new requests should trigger listener to reload valid certs
+	tls, terr := tlsInfo.ClientConfig()
+	if terr != nil {
+		t.Fatal(terr)
+	}
+	cl, cerr := clientv3.New(clientv3.Config{
+		Endpoints:   []string{clus.Members[0].GRPCAddr()},
+		DialTimeout: time.Second,
+		TLS:         tls,
+	})
+	if cerr != nil {
+		t.Fatalf("expected no error, got %v", cerr)
+	}
+	cl.Close()
 }
 
 func TestGRPCRequireLeader(t *testing.T) {

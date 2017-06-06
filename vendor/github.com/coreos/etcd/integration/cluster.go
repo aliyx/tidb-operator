@@ -39,6 +39,8 @@ import (
 	"github.com/coreos/etcd/etcdserver"
 	"github.com/coreos/etcd/etcdserver/api/v2http"
 	"github.com/coreos/etcd/etcdserver/api/v3client"
+	"github.com/coreos/etcd/etcdserver/api/v3election"
+	epb "github.com/coreos/etcd/etcdserver/api/v3election/v3electionpb"
 	"github.com/coreos/etcd/etcdserver/api/v3lock"
 	lockpb "github.com/coreos/etcd/etcdserver/api/v3lock/v3lockpb"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc"
@@ -71,6 +73,13 @@ var (
 		KeyFile:        "./fixtures/server.key.insecure",
 		CertFile:       "./fixtures/server.crt",
 		TrustedCAFile:  "./fixtures/ca.crt",
+		ClientCertAuth: true,
+	}
+
+	testTLSInfoExpired = transport.TLSInfo{
+		KeyFile:        "./fixtures-expired/server-key.pem",
+		CertFile:       "./fixtures-expired/server.pem",
+		TrustedCAFile:  "./fixtures-expired/etcd-root-ca.pem",
 		ClientCertAuth: true,
 	}
 
@@ -313,9 +322,15 @@ func (c *cluster) removeMember(t *testing.T, id uint64) error {
 }
 
 func (c *cluster) Terminate(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(len(c.Members))
 	for _, m := range c.Members {
-		m.Terminate(t)
+		go func(mm *member) {
+			defer wg.Done()
+			mm.Terminate(t)
+		}(m)
 	}
+	wg.Wait()
 }
 
 func (c *cluster) waitMembersMatch(t *testing.T, membs []client.Member) {
@@ -332,7 +347,6 @@ func (c *cluster) waitMembersMatch(t *testing.T, membs []client.Member) {
 			time.Sleep(tickDuration)
 		}
 	}
-	return
 }
 
 func (c *cluster) WaitLeader(t *testing.T) int { return c.waitLeader(t, c.Members) }
@@ -549,7 +563,9 @@ func (m *member) electionTimeout() time.Duration {
 	return time.Duration(m.s.Cfg.ElectionTicks) * time.Millisecond
 }
 
-func (m *member) DropConnections() { m.grpcBridge.Reset() }
+func (m *member) DropConnections()    { m.grpcBridge.Reset() }
+func (m *member) PauseConnections()   { m.grpcBridge.Pause() }
+func (m *member) UnpauseConnections() { m.grpcBridge.Unpause() }
 
 // NewClientV3 creates a new grpc client connection to the member
 func NewClientV3(m *member) (*clientv3.Client, error) {
@@ -662,6 +678,7 @@ func (m *member) Launch() error {
 		m.grpcServer = v3rpc.Server(m.s, tlscfg)
 		m.serverClient = v3client.New(m.s)
 		lockpb.RegisterLockServer(m.grpcServer, v3lock.NewLockServer(m.serverClient))
+		epb.RegisterElectionServer(m.grpcServer, v3election.NewElectionServer(m.serverClient))
 		go m.grpcServer.Serve(m.grpcListener)
 	}
 
@@ -710,7 +727,7 @@ func (m *member) Close() {
 		m.serverClient = nil
 	}
 	if m.grpcServer != nil {
-		m.grpcServer.Stop()
+		m.grpcServer.GracefulStop()
 		m.grpcServer = nil
 	}
 	m.s.HardStop()
@@ -918,4 +935,8 @@ type grpcAPI struct {
 	Maintenance pb.MaintenanceClient
 	// Auth is the authentication API for the client's connection.
 	Auth pb.AuthClient
+	// Lock is the lock API for the client's connection.
+	Lock lockpb.LockClient
+	// Election is the election API for the client's connection.
+	Election epb.ElectionClient
 }

@@ -309,8 +309,16 @@ func DialContext(ctx context.Context, target string, opts ...DialOption) (conn *
 	for _, opt := range opts {
 		opt(&cc.dopts)
 	}
+	cc.mkp = cc.dopts.copts.KeepaliveParams
 
-	grpcUA := "grpc-go/" + Version
+	if cc.dopts.copts.Dialer == nil {
+		cc.dopts.copts.Dialer = newProxyDialer(
+			func(ctx context.Context, addr string) (net.Conn, error) {
+				return dialContext(ctx, "tcp", addr)
+			},
+		)
+	}
+
 	if cc.dopts.copts.UserAgent != "" {
 		cc.dopts.copts.UserAgent += " " + grpcUA
 	} else {
@@ -458,6 +466,8 @@ type ClientConn struct {
 	mu    sync.RWMutex
 	sc    ServiceConfig
 	conns map[Address]*addrConn
+	// Keepalive parameter can be udated if a GoAway is received.
+	mkp keepalive.ClientParameters
 }
 
 // lbWatcher watches the Notify channel of the balancer in cc and manages
@@ -533,6 +543,9 @@ func (cc *ClientConn) resetAddrConn(addr Address, block bool, tearDownErr error)
 		addr:  addr,
 		dopts: cc.dopts,
 	}
+	cc.mu.RLock()
+	ac.dopts.copts.KeepaliveParams = cc.mkp
+	cc.mu.RUnlock()
 	ac.ctx, ac.cancel = context.WithCancel(cc.ctx)
 	ac.stateCV = sync.NewCond(&ac.mu)
 	if EnableTracing {
@@ -656,6 +669,7 @@ func (cc *ClientConn) getTransport(ctx context.Context, opts BalancerGetOptions)
 	}
 	if !ok {
 		if put != nil {
+			updateRPCInfoInContext(ctx, rpcInfo{bytesSent: false, bytesReceived: false})
 			put()
 		}
 		return nil, nil, errConnClosing
@@ -663,6 +677,7 @@ func (cc *ClientConn) getTransport(ctx context.Context, opts BalancerGetOptions)
 	t, err := ac.wait(ctx, cc.dopts.balancer != nil, !opts.BlockingWait)
 	if err != nil {
 		if put != nil {
+			updateRPCInfoInContext(ctx, rpcInfo{bytesSent: false, bytesReceived: false})
 			put()
 		}
 		return nil, nil, err
@@ -712,6 +727,20 @@ type addrConn struct {
 
 	// The reason this addrConn is torn down.
 	tearDownErr error
+}
+
+// adjustParams updates parameters used to create transports upon
+// receiving a GoAway.
+func (ac *addrConn) adjustParams(r transport.GoAwayReason) {
+	switch r {
+	case transport.TooManyPings:
+		v := 2 * ac.dopts.copts.KeepaliveParams.Time
+		ac.cc.mu.Lock()
+		if v > ac.cc.mkp.Time {
+			ac.cc.mkp.Time = v
+		}
+		ac.cc.mu.Unlock()
+	}
 }
 
 // printf records an event in ac's event log, unless ac has been closed.
@@ -870,6 +899,7 @@ func (ac *addrConn) transportMonitor() {
 			}
 			return
 		case <-t.GoAway():
+			ac.adjustParams(t.GetGoAwayReason())
 			// If GoAway happens without any network I/O error, ac is closed without shutting down the
 			// underlying transport (the transport will be closed when all the pending RPCs finished or
 			// failed.).
@@ -889,6 +919,7 @@ func (ac *addrConn) transportMonitor() {
 				t.Close()
 				return
 			case <-t.GoAway():
+				ac.adjustParams(t.GetGoAwayReason())
 				ac.cc.resetAddrConn(ac.addr, false, errNetworkIO)
 				return
 			default:
