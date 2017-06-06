@@ -3,10 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "appengine/cloudsql",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "NICDNh/oNodhy0lnIc16dL6rbH4=",
 			"path": "github.com/astaxie/beego",
 			"revision": "7452151beec2f43c42122fd91b7523bcbccf05be",
@@ -139,10 +135,6 @@
 			"revisionTime": "2016-12-01T11:50:36Z",
 			"version": "v1.3",
 			"versionExact": "v1.3"
-		},
-		{
-			"path": "github.com/go-sql-driver/mysql:v1.3",
-			"revision": ""
 		},
 		{
 			"checksumSHA1": "APDDi2ohrU7OkChQCekD9tSVUhs=",
