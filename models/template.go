@@ -4,14 +4,14 @@ import "github.com/tidwall/gjson"
 import "fmt"
 import "github.com/ghodss/yaml"
 
-var k8sNs = `
+var tidbNamespaceYaml = `
 kind: Namespace
 apiVersion: v1
 metadata:
   name: {{namespace}}
 `
 
-var k8sPdService = `
+var pdServiceYaml = `
 kind: Service
 apiVersion: v1
 metadata:
@@ -29,7 +29,8 @@ spec:
     app: tidb
   type: NodePort
 `
-var k8sPdHeadlessService = `
+
+var pdHeadlessServiceYaml = `
 kind: Service
 apiVersion: v1
 metadata:
@@ -48,7 +49,8 @@ spec:
     cell: {{cell}}
     app: tidb
 `
-var k8sPdRc = `
+
+var pdRcYaml = `
 apiVersion: v1
 kind: ReplicationController
 metadata:
@@ -200,7 +202,7 @@ spec:
                     fi             
 `
 
-var k8sTikvPod = `
+var tikvPodYaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -286,7 +288,7 @@ spec:
               rm -rf /data/tikv-{{cell}}-{{id}}
 `
 
-var k8sTidbService = `
+var tidbServiceYaml = `
 kind: Service
 apiVersion: v1
 metadata:
@@ -308,7 +310,7 @@ spec:
   type: NodePort
 `
 
-var k8sTidbRc = `
+var tidbRcYaml = `
 kind: ReplicationController
 apiVersion: v1
 metadata:
@@ -367,7 +369,8 @@ spec:
             - --metrics-addr=prom-gateway:9091
             - --metrics-interval=15
 `
-var k8sMigrate = `
+
+var mysqlMigraeYaml = `
 apiVersion: v1
 kind: Pod
 metadata:

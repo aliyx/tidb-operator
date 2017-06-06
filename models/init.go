@@ -39,7 +39,7 @@ func initK8sNamespace() {
 		panic(fmt.Errorf("get metadata error: %v", err))
 	}
 	r := strings.NewReplacer("{{namespace}}", md.K8s.Namespace)
-	s := r.Replace(k8sNs)
+	s := r.Replace(tidbNamespaceYaml)
 	if err := createNamespace(s); err != nil {
 		if err == utils.ErrAlreadyExists {
 			logs.Warn(`Namespace "%s" already exists`, md.K8s.Namespace)

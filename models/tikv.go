@@ -114,7 +114,7 @@ func (kv *Tikv) _run(r int) (err error) {
 	// 先设置，防止tikv启动失败的情况下，没有保存tikv信息，导致delete时失败
 	kv.cur = fmt.Sprintf("tikv-%s-%d", kv.Db.Cell, r)
 	kv.Stores[kv.cur] = Store{}
-	if err = createPod(kv.getK8sTemplate(k8sTikvPod, r)); err != nil {
+	if err = createPod(kv.getK8sTemplate(tikvPodYaml, r)); err != nil {
 		return err
 	}
 	if err = kv.waitForComplete(startTidbTimeout); err != nil {

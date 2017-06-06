@@ -17,11 +17,14 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/models/utils"
+	"github.com/ffan/tidb-k8s/models/utils/k8sutil"
 	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
 )
 
 var (
+	kubecli = k8sutil.MustNewKubeClient()
+
 	k8sServiceURL    = "%s/api/v1/namespaces/%s/services"
 	k8sRcURL         = "%s/api/v1/namespaces/%s/replicationcontrollers"
 	k8sRsURL         = "%s/apis/extensions/v1beta1/namespaces/%s/replicasets"

@@ -80,8 +80,8 @@ var (
 	tidbS Storage
 
 	errCellIsNil = errors.New("cell is nil")
-	// ErrRepop is returned by functions to specify the operation is executing.
-	ErrRepop = errors.New("the previous operation is being executed")
+	// ErrRepeatOperation is returned by functions to specify the operation is executing.
+	ErrRepeatOperation = errors.New("the previous operation is being executed")
 
 	scaleMu sync.Mutex
 
@@ -222,10 +222,10 @@ func (db *Tidb) run() (err error) {
 		db.Update()
 		e.Trace(err, fmt.Sprintf("Start tidb replicationcontrollers with %d replicas on k8s", db.Replicas))
 	}()
-	if err = createService(db.getK8sTemplate(k8sTidbService)); err != nil {
+	if err = createService(db.getK8sTemplate(tidbServiceYaml)); err != nil {
 		return err
 	}
-	if err = createRc(db.getK8sTemplate(k8sTidbRc)); err != nil {
+	if err = createRc(db.getK8sTemplate(tidbRcYaml)); err != nil {
 		return err
 	}
 	// wait tidb启动完成
@@ -458,7 +458,7 @@ func (db *Tidb) initSchema() (err error) {
 // Start tidb server
 func Start(cell string) (err error) {
 	if started(cell) {
-		return ErrRepop
+		return ErrRepeatOperation
 	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
@@ -500,7 +500,6 @@ func Stop(cell string, ch chan int) (err error) {
 	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
-		logs.Error("Get tidb %s err: %v", cell, err)
 		return err
 	}
 	e := NewEvent(cell, "tidb", "stop")
@@ -521,7 +520,7 @@ func Stop(cell string, ch chan int) (err error) {
 	if err = db.Pd.stop(); err != nil {
 		return err
 	}
-	// waiting for all pods deleted
+	// waiting for all pods deleted from k8s
 	go func() {
 		defer func() {
 			stoped := 1
@@ -662,7 +661,7 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
 		"{{sync}}", sync,
 		"{{api}}", my.NotifyAPI)
-	s := r.Replace(k8sMigrate)
+	s := r.Replace(mysqlMigraeYaml)
 	go func() {
 		e := NewEvent(db.Cell, "tidb", "migration")
 		defer func() {

@@ -82,13 +82,13 @@ func (p *Pd) run() (err error) {
 		p.Db.Update()
 		e.Trace(err, fmt.Sprintf("Start pd replicationcontrollers with %d replicas on k8s", p.Replicas))
 	}()
-	if err = createService(p.getK8sTemplate(k8sPdService)); err != nil {
+	if err = createService(p.getK8sTemplate(pdServiceYaml)); err != nil {
 		return err
 	}
-	if err = createService(p.getK8sTemplate(k8sPdHeadlessService)); err != nil {
+	if err = createService(p.getK8sTemplate(pdHeadlessServiceYaml)); err != nil {
 		return err
 	}
-	if err = createRc(p.getK8sTemplate(k8sPdRc)); err != nil {
+	if err = createRc(p.getK8sTemplate(pdRcYaml)); err != nil {
 		return err
 	}
 	// waiting for pds完成leader选举
