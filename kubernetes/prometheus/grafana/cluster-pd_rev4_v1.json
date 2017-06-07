@@ -554,7 +554,7 @@
                 "query": {
                   "datasourceId": 1,
                   "model": {
-                    "expr": "avg(pd_cluster_status{type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
+                    "expr": "avg(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
                     "hide": false,
                     "intervalFactor": 4,
                     "legendFormat": "used ratio",
@@ -630,7 +630,7 @@
               "step": 10
             },
             {
-              "expr": "avg(pd_cluster_status{type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
+              "expr": "avg(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
               "hide": false,
               "intervalFactor": 4,
               "legendFormat": "used ratio",
@@ -1415,7 +1415,7 @@
                 "query": {
                   "datasourceId": 1,
                   "model": {
-                    "expr": "delta(etcd_disk_wal_fsync_duration_seconds_count[1m])",
+                    "expr": "delta(etcd_disk_wal_fsync_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[1m])",
                     "intervalFactor": 2,
                     "legendFormat": "{{instance}} etch disk wal fsync rate",
                     "refId": "A",
@@ -1474,7 +1474,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "delta(etcd_disk_wal_fsync_duration_seconds_count[1m])",
+              "expr": "delta(etcd_disk_wal_fsync_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[1m])",
               "intervalFactor": 2,
               "legendFormat": "{{instance}} etch disk wal fsync rate",
               "refId": "A",
@@ -1575,7 +1575,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(pd_txn_handle_txns_duration_seconds_count[5m])) by (instance, result)",
+              "expr": "sum(rate(pd_txn_handle_txns_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[5m])) by (instance, result)",
               "intervalFactor": 2,
               "legendFormat": "{{instance}} : {{result}}",
               "refId": "A",
@@ -1657,7 +1657,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(pd_txn_handle_txns_duration_seconds_bucket[5m])) by (instance, result, le))",
+              "expr": "histogram_quantile(0.99, sum(rate(pd_txn_handle_txns_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[5m])) by (instance, result, le))",
               "intervalFactor": 2,
               "legendFormat": "{{instance}} {{result}}",
               "refId": "A",
@@ -1741,7 +1741,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.9999, sum(rate(pd_txn_handle_txns_duration_seconds_bucket[1m])) by (instance, result, le))",
+              "expr": "histogram_quantile(0.9999, sum(rate(pd_txn_handle_txns_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[1m])) by (instance, result, le))",
               "hide": true,
               "intervalFactor": 2,
               "legendFormat": "{{instance}} : {{result}}",
@@ -1749,7 +1749,7 @@
               "step": 4
             },
             {
-              "expr": "rate(pd_txn_handle_txns_duration_seconds_sum[30s]) / rate(pd_txn_handle_txns_duration_seconds_count[30s])",
+              "expr": "rate(pd_txn_handle_txns_duration_seconds_sum{instance=~\"pd-$tidb-.*\"}[30s]) / rate(pd_txn_handle_txns_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[30s])",
               "hide": false,
               "interval": "",
               "intervalFactor": 2,
@@ -1835,7 +1835,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[5m])) by (instance, le))",
+              "expr": "histogram_quantile(0.99, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[5m])) by (instance, le))",
               "intervalFactor": 2,
               "legendFormat": "{{instance}}",
               "metric": "",
@@ -1921,7 +1921,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.9999, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket[1m])) by (instance, le))",
+              "expr": "histogram_quantile(0.9999, sum(rate(etcd_disk_wal_fsync_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[1m])) by (instance, le))",
               "hide": true,
               "intervalFactor": 2,
               "legendFormat": "{{instance}}",
@@ -1930,7 +1930,7 @@
               "step": 4
             },
             {
-              "expr": "rate(etcd_disk_wal_fsync_duration_seconds_sum[30s]) / rate(etcd_disk_wal_fsync_duration_seconds_count[30s])",
+              "expr": "rate(etcd_disk_wal_fsync_duration_seconds_sum{instance=~\"pd-$tidb-.*\"}[30s]) / rate(etcd_disk_wal_fsync_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[30s])",
               "intervalFactor": 2,
               "legendFormat": "{{instance}} average",
               "refId": "B",
@@ -2013,7 +2013,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[5m])) by (instance, le))",
+              "expr": "histogram_quantile(0.99, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket{instance=~\"pd-$tidb-.*\"}[5m])) by (instance, le))",
               "intervalFactor": 2,
               "legendFormat": "{{instance}}",
               "metric": "",
@@ -2097,7 +2097,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.9999, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket[5m])) by (instance, le))",
+              "expr": "histogram_quantile(0.9999, sum(rate(etcd_network_peer_round_trip_time_seconds_bucket{instance=~\"pd-$tidb-.*\"}[5m])) by (instance, le))",
               "intervalFactor": 2,
               "legendFormat": "{{instance}}",
               "metric": "",
@@ -2190,7 +2190,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(pd_client_request_handle_requests_duration_seconds_count[1m])) by (type)",
+              "expr": "sum(rate(pd_client_request_handle_requests_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[1m])) by (type)",
               "intervalFactor": 2,
               "legendFormat": "{{type}}",
               "refId": "A",
@@ -2272,7 +2272,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.98, sum(rate(pd_client_request_handle_requests_duration_seconds_bucket[30s])) by (type, le))",
+              "expr": "histogram_quantile(0.98, sum(rate(pd_client_request_handle_requests_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[30s])) by (type, le))",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{type}} 98th percentile",
@@ -2280,7 +2280,7 @@
               "step": 2
             },
             {
-              "expr": "avg(rate(pd_client_request_handle_requests_duration_seconds_sum[30s])) by (type) /  avg(rate(pd_client_request_handle_requests_duration_seconds_count[30s])) by (type)",
+              "expr": "avg(rate(pd_client_request_handle_requests_duration_seconds_sum{instance=~\"pd-$tidb-.*\"}[30s])) by (type) /  avg(rate(pd_client_request_handle_requests_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[30s])) by (type)",
               "intervalFactor": 2,
               "legendFormat": "{{type}} average",
               "refId": "B",
@@ -2369,7 +2369,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(tikv_pd_msg_send_duration_seconds_count[1m]))",
+              "expr": "sum(rate(tikv_pd_msg_send_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[1m]))",
               "intervalFactor": 2,
               "legendFormat": "",
               "refId": "A",
@@ -2446,7 +2446,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(tikv_pd_msg_send_duration_seconds_bucket[30s])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(tikv_pd_msg_send_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[30s])) by (le))",
               "intervalFactor": 2,
               "legendFormat": "",
               "refId": "A",
@@ -2525,7 +2525,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.98, sum(rate(tikv_pd_msg_send_duration_seconds_bucket[60s])) by (type, le))",
+              "expr": "histogram_quantile(0.98, sum(rate(tikv_pd_msg_send_duration_seconds_bucket{instance=~\"pd-$tidb-.*\"}[60s])) by (type, le))",
               "hide": true,
               "intervalFactor": 2,
               "legendFormat": "98th percentile",
@@ -2533,7 +2533,7 @@
               "step": 4
             },
             {
-              "expr": "rate(tikv_pd_msg_send_duration_seconds_sum[30s]) / rate(tikv_pd_msg_send_duration_seconds_count[30s])",
+              "expr": "rate(tikv_pd_msg_send_duration_seconds_sum{instance=~\"pd-$tidb-.*\"}[30s]) / rate(tikv_pd_msg_send_duration_seconds_count{instance=~\"pd-$tidb-.*\"}[30s])",
               "intervalFactor": 2,
               "legendFormat": "{{job}}",
               "refId": "B",
