@@ -58,7 +58,7 @@ spec:
           hostPath: {path: /dev/log}
         - name: zone
           hostPath: {path: /etc/localtime}
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 5
       containers:
         - name: tidb
           image: {{registry}}/tidb:{{version}}

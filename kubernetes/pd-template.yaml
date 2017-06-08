@@ -60,25 +60,17 @@ spec:
                 values:
                 - prometheus
       volumes:
-        - name: datadir
-          emptyDir: {}
-        - name: syslog
-          hostPath: {path: /dev/log}
-        - name: zone
-          hostPath: {path: /etc/localtime}
-      # 默认是30s
-      terminationGracePeriodSeconds: 30
+      - name: datadir
+        {{tidbdata_volume}}
+      # default is 30s
+      terminationGracePeriodSeconds: 5
       containers:
         - name: pd
-          image: {{registry}}/pd:{{version}}
+          image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
           # imagePullPolicy: IfNotPresent
           volumeMounts:
-            - name: datadir
-              mountPath: /data
-            - name: syslog
-              mountPath: /dev/log
-            - name: zone
-              mountPath: /etc/localtime
+          - name: datadir
+            mountPath: {{tidbdata_volume}}
           resources:
             limits:
               memory: "{{mem}}Mi"
@@ -97,7 +89,7 @@ spec:
               export ADVERTISE_CLIENT_URLS=$advertise_client_urls
               export PEER_URLS=$peer_urls
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
-              export PD_DATA_DIR=/var/pd/data
+              export PD_DATA_DIR=/var/pd/$HOSTNAME
 
               # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
