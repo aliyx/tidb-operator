@@ -7,7 +7,10 @@ UTC=false
 ARC=false
 EOF
 
-clock -w
+# sync system time
+sudo ntpdate -u  10.209.100.2
+# write system time to CMOS
+sudo clock -w
 
 # openstack init... 
 echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables

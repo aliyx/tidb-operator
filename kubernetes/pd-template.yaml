@@ -93,6 +93,10 @@ spec:
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
               export PD_DATA_DIR=/var/pd/data
 
+              # set prometheus
+              sed -i -e 's/{m-jon}/$HOSTNAME/g' /etc/pd/config.toml
+              sed -i -e 's/{m-interval}/15/g' /etc/pd/config.toml
+
               # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
               until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do

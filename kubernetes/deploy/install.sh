@@ -65,7 +65,7 @@ echo "Update centos...ok"
 setenforce 0
 
 # Docker v1.12 is recommended
-yum install -y ebtables docker-engine-1.12.6
+yum install -y ebtables docker-engine-1.12.6 ntpdate
 echo "Inatall docker v1.12.6...ok"
 
 yum install -y socat
@@ -109,5 +109,11 @@ echo $(sestatus)
 tee > /etc/profile.d/k8s.sh <<- EOF
 alias kubectl='kubectl --server=127.0.0.1:10218'
 EOF
+
+echo "Sync os time"
+# sync system time: ntp.api.bz is china
+ntpdate -u  10.209.100.2
+# write system time to CMOS
+clock -w
 
 echo "Install kubernets...finished"

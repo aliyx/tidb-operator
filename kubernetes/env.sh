@@ -28,6 +28,7 @@ DATA_VOLUME=${DATA_VOLUME:-'/tmp/tidb'}
 # image version
 VERSION=${VERSION:-'latest'}
 
+#---------------------------------------------------------------------
 
 MAX_TASK_WAIT_RETRIES=${MAX_TASK_WAIT_RETRIES:-300}
 
@@ -45,6 +46,38 @@ function wait_for_complete () {
     response=$(curl --write-out %{http_code} --silent --output /dev/null $url)
     echo -en "\r$url: waiting for return http_code:200..."
     if [ $response -eq 200 ]
+    then
+      echo Complete
+      return 0
+    fi
+    update_spinner_value $counter
+    echo -n $cur_spinner
+    let counter=counter+1
+    sleep 1
+  done
+  echo Timed out
+  return -1
+}
+
+function wait_for_running_tasks () {
+  # This function waits for pods to be in the "Running" state
+  # 1. task_name: Name that the desired task begins with
+  # 2. num_tasks: Number of tasks to wait for
+  # Returns:
+  #   0 if successful, -1 if timed out
+  task_name=$1
+  num_tasks=$2
+  counter=0
+
+  echo "Waiting for ${num_tasks}x $task_name to enter state Running"
+
+  while [ $counter -lt $MAX_TASK_WAIT_RETRIES ]; do
+    # Get status column of pods with name starting with $task_name,
+    # count how many are in state Running
+    num_running=`$KUBECTL $KUBECTL_OPTIONS get pods | grep ^$task_name | grep Running | wc -l`
+
+    echo -en "\r$task_name: $num_running out of $num_tasks in state Running..."
+    if [ $num_running -eq $num_tasks ]
     then
       echo Complete
       return 0
