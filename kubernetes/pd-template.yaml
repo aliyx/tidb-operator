@@ -79,7 +79,7 @@ spec:
               cpu: "{{cpu}}m"
           env: 
           - name: M_INTERVAL
-            value: 15
+            value: "15"
           command:
             - bash
             - "-c"

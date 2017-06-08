@@ -37,9 +37,9 @@ disable-timestamp = false
 #max-backups = 7
 
 [metric]
-job = "{m-job}"
+#job = "{m-job}"
 # prometheus client push interval, set "0s" to disable prometheus.
-interval = "{m-interval}s"
+interval = "15s"
 # prometheus pushgateway address, leaves it empty will disable prometheus.
 address = "prom-gateway:9091"
 
