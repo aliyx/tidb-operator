@@ -29,21 +29,21 @@ spec:
       nodeSelector:
         node-role: prometheus
       volumes:
-        - name: datadir
+        - name: prom-data
           hostPath: {path: /var/lib/prometheus}
       containers:
       - name: prom-server
         image: 10.209.224.13:10500/rds/prom-server:latest
         livenessProbe:
           httpGet:
-            path: /api/v1/label/null/values
+            path: /status
             port: 9090
           initialDelaySeconds: 30
           timeoutSeconds: 5
         ports:
           - containerPort: 9090
         volumeMounts:
-          - name: datadir
+          - name: prom-data
             mountPath: /var/lib/prometheus
       # tolerations:
       # - key: node-role.prometheus

@@ -8,12 +8,16 @@ if [ "$1" == "d" ]; then
 	c=delete
 fi
 
-$KUBECTL $KUBECTL_OPTIONS $c -f server.yaml
+$KUBECTL $KUBECTL_OPTIONS $c -f gateway.yaml
 
+$KUBECTL $KUBECTL_OPTIONS $c -f server.yaml
 if [ "$c" == "create" ]; then
 	cIp=$($KUBECTL $KUBECTL_OPTIONS get -o template --template '{{.spec.clusterIP}}'  service prom-server)
-	wait_for_complete $(echo "http://$cIp:9090/api/v1/label/null/values")
+	wait_for_complete $(echo "http://$cIp:9090/status")
 fi
 
-$KUBECTL $KUBECTL_OPTIONS $c -f gateway.yaml
 $KUBECTL $KUBECTL_OPTIONS $c -f grafana-service.yaml
+if [ "$c" == "create" ]; then
+	cIp=$($KUBECTL $KUBECTL_OPTIONS get -o template --template '{{.spec.clusterIP}}'  service grafana)
+	wait_for_complete $(echo "http://$cIp:3000/datasources")
+fi

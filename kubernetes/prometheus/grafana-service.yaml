@@ -30,9 +30,18 @@ spec:
     spec:
       nodeSelector:
         node-role: prometheus
+      volumes:
+      - name: grafana-data
+        hostPath: {path: /var/lib/grafana}
       containers:
       - name: grafana
         image:  10.209.224.13:10500/rds/grafana:latest
+        livenessProbe:
+          httpGet:
+            path: /datasources
+            port: 3000
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
         env:
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
@@ -41,9 +50,6 @@ spec:
         volumeMounts:
           - name: grafana-data
             mountPath: /var/lib/grafana
-      volumes:
-        - name: grafana-data
-          hostPath: {path: /var/lib/grafana}
       # tolerations:
       # - key: node-role.prometheus
       #   effect: NoSchedule

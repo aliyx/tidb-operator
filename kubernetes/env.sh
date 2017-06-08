@@ -28,6 +28,7 @@ DATA_VOLUME=${DATA_VOLUME:-'/tmp/tidb'}
 # image version
 VERSION=${VERSION:-'latest'}
 
+
 MAX_TASK_WAIT_RETRIES=${MAX_TASK_WAIT_RETRIES:-300}
 
 function update_spinner_value () {

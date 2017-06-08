@@ -23,11 +23,6 @@ export NS=$NS
 
 cell=`echo $CELL`
 
-function update_spinner_value () {
-  spinner='-\|/'
-  cur_spinner=${spinner:$(($1%${#spinner})):1}
-}
-
 function wait_for_running_tasks () {
   # This function waits for pods to be in the "Running" state
   # 1. task_name: Name that the desired task begins with
@@ -47,28 +42,6 @@ function wait_for_running_tasks () {
 
     echo -en "\r$task_name: $num_running out of $num_tasks in state Running..."
     if [ $num_running -eq $num_tasks ]
-    then
-      echo Complete
-      return 0
-    fi
-    update_spinner_value $counter
-    echo -n $cur_spinner
-    let counter=counter+1
-    sleep 1
-  done
-  echo Timed out
-  return -1
-}
-
-function wait_for_complete () {
-  url=$1
-  response=0
-  counter=0
-
-  while [ $counter -lt $MAX_TASK_WAIT_RETRIES ]; do
-    response=$(curl --write-out %{http_code} --silent --output /dev/null $url)
-    echo -en "\r$url: waiting for return http_code:200..."
-    if [ $response -eq 200 ]
     then
       echo Complete
       return 0
