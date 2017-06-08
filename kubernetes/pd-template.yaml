@@ -70,7 +70,7 @@ spec:
           # imagePullPolicy: IfNotPresent
           volumeMounts:
           - name: datadir
-            mountPath: {{tidbdata_volume}}
+            mountPath: /var/tidb
           resources:
             limits:
               memory: "{{mem}}Mi"
@@ -89,7 +89,7 @@ spec:
               export ADVERTISE_CLIENT_URLS=$advertise_client_urls
               export PEER_URLS=$peer_urls
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
-              export PD_DATA_DIR=/var/pd/$HOSTNAME
+              export PD_DATA_DIR=/var/tidb/pd/$HOSTNAME
 
               # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
