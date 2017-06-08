@@ -34,11 +34,17 @@ spec:
       containers:
       - name: prom-server
         image: 10.209.224.13:10500/rds/prom-server:latest
+        livenessProbe:
+          httpGet:
+            path: /api/v1/label/null/values
+            port: 9090
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
         ports:
           - containerPort: 9090
         volumeMounts:
           - name: datadir
-            mountPath: /prometheus
+            mountPath: /var/lib/prometheus
       # tolerations:
       # - key: node-role.prometheus
       #   effect: NoSchedule

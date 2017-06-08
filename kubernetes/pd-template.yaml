@@ -65,6 +65,7 @@ spec:
       # default is 30s
       terminationGracePeriodSeconds: 5
       subdomain: {{cell}}
+      restartPolicy: Always
       containers:
         - name: pd
           image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
@@ -76,7 +77,6 @@ spec:
             limits:
               memory: "{{mem}}Mi"
               cpu: "{{cpu}}m"
-          restartPolicy: Never
           command:
             - bash
             - "-c"
