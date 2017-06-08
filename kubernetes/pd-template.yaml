@@ -77,6 +77,9 @@ spec:
             limits:
               memory: "{{mem}}Mi"
               cpu: "{{cpu}}m"
+          env: 
+          - name: M_INTERVAL
+            value: 15
           command:
             - bash
             - "-c"
@@ -93,10 +96,6 @@ spec:
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
               export PD_DATA_DIR=/var/pd/data
 
-              # set prometheus
-              sed -i -e 's/{m-jon}/$HOSTNAME/g' /etc/pd/config.toml
-              sed -i -e 's/{m-interval}/15/g' /etc/pd/config.toml
-
               # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
               until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do
@@ -108,6 +107,10 @@ spec:
               # Save PD_NAME to the local file, prestop hook will be used to delete member
               echo $PD_NAME > pod
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
+
+              # set prometheus
+              sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
+              sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
 
               if [ -d $PD_DATA_DIR ]; then
                 echo "Resuming with existing data dir:$PD_DATA_DIR"

@@ -2833,7 +2833,7 @@
         "query": "label_values(pd_cluster_status, instance)",
         "refresh": 1,
         "regex": "/pd-(.*)-.*/",
-        "sort": 0,
+        "sort": 1,
         "tagValuesQuery": "",
         "tags": [],
         "tagsQuery": "",
