@@ -31,6 +31,9 @@ spec:
       containers:
       - name: prom-gateway
         image: 10.209.224.13:10500/rds/pushgateway:latest
+        env: 
+        - name: TZ
+          value: "Asia/Shanghai"
         ports:
           - containerPort: 9091
       # tolerations:

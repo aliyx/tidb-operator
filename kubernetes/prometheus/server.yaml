@@ -34,6 +34,9 @@ spec:
       containers:
       - name: prom-server
         image: 10.209.224.13:10500/rds/prom-server:latest
+        env: 
+        - name: TZ
+          value: "Asia/Shanghai"
         livenessProbe:
           httpGet:
             path: /status
