@@ -33,6 +33,7 @@ spec:
       volumes:
       - name: grafana-data
         hostPath: {path: /var/lib/grafana}
+      terminationGracePeriodSeconds: 5
       containers:
       - name: grafana
         image:  10.209.224.13:10500/rds/grafana:latest

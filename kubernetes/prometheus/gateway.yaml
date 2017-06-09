@@ -28,9 +28,16 @@ spec:
     spec:
       nodeSelector:
         node-role: prometheus
+      terminationGracePeriodSeconds: 5
+      volumes:
+      - name: tz-config
+        hostPath: {path: /etc/localtime}
       containers:
       - name: prom-gateway
         image: 10.209.224.13:10500/rds/pushgateway:latest
+        volumeMounts:
+        - name: tz-config
+          mountPath: /etc/localtime
         env: 
         - name: TZ
           value: "Asia/Shanghai"
