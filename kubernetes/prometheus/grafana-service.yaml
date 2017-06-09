@@ -46,8 +46,8 @@ spec:
         env:
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
-        - name: TZ
-          value: "Asia/Shanghai"
+        # - name: TZ
+        #   value: "Asia/Shanghai"
         ports:
           - containerPort: 3000
         volumeMounts:
