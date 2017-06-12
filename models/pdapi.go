@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models/utils"
+	"github.com/ffan/tidb-k8s/pkg/httputil"
 	"github.com/tidwall/gjson"
 )
 
@@ -16,7 +16,7 @@ var (
 )
 
 func pdStoresGet(host string) (string, error) {
-	bs, err := utils.Get(fmt.Sprintf(pdAPIV1StoresGet, host), pdReqTimeout)
+	bs, err := httputil.Get(fmt.Sprintf(pdAPIV1StoresGet, host), pdReqTimeout)
 	if err != nil {
 		return "", err
 	}
@@ -24,7 +24,7 @@ func pdStoresGet(host string) (string, error) {
 }
 
 func pdStoreDelete(host string, id int) error {
-	if err := utils.Delete(fmt.Sprintf(pdAPIV1StoreIDDelete, host, id), pdReqTimeout); err != nil {
+	if err := httputil.Delete(fmt.Sprintf(pdAPIV1StoreIDDelete, host, id), pdReqTimeout); err != nil {
 		return err
 	}
 	logs.Warn(`store:%d deleted`, id)
@@ -32,7 +32,7 @@ func pdStoreDelete(host string, id int) error {
 }
 
 func pdLeaderGet(host string) (string, error) {
-	bs, err := utils.Get(fmt.Sprintf(pdAPIV1LeaderGet, host), pdReqTimeout)
+	bs, err := httputil.Get(fmt.Sprintf(pdAPIV1LeaderGet, host), pdReqTimeout)
 	if err != nil {
 		return "", err
 	}
@@ -40,7 +40,7 @@ func pdLeaderGet(host string) (string, error) {
 }
 
 func pdMembersGet(host string) (string, error) {
-	bs, err := utils.Get(fmt.Sprintf(pdAPIV1MembersGet, host), pdReqTimeout)
+	bs, err := httputil.Get(fmt.Sprintf(pdAPIV1MembersGet, host), pdReqTimeout)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func pdMembersGetName(host string) ([]string, error) {
 }
 
 func pdMemberDelete(host string, name string) error {
-	if err := utils.Delete(fmt.Sprintf(pdAPIV1MembersGet+"/%s", host, name), pdReqTimeout); err != nil {
+	if err := httputil.Delete(fmt.Sprintf(pdAPIV1MembersGet+"/%s", host, name), pdReqTimeout); err != nil {
 		return err
 	}
 	logs.Warn(`pd:%d deleted`, name)

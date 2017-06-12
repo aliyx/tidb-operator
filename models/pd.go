@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models/utils"
+	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	"github.com/ffan/tidb-k8s/pkg/retryutil"
 )
 
 // Pd 元数据
 type Pd struct {
-	K8sInfo
+	k8sutil.K8sInfo
 
 	Db *Tidb `json:"-"`
 }
@@ -25,7 +26,7 @@ func NewPd() *Pd {
 }
 
 func (p *Pd) beforeSave() error {
-	if err := p.K8sInfo.validate(); err != nil {
+	if err := p.K8sInfo.Validate(); err != nil {
 		return err
 	}
 	md, _ := GetMetadata()
@@ -60,10 +61,10 @@ func (p *Pd) stop() (err error) {
 		p.Db.Update()
 		e.Trace(err, "Stop pd replicationcontrollers")
 	}()
-	if err = delRc(fmt.Sprintf("pd-%s", p.Db.Cell)); err != nil {
+	if err = k8sutil.DelRc(fmt.Sprintf("pd-%s", p.Db.Cell)); err != nil {
 		return err
 	}
-	if err = delSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), fmt.Sprintf("pd-%s-srv", p.Db.Cell)); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), fmt.Sprintf("pd-%s-srv", p.Db.Cell)); err != nil {
 		return err
 	}
 	return err
@@ -82,13 +83,13 @@ func (p *Pd) run() (err error) {
 		p.Db.Update()
 		e.Trace(err, fmt.Sprintf("Start pd replicationcontrollers with %d replicas on k8s", p.Replicas))
 	}()
-	if err = createService(p.getK8sTemplate(pdServiceYaml)); err != nil {
+	if err = k8sutil.CreateService(p.getK8sTemplate(pdServiceYaml)); err != nil {
 		return err
 	}
-	if err = createService(p.getK8sTemplate(pdHeadlessServiceYaml)); err != nil {
+	if err = k8sutil.CreateService(p.getK8sTemplate(pdHeadlessServiceYaml)); err != nil {
 		return err
 	}
-	if err = createRc(p.getK8sTemplate(pdRcYaml)); err != nil {
+	if err = k8sutil.CreateRc(p.getK8sTemplate(pdRcYaml)); err != nil {
 		return err
 	}
 	// waiting for pds完成leader选举
@@ -99,11 +100,11 @@ func (p *Pd) run() (err error) {
 }
 
 func (p *Pd) waitForComplete(wait time.Duration) error {
-	if err := waitComponentRuning(wait, p.Db.Cell, "pd"); err != nil {
+	if err := k8sutil.WaitComponentRuning(wait, p.Db.Cell, "pd"); err != nil {
 		return err
 	}
 	name := fmt.Sprintf("pd-%s", p.Db.Cell)
-	cip, err := getServiceProperties(name, `{{.spec.clusterIP}}:{{index (index .spec.ports 0) "nodePort"}}`)
+	cip, err := k8sutil.GetServiceProperties(name, `{{.spec.clusterIP}}:{{index (index .spec.ports 0) "nodePort"}}`)
 	if err != nil || len(cip) == 0 {
 		return fmt.Errorf("cannt get %s cluster ip, error: %v", name, err)
 	}
@@ -114,12 +115,12 @@ func (p *Pd) waitForComplete(wait time.Duration) error {
 	cip = h[0]
 	nodePort, _ := strconv.Atoi(h[1])
 	ps := getProxys()
-	p.Nets = append(p.Nets, Net{portEtcd, cip, 2379})
-	p.Nets = append(p.Nets, Net{portEtcdStatus, ps[0], nodePort})
+	p.Nets = append(p.Nets, k8sutil.Net{portEtcd, cip, 2379})
+	p.Nets = append(p.Nets, k8sutil.Net{portEtcdStatus, ps[0], nodePort})
 	logs.Debug("Pd cluster host: %s external host: %s", p.Nets[0].String(), p.Nets[1].String())
 	// must run on docker or k8s master node
 	// 本地测试时注释掉
-	if err := utils.RetryIfErr(wait, func() error {
+	if err := retryutil.RetryIfErr(wait, func() error {
 		_, err = pdLeaderGet(p.Nets[0].String())
 		return err
 	}); err != nil {
@@ -134,7 +135,7 @@ func (p *Pd) getK8sTemplate(t string) string {
 		"{{cpu}}", fmt.Sprintf("%v", p.CPU),
 		"{{mem}}", fmt.Sprintf("%v", p.Mem),
 		"{{replicas}}", fmt.Sprintf("%v", p.Replicas),
-		"{{registry}}", dockerRegistry,
+		"{{registry}}", imageRegistry,
 		"{{cell}}", p.Db.Cell)
 	s := r.Replace(t)
 	return s

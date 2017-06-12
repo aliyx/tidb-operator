@@ -2,16 +2,13 @@ package models
 
 import (
 	"os"
-	"strings"
-
-	"fmt"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models/utils"
+	"github.com/ffan/tidb-k8s/pkg/servenv"
 )
 
 var (
-	onInitHooks utils.Hooks
+	onInitHooks servenv.Hooks
 )
 
 // Init model初始化
@@ -22,30 +19,10 @@ func Init() {
 			os.Exit(1)
 		}
 	}()
-	onInitHooks.Add(configInit)
 	onInitHooks.Add(metaInit)
 	onInitHooks.Add(specInit)
 	onInitHooks.Add(tidbInit)
 	onInitHooks.Add(userInit)
 	onInitHooks.Add(eventInit)
 	onInitHooks.Fire()
-
-	initK8sNamespace()
-}
-
-func initK8sNamespace() {
-	md, err := GetMetadata()
-	if err != nil {
-		panic(fmt.Errorf("get metadata error: %v", err))
-	}
-	r := strings.NewReplacer("{{namespace}}", md.K8s.Namespace)
-	s := r.Replace(tidbNamespaceYaml)
-	if err := createNamespace(s); err != nil {
-		if err == utils.ErrAlreadyExists {
-			logs.Warn(`Namespace "%s" already exists`, md.K8s.Namespace)
-		} else {
-			logs.Critical("Init k8s namespace error: %v", err)
-			panic(err)
-		}
-	}
 }

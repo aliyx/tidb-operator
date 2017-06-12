@@ -8,7 +8,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/models/mysql"
+	"github.com/ffan/tidb-k8s/pkg/mysqlutil"
 )
 
 var (
@@ -91,7 +91,7 @@ func (dc *TidbController) Patch() {
 // @Description migrate mysql data to tidb
 // @Param   sync	query	string	false       "increment sync"
 // @Param 	cell 	path	string	true	"The database name for tidb"
-// @Param	body	body	mysql.Mysql	true	"Body for src mysql"
+// @Param	body	body	mysqlutil.Mysql	true	"Body for src mysql"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/migrate [post]
@@ -101,7 +101,7 @@ func (dc *TidbController) Migrate() {
 		dc.CustomAbort(403, "cell is nil")
 	}
 	sync := dc.GetString("sync")
-	src := &mysql.Mysql{}
+	src := &mysqlutil.Mysql{}
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
 		dc.CustomAbort(403, "Body is empty")

@@ -2,8 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"math/rand"
-	"time"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -15,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 )
 
 var initData = `
@@ -36,8 +35,6 @@ basic:
     memory: 1024
     max: 10
 k8s:
-  namespace: default
-  registry: "10.209.224.13:10500/ffan/rds"
   volume: ""
   proxys: "10.213.44.128,10.213.129.73,10.213.129.74"
 approvalConditions:
@@ -69,10 +66,8 @@ type Units struct {
 
 // K8s kubernetes服务配置
 type K8s struct {
-	Namespace string `json:"namespace"`
-	Registry  string `json:"registry"`
-	Volume    string `json:"volume"`
-	Proxys    string `json:"proxys"`
+	Volume string `json:"volume"`
+	Proxys string `json:"proxys"`
 }
 
 // ApprovalConditions Tikv and tidb more than the number of replicas of the conditions,
@@ -91,9 +86,8 @@ type Metadata struct {
 	AC             ApprovalConditions `json:"ac" yaml:"approvalConditions"`
 }
 
-// Init Metadata model初始化
+// Init Metadata
 func metaInit() {
-	rand.Seed(time.Now().Unix())
 	s, err := newStorage(metaNamespace)
 	if err != nil {
 		panic(fmt.Errorf("Create storage metadata error: %v", err))
@@ -172,11 +166,7 @@ func GetMetadata() (*Metadata, error) {
 }
 
 func getNamespace() string {
-	m, err := GetMetadata()
-	if err != nil {
-		return "default"
-	}
-	return m.K8s.Namespace
+	return k8sutil.Namespace
 }
 
 func getProxys() []string {

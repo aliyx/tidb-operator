@@ -171,6 +171,10 @@ spec:
                   - bash
                   - "-c"
                   - |
+                    # delete prometheus metrics
+                    curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
+
+                    # remove member from pd
                     PD_NAME=$(cat pod)
                     # clear
                     resp=''

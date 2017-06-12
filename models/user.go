@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 )
 
 const (
@@ -93,7 +94,7 @@ func (d *Db) beforeSave() (err error) {
 	if len(d.Password) < 1 || len(d.Password) > 32 {
 		return fmt.Errorf("no set password")
 	}
-	if pods, err := listPodNames(d.Cell, ""); err != nil || len(pods) > 1 {
+	if pods, err := k8sutil.ListPodNames(d.Cell, ""); err != nil || len(pods) > 1 {
 		return fmt.Errorf(`tidb "%s" has not been cleared yet: %v`, d.Cell, err)
 	}
 	d.TimeCreate = time.Now()

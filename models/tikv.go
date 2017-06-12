@@ -10,13 +10,14 @@ import (
 	"strconv"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models/utils"
+	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	"github.com/ffan/tidb-k8s/pkg/retryutil"
 	"github.com/tidwall/gjson"
 )
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	K8sInfo
+	k8sutil.K8sInfo
 	Volume   string `json:"tidbdata_volume"`
 	Capatity int    `json:"capatity,omitempty"`
 
@@ -61,7 +62,7 @@ func (kv *Tikv) beforeSave() error {
 }
 
 func (kv *Tikv) validate() error {
-	if err := kv.K8sInfo.validate(); err != nil {
+	if err := kv.K8sInfo.Validate(); err != nil {
 		return err
 	}
 	md, _ := GetMetadata()
@@ -114,7 +115,7 @@ func (kv *Tikv) _run(r int) (err error) {
 	// 先设置，防止tikv启动失败的情况下，没有保存tikv信息，导致delete时失败
 	kv.cur = fmt.Sprintf("tikv-%s-%d", kv.Db.Cell, r)
 	kv.Stores[kv.cur] = Store{}
-	if err = createPod(kv.getK8sTemplate(tikvPodYaml, r)); err != nil {
+	if err = k8sutil.CreatePod(kv.getK8sTemplate(tikvPodYaml, r)); err != nil {
 		return err
 	}
 	if err = kv.waitForComplete(startTidbTimeout); err != nil {
@@ -132,7 +133,7 @@ func (kv *Tikv) getK8sTemplate(t string, id int) string {
 		"{{capacity}}", fmt.Sprintf("%v", kv.Capatity),
 		"{{tidbdata_volume}}", fmt.Sprintf("%v", kv.Volume),
 		"{{id}}", fmt.Sprintf("%v", id),
-		"{{registry}}", dockerRegistry,
+		"{{registry}}", imageRegistry,
 		"{{cell}}", kv.Db.Cell,
 		"{{namespace}}", getNamespace())
 	s := r.Replace(t)
@@ -140,10 +141,10 @@ func (kv *Tikv) getK8sTemplate(t string, id int) string {
 }
 
 func (kv *Tikv) waitForComplete(wait time.Duration) error {
-	if err := waitPodsRuning(wait, kv.cur); err != nil {
+	if err := k8sutil.WaitPodsRuning(wait, kv.cur); err != nil {
 		return err
 	}
-	if err := utils.RetryIfErr(wait, func() error {
+	if err := retryutil.RetryIfErr(wait, func() error {
 		j, err := pdStoresGet(kv.Db.Pd.Nets[0].String())
 		if err != nil {
 			return err
@@ -204,7 +205,7 @@ func (kv *Tikv) stop() (err error) {
 		rollout(cell, st)
 	}()
 	if len(kv.Stores) > 0 {
-		if err := delPodsBy(cell, "tikv"); err != nil {
+		if err := k8sutil.DelPodsBy(cell, "tikv"); err != nil {
 			return err
 		}
 	} else {

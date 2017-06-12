@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models/utils"
 
-	tsql "github.com/ffan/tidb-k8s/models/mysql"
+	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	tsql "github.com/ffan/tidb-k8s/pkg/mysqlutil"
+	"github.com/ffan/tidb-k8s/pkg/retryutil"
 
 	"errors"
 	"strconv"
 	"sync"
+
+	"github.com/ffan/tidb-k8s/pkg/httputil"
 )
 
 // TidbStatus 描述tidb的创建/扩容/删除过程中每个节点的状态
@@ -98,7 +101,7 @@ func tidbInit() {
 
 // Tidb tidb数据库管理model
 type Tidb struct {
-	K8sInfo
+	k8sutil.K8sInfo
 
 	Cell     string `json:"cell"`
 	Schema   string `json:"schema"`
@@ -150,7 +153,7 @@ func (db *Tidb) Save() error {
 
 // beforeSave 创建之前的检查工作
 func (db *Tidb) beforeSave() error {
-	if err := db.K8sInfo.validate(); err != nil {
+	if err := db.K8sInfo.Validate(); err != nil {
 		return err
 	}
 	if old, _ := GetTidb(db.Cell); old != nil {
@@ -222,10 +225,10 @@ func (db *Tidb) run() (err error) {
 		db.Update()
 		e.Trace(err, fmt.Sprintf("Start tidb replicationcontrollers with %d replicas on k8s", db.Replicas))
 	}()
-	if err = createService(db.getK8sTemplate(tidbServiceYaml)); err != nil {
+	if err = k8sutil.CreateService(db.getK8sTemplate(tidbServiceYaml)); err != nil {
 		return err
 	}
-	if err = createRc(db.getK8sTemplate(tidbRcYaml)); err != nil {
+	if err = k8sutil.CreateRc(db.getK8sTemplate(tidbRcYaml)); err != nil {
 		return err
 	}
 	// wait tidb启动完成
@@ -241,16 +244,16 @@ func (db *Tidb) getK8sTemplate(t string) string {
 		"{{cpu}}", fmt.Sprintf("%v", db.CPU), "{{mem}}", fmt.Sprintf("%v", db.Mem),
 		"{{namespace}}", getNamespace(),
 		"{{replicas}}", fmt.Sprintf("%v", db.Replicas),
-		"{{registry}}", dockerRegistry, "{{cell}}", db.Cell)
+		"{{registry}}", imageRegistry, "{{cell}}", db.Cell)
 	s := r.Replace(t)
 	return s
 }
 
 func (db *Tidb) waitForComplete(wait time.Duration) error {
-	if err := waitComponentRuning(wait, db.Cell, "tidb"); err != nil {
+	if err := k8sutil.WaitComponentRuning(wait, db.Cell, "tidb"); err != nil {
 		return err
 	}
-	pts, err := getServiceProperties(
+	pts, err := k8sutil.GetServiceProperties(
 		fmt.Sprintf("tidb-%s", db.Cell),
 		`{{index (index .spec.ports 0) "nodePort"}}:{{index (index .spec.ports 1) "nodePort"}}`)
 	if err != nil || len(pts) == 0 {
@@ -264,11 +267,11 @@ func (db *Tidb) waitForComplete(wait time.Duration) error {
 	os, _ := strconv.Atoi(pp[1])
 	ps := getProxys()
 	for _, p := range ps {
-		db.Nets = append(db.Nets, Net{portMysql, p, om}, Net{portMysqlStatus, p, os})
+		db.Nets = append(db.Nets, k8sutil.Net{portMysql, p, om}, k8sutil.Net{portMysqlStatus, p, os})
 	}
 	// wait tidb status端口可访问
-	if err := utils.RetryIfErr(wait, func() error {
-		if _, err := utils.Get("http://"+db.Nets[1].String(), pdReqTimeout); err != utils.ErrNotFound {
+	if err := retryutil.RetryIfErr(wait, func() error {
+		if _, err := httputil.Get("http://"+db.Nets[1].String(), pdReqTimeout); err != httputil.ErrNotFound {
 			return err
 		}
 		return nil
@@ -295,10 +298,10 @@ func (db *Tidb) stop() (err error) {
 		db.Update()
 		e.Trace(err, "Stop tidb replicationcontrollers")
 	}()
-	if err = delRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
+	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
 		return err
 	}
-	if err = delSrvs(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
 		return err
 	}
 	return err
@@ -340,7 +343,7 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 }
 
 func started(cell string) bool {
-	pods, err := listPodNames(cell, "")
+	pods, err := k8sutil.ListPodNames(cell, "")
 	if err != nil {
 		logs.Warn("Get %s pods error: %v", cell, err)
 	}
@@ -416,15 +419,15 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 		}
 		old := db.Replicas
 		db.Replicas = replica
-		if err = db.validate(); err != nil {
+		if err = db.Validate(); err != nil {
 			db.Replicas = old
 			return
 		}
 		logs.Info(`Scale "tidb-%s" from %d to %d`, db.Cell, db.Replicas, replica)
-		if err = scaleReplicationcontroller(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
+		if err = k8sutil.ScaleReplicationcontroller(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
 			return
 		}
-		if err = waitComponentRuning(startTidbTimeout, db.Cell, "tidb"); err != nil {
+		if err = k8sutil.WaitComponentRuning(startTidbTimeout, db.Cell, "tidb"); err != nil {
 			return
 		}
 	}()
@@ -589,19 +592,19 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if db.Schema != src.Database {
 		return fmt.Errorf("both schemas must be the same")
 	}
-	var net Net
+	var net k8sutil.Net
 	for _, n := range db.Nets {
 		if n.Name == portMysql {
 			net = n
 			break
 		}
 	}
-	my := &tsql.Mydumper{
+	my := &tsql.Migration{
 		Src:  src,
 		Dest: *tsql.NewMysql(db.Schema, net.IP, net.Port, db.User, db.Password),
 
-		IncrementalSync: sync,
-		NotifyAPI:       notify,
+		ToggleSync: sync,
+		NotifyAPI:  notify,
 	}
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
@@ -645,15 +648,15 @@ func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
 	return nil
 }
 
-func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
+func (db *Tidb) startMigrateTask(my *tsql.Migration) (err error) {
 	sync := ""
-	if my.IncrementalSync {
+	if my.ToggleSync {
 		sync = "sync"
 	}
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
 		"{{cell}}", db.Cell,
-		"{{image}}", fmt.Sprintf("%s/migration:latest", dockerRegistry),
+		"{{image}}", fmt.Sprintf("%s/migration:latest", imageRegistry),
 		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
 		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
 		"{{db}}", my.Src.Database,
@@ -667,10 +670,10 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 		defer func() {
 			e.Trace(err, "Startup migration docker on k8s")
 		}()
-		if err = createPod(s); err != nil {
+		if err = k8sutil.CreatePod(s); err != nil {
 			return
 		}
-		if err = waitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
+		if err = k8sutil.WaitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
 			db.MigrateState = migStartMigrateErr
 			err = db.Update()
 		}
@@ -679,5 +682,5 @@ func (db *Tidb) startMigrateTask(my *tsql.Mydumper) (err error) {
 }
 
 func stopMigrateTask(cell string) error {
-	return delPodsBy(cell, "migration")
+	return k8sutil.DelPodsBy(cell, "migration")
 }

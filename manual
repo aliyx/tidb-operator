@@ -25,7 +25,7 @@ https://cdn.rawgit.com/pingcap/docs/master/op-guide/pd-api-v1.html#api-Default-p
   "pd": {
     "cpu": 200,
     "mem": 256,
-    "replicas": 4,
+    "replicas": 3,
     "version": "latest"
   },
   "tikv": {

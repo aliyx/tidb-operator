@@ -144,7 +144,7 @@ paths:
         description: Body for src mysql
         required: true
         schema:
-          $ref: '#/definitions/mysql.Mysql'
+          $ref: '#/definitions/mysqlutil.Mysql'
       responses:
         "200": {}
         "403":
@@ -334,6 +334,38 @@ definitions:
       total:
         type: integer
         format: int64
+  k8sutil.K8sInfo:
+    title: K8sInfo
+    type: object
+    properties:
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      nets:
+        type: array
+        items:
+          $ref: '#/definitions/k8sutil.Net'
+      ok:
+        type: boolean
+      replicas:
+        type: integer
+        format: int64
+      version:
+        type: string
+  k8sutil.Net:
+    title: Net
+    type: object
+    properties:
+      ip:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+        format: int64
   models.ApprovalConditions:
     title: ApprovalConditions
     type: object
@@ -361,33 +393,19 @@ definitions:
       username:
         type: string
   models.Db:
-    title: K8sInfo
+    title: Tidb
     type: object
     properties:
       cell:
         type: string
-      cpu:
-        type: integer
-        format: int64
       hosts: {}
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/models.Net'
-      ok:
-        type: boolean
       password:
         type: string
       pd:
         $ref: '#/definitions/models.Pd'
-      replicas:
+      scale:
         type: integer
         format: int64
-      scale:
-        type: string
       schema:
         type: string
       status:
@@ -400,8 +418,6 @@ definitions:
       transfer:
         type: string
       user:
-        type: string
-      version:
         type: string
   models.Event:
     title: Event
@@ -427,34 +443,9 @@ definitions:
     title: K8s
     type: object
     properties:
-      namespace:
-        type: string
       proxys:
         type: string
-      registry:
-        type: string
       volume:
-        type: string
-  models.K8sInfo:
-    title: K8sInfo
-    type: object
-    properties:
-      cpu:
-        type: integer
-        format: int64
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/models.Net'
-      ok:
-        type: boolean
-      replicas:
-        type: integer
-        format: int64
-      version:
         type: string
   models.Metadata:
     title: Metadata
@@ -471,38 +462,9 @@ definitions:
         items:
           $ref: '#/definitions/models.Specification'
       versions: {}
-  models.Net:
-    title: Net
-    type: object
-    properties:
-      ip:
-        type: string
-      name:
-        type: string
-      port:
-        type: integer
-        format: int64
   models.Pd:
-    title: K8sInfo
+    title: Pd
     type: object
-    properties:
-      cpu:
-        type: integer
-        format: int64
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/models.Net'
-      ok:
-        type: boolean
-      replicas:
-        type: integer
-        format: int64
-      version:
-        type: string
   models.Preference:
     title: Preference
     type: object
@@ -551,32 +513,18 @@ definitions:
         type: integer
         format: int64
   models.Tidb:
-    title: K8sInfo
+    title: Tidb
     type: object
     properties:
       cell:
         type: string
-      cpu:
-        type: integer
-        format: int64
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/models.Net'
-      ok:
-        type: boolean
       password:
         type: string
       pd:
         $ref: '#/definitions/models.Pd'
-      replicas:
+      scale:
         type: integer
         format: int64
-      scale:
-        type: string
       schema:
         type: string
       status:
@@ -590,47 +538,25 @@ definitions:
         type: string
       user:
         type: string
-      version:
-        type: string
   models.TidbStatus:
     type: object
   models.Tikv:
-    title: K8sInfo
+    title: Tikv
     type: object
     properties:
       capatity:
         type: integer
         format: int64
-      cpu:
-        type: integer
-        format: int64
       cur:
         type: string
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/models.Net'
-      ok:
-        type: boolean
-      replicas:
-        type: integer
-        format: int64
       stores:
         $ref: '#/definitions/models.Store'
       tidbdata_volume:
-        type: string
-      version:
         type: string
   models.UScale:
     title: UScale
     type: object
     properties:
-      pd:
-        type: integer
-        format: int64
       status:
         type: integer
         format: int64
@@ -666,7 +592,7 @@ definitions:
         $ref: '#/definitions/models.Unit'
       tikv:
         $ref: '#/definitions/models.Unit'
-  mysql.Mysql:
+  mysqlutil.Mysql:
     title: Mysql
     type: object
     properties:
