@@ -12,9 +12,9 @@ cell=`echo $CELL`
 replicas=${PD_REPLICAS:-3}
 
 # Delete pod
+echo "Deleting pd pod for $cell cell..."
 for id in `seq 1 $replicas`; do
   id=$(printf "%03d\n" $id)
-  echo "Deleting pd pod $id for $cell cell..."
   $KUBECTL $KUBECTL_OPTIONS  delete pod pd-$cell-$id
 done
 

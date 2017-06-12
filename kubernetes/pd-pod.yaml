@@ -62,12 +62,18 @@ spec:
             echo "Resuming with existing data dir:$PD_DATA_DIR"
           else
             echo "First run for this member"
+            # First wait for the desired number of replicas to show up.
+            echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
+            until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+              echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
+              sleep 1
+            done
           fi
 
           urls=""
           for id in `seq 1 {{replicas}}`; do
             id=$(printf "%03d\n" $id)
-            urls+="http://pd-{{cell}}-${id}.{{cell}}.{{namespace}}.svc.cluster.local:2380,"
+            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.{{cell}}.{{namespace}}.svc.cluster.local:2380,"
           done
           urls=${urls%,}
           echo "Initial-cluster:$urls"

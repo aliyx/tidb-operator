@@ -22,13 +22,13 @@ sed_script="s,{{cell}},${cell},g;"
 # cat pd-service.yaml | sed -e "$sed_script"
 cat pd-service.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 
+ echo "Creating pd pod for $cell cell..."
 for id in `seq 1 $replicas`; do
-  # Create the pod.
+  id=$(printf "%03d\n" $id)
   sed_script=""
   for var in namespace cell id replicas cpu mem version tidbdata_volume registry; do
     sed_script+="s,{{$var}},${!var},g;"
   done
-  echo "Creating pd pod $id for $cell cell..."
   # cat pd-pod.yaml | sed -e "$sed_script"
   cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done
