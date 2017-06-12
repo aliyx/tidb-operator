@@ -23,7 +23,7 @@ KUBECTL_OPTIONS="--namespace=$NS --server=$KUBERNETES_API_SERVER"
 # CELLS should be a comma separated list of cells
 CELL=${CELL:-'test'}
 
-DATA_VOLUME=${DATA_VOLUME:-'/tmp/tidb'}
+DATA_VOLUME=${DATA_VOLUME:-'/tmp'}
 
 # image version
 VERSION=${VERSION:-'latest'}

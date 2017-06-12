@@ -10,7 +10,8 @@ metadata:
     app: tidb
 spec:
   ports:
-    - port: 2379
+    - name: client
+      port: 2379
   selector:
     component: pd
     cell: {{cell}}
@@ -23,7 +24,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{cell}}
+  name: srv-{{cell}}
   labels:
     component: pd
     cell: {{cell}}

@@ -474,7 +474,7 @@ func Start(cell string) (err error) {
 			e.Trace(err, "Start deploying tidb cluster on kubernete")
 		}()
 		rollout(cell, PdPending)
-		if err = db.Pd.run(); err != nil {
+		if err = db.Pd.install(); err != nil {
 			logs.Error("Run pd %s on k8s err: %v", cell, err)
 			return
 		}
@@ -520,7 +520,7 @@ func Stop(cell string, ch chan int) (err error) {
 	if err = db.Tikv.stop(); err != nil {
 		return err
 	}
-	if err = db.Pd.stop(); err != nil {
+	if err = db.Pd.uninstall(); err != nil {
 		return err
 	}
 	// waiting for all pods deleted from k8s
@@ -670,7 +670,7 @@ func (db *Tidb) startMigrateTask(my *tsql.Migration) (err error) {
 		defer func() {
 			e.Trace(err, "Startup migration docker on k8s")
 		}()
-		if err = k8sutil.CreatePod(s); err != nil {
+		if err = k8sutil.CreateAndWaitPod(s); err != nil {
 			return
 		}
 		if err = k8sutil.WaitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {

@@ -18,8 +18,15 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/httputil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
-	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/pkg/api/v1"
+)
+
+const (
+	defaultStartPodTimeout = 30 // 30s
 )
 
 var (
@@ -60,6 +67,7 @@ type K8sInfo struct {
 	Ok   bool  `json:"ok,omitempty"`
 }
 
+// Validate cpu or mem is effective
 func (k *K8sInfo) Validate() error {
 	if k.CPU < 200 || k.CPU > 2000 {
 		return fmt.Errorf("cpu must be between 200-2000")
@@ -73,48 +81,66 @@ func (k *K8sInfo) Validate() error {
 	return nil
 }
 
-func CreateDeployment(s string) error {
+// CreateAndWaitPod create and wait pod status 'running', pod is json string
+func CreateAndWaitPod(s string) error {
 	k8sMu.Lock()
 	defer k8sMu.Unlock()
-	logs.Info("yaml: %s", s)
-	url := fmt.Sprintf(k8sDeploymentURL, masterHost, Namespace)
-	j, _ := yaml.YAMLToJSON([]byte(s))
-	resp, err := httputil.Post(url, j)
-	if err != nil {
-		return err
+	var pod = v1.Pod{}
+	json.Unmarshal([]byte(s), &pod)
+	if _, err := createAndWaitPod(&pod, defaultStartPodTimeout); err != nil {
+		return nil
 	}
-	logs.Info(`Deployment "%s" created`, gjson.Get(resp, "metadata.name"))
+	logs.Info(`Pod "%s" created`, pod.GetName())
 	return nil
 }
 
-func DelDeployment(name string, cascade bool) error {
-	uri := fmt.Sprintf(k8sDeploymentURL+"/%s", masterHost, Namespace, name)
-	if err := httputil.Delete(uri, defaultk8sReqTimeout); err != nil {
-		return err
+// CreateAndWaitPod create and wait pod status 'running'
+func createAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
+	_, err := kubecli.CoreV1().Pods(Namespace).Create(pod)
+	if err != nil {
+		return nil, err
 	}
-	logs.Warn(`Deployment "%s" deleted`, name)
-	if cascade {
-		params := url.Values{}
-		cell := strings.Split(name, "-")[1]
-		params.Add("labelSelector", fmt.Sprintf("app=tidb,cell=%s,component=tikv", cell))
-		if err := DelReplicasets(params); err != nil {
+
+	interval := time.Second
+	var retPod *v1.Pod
+	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
+		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(pod.Name, meta_v1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		switch retPod.Status.Phase {
+		case v1.PodRunning:
+			return true, nil
+		case v1.PodPending:
+			return false, nil
+		default:
+			return false, fmt.Errorf("unexpected pod status.phase: %v", retPod.Status.Phase)
+		}
+	})
+
+	return retPod, err
+}
+
+// DeletePods delete the specified names pod
+func DeletePods(podNames ...string) error {
+	for _, pName := range podNames {
+		if err := kubecli.CoreV1().Pods(Namespace).Delete(pName, meta_v1.NewDeleteOptions(0)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func CreatePod(s string) error {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	logs.Info("yaml: %s", s)
-	url := fmt.Sprintf(k8sPodsURL, masterHost, Namespace)
-	j, _ := yaml.YAMLToJSON([]byte(s))
-	resp, err := httputil.Post(url, j)
-	if err != nil {
+// DeletePodsByCell delete the specified cell pods
+func DeletePodsByCell(cell string) error {
+	option := meta_v1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"cell": cell,
+		}).String(),
+	}
+	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(meta_v1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
-	logs.Info(`Pod "%s" created`, gjson.Get(resp, "metadata.name"))
 	return nil
 }
 

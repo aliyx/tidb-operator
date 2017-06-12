@@ -38,6 +38,8 @@ var (
 	masterHost string
 	// Namespace all tidb namespace
 	Namespace string
+
+	kubecli kubernetes.Interface
 )
 
 func init() {
@@ -52,8 +54,7 @@ func init() {
 
 // CreateNamespace create tidb namespace
 func CreateNamespace() {
-	// Check if kubernetes client are available
-	MustNewKubeClient()
+	kubecli = MustNewKubeClient()
 
 	r := strings.NewReplacer("{{namespace}}", Namespace)
 	s := r.Replace(tidbNamespaceYaml)

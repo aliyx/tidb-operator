@@ -18,7 +18,7 @@ spec:
             - prometheus
   volumes:
   - name: tidb-data
-    emptyDir: {}
+    {{tidbdata_volume}}
   # default is 30s
   terminationGracePeriodSeconds: 5
   restartPolicy: Always
@@ -26,7 +26,7 @@ spec:
   # For example, pd-test-001 in default namesapce will have DNS name
   # `pd-test-001.test.default.svc.cluster.local`.
   hostname: pd-{{cell}}-{{id}}
-  subdomain: {{cell}}
+  subdomain: srv-{{cell}}
   containers:
     - name: pd
       image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
@@ -76,9 +76,9 @@ spec:
           fi
 
           urls=""
-          for id in `seq 1 {{replicas}}`; do
+          for id in {1..{{replicas}}}; do
             id=$(printf "%03d\n" $id)
-            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.{{cell}}.{{namespace}}.svc.cluster.local:2380,"
+            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.srv-{{cell}}.{{namespace}}.svc.cluster.local:2380,"
           done
           urls=${urls%,}
           echo "Initial-cluster:$urls"

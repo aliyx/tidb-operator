@@ -15,7 +15,8 @@ metadata:
     app: tidb
 spec:
   ports:
-    - port: 2379
+    - name: client
+      port: 2379
   selector:
     component: pd
     cell: {{cell}}
@@ -27,7 +28,7 @@ var pdHeadlessServiceYaml = `
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}}-srv
+  name: {{cell}}
   labels:
     component: pd
     cell: {{cell}}
@@ -45,159 +46,124 @@ spec:
 
 var pdRcYaml = `
 apiVersion: v1
-kind: ReplicationController
+kind: Pod
 metadata:
-  name: pd-{{cell}}
+  name: pd-{{cell}}-{{id}}
+  labels:
+    component: pd
+    cell: {{cell}}
+    app: tidb
 spec:
-  replicas: {{replicas}}
-  template:
-    metadata:
-      labels:
-        component: pd
-        cell: {{cell}}
-        app: tidb
-    spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role
-                operator: NotIn
-                values:
-                - prometheus
-      volumes:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role
+            operator: NotIn
+            values:
+            - prometheus
+  volumes:
+  - name: tidb-data
+    {{tidbdata_volume}}
+  # default is 30s
+  terminationGracePeriodSeconds: 5
+  restartPolicy: Always
+  # DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
+  # For example, pd-test-001 in default namesapce will have DNS name
+  # 'pd-test-001.test.default.svc.cluster.local'.
+  hostname: pd-{{cell}}-{{id}}
+  subdomain: {{cell}}
+  containers:
+    - name: pd
+      image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
+      # imagePullPolicy: IfNotPresent
+      volumeMounts:
       - name: tidb-data
-        emptyDir: {}
-      # default is 30s
-      terminationGracePeriodSeconds: 5
-      subdomain: {{cell}}
-      restartPolicy: Always
-      containers:
-        - name: pd
-          image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
-          # imagePullPolicy: IfNotPresent
-          volumeMounts:
-          - name: tidb-data
-            mountPath: /var/pd
-          resources:
-            limits:
-              memory: "{{mem}}Mi"
-              cpu: "{{cpu}}m"
-          env: 
-          - name: M_INTERVAL
-            value: "15"
-          command:
-            - bash
-            - "-c"
-            - |
-              ipaddr=$(hostname -i)
-              client_urls="http://0.0.0.0:2379"
-              advertise_client_urls="http://$ipaddr:2379"
-              peer_urls="http://0.0.0.0:2380"
-              advertise_peer_urls="http://$ipaddr:2380"
+        mountPath: /var/pd
+      resources:
+        limits:
+          memory: "{{mem}}Mi"
+          cpu: "{{cpu}}m"
+      env: 
+      - name: M_INTERVAL
+        value: "15"
+      command:
+        - bash
+        - "-c"
+        - |
+          client_urls="http://0.0.0.0:2379"
+          # FQDN
+          advertise_client_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2379"
+          peer_urls="http://0.0.0.0:2380"
+          advertise_peer_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2380"
 
-              export CLIENT_URLS=$client_urls
-              export ADVERTISE_CLIENT_URLS=$advertise_client_urls
-              export PEER_URLS=$peer_urls
-              export ADVERTISE_PEER_URLS=$advertise_peer_urls
-              export PD_DATA_DIR=/var/pd/data
+          export PD_NAME=$HOSTNAME
+          export PD_DATA_DIR=/var/pd/$HOSTNAME/data
 
-              # Gets the id of the pod in dns
-              _pid=$(getid {{cell}})
-              until [ $(echo -e "$_pid" | wc -l) -eq 1 ]; do
-                echo "Cannt get pod id in SRV record, $(echo $_pid | tr '\n' ' ')"
-                sleep 1
-                _pid=$(getid {{cell}})
-              done
-              export PD_NAME=$_pid
-              # Save PD_NAME to the local file, prestop hook will be used to delete member
-              echo $PD_NAME > pod
-              echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
+          export CLIENT_URLS=$client_urls
+          export ADVERTISE_CLIENT_URLS=$advertise_client_urls
+          export PEER_URLS=$peer_urls
+          export ADVERTISE_PEER_URLS=$advertise_peer_urls
 
-              # set prometheus
-              sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
-              sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
+          # set prometheus
+          sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
+          sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
 
-              if [ -d $PD_DATA_DIR ]; then
-                echo "Resuming with existing data dir:$PD_DATA_DIR"
-              else
-                echo "First run for this member"
-              fi
-              # If there's already a functioning cluster, join it.
-              # Get the leader of the cluster, try again 3 times (at the scale will lead to can not access), each time no more than 3 seconds
-              resp=''
-              for i in $(seq 1 3)  
-              do  
-                resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
-                if [ $resp == 200 ]; then
-                  break
-                fi
-                sleep 1   
-              done  
-              if [ $resp == 200 ]; then
-                echo "Joining existing cluster:http://pd-{{cell}}:2379"
-                pd-server \
-                --name="$PD_NAME" \
-                --data-dir="$PD_DATA_DIR" \
-                --client-urls="$CLIENT_URLS" \
-                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                --peer-urls="$PEER_URLS" \
-                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                --join="http://pd-{{cell}}:2379" \
-                --config="/etc/pd/config.toml"
-              else
-                # Join failed. Assume we're trying to bootstrap.
-                echo "Create a new pd cluster"
-                # First wait for the desired number of replicas to show up.
-                echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
-                until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
-                  echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
-                  sleep 1
+          if [ -d $PD_DATA_DIR ]; then
+            echo "Resuming with existing data dir:$PD_DATA_DIR"
+          else
+            echo "First run for this member"
+            # First wait for the desired number of replicas to show up.
+            echo "Waiting for {{replicas}} replicas in SRV record for {{cell}}..."
+            until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+              echo "[$(date)] waiting for {{replicas}} entries in SRV record for {{cell}}"
+              sleep 1
+            done
+          fi
+
+          urls=""
+          for id in {1..{{replicas}}}; do
+            id=$(printf "%03d\n" $id)
+            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.{{cell}}.{{namespace}}.svc.cluster.local:2380,"
+          done
+          urls=${urls%,}
+          echo "Initial-cluster:$urls"
+
+          pd-server \
+          --name="$PD_NAME" \
+          --data-dir="$PD_DATA_DIR" \
+          --client-urls="$CLIENT_URLS" \
+          --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+          --peer-urls="$PEER_URLS" \
+          --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+          --initial-cluster=$urls \
+          --config="/etc/pd/config.toml"
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - bash
+              - "-c"
+              - |
+                # delete prometheus metrics
+                curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
+
+                # clear
+                resp=''
+                for i in $(seq 1 3)  
+                do  
+                  resp=$(curl -X DELETE --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/members/$PD_NAME)
+                  if [ $resp == 200 ]
+                  then
+                    break
+                  fi 
+                  sleep 1  
                 done
-
-                urls=$(getpods {{cell}} | tr '\n' ',')
-                urls=${urls%,}
-                echo "Initial-cluster:$urls"
-
-                # Now run
-                pd-server \
-                --name="$PD_NAME" \
-                --data-dir="$PD_DATA_DIR" \
-                --client-urls="$CLIENT_URLS" \
-                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                --peer-urls="$PEER_URLS" \
-                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                --initial-cluster=$urls \
-                --config="/etc/pd/config.toml"
-              fi
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - bash
-                  - "-c"
-                  - |
-                    # delete prometheus metrics
-                    curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
-
-                    # remove member from pd
-                    PD_NAME=$(cat pod)
-                    # clear
-                    resp=''
-                    for i in $(seq 1 3)  
-                    do  
-                      resp=$(curl -X DELETE --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/members/$PD_NAME)
-                      if [ $resp == 200 ]
-                      then
-                        break
-                      fi 
-                      sleep 1  
-                    done
-                    if [ $resp == 200 ]
-                    then
-                      echo 'Delete pd "$PD_NAME" success'
-                    fi            
+                if [ $resp == 200 ]
+                then
+                  echo 'Delete pd "$PD_NAME" success'
+                fi       
 `
 
 var tikvPodYaml = `

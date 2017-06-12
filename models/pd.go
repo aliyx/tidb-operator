@@ -16,8 +16,20 @@ import (
 // Pd 元数据
 type Pd struct {
 	k8sutil.K8sInfo
+	Volume string `json:"tidbdata_volume"`
 
 	Db *Tidb `json:"-"`
+
+	Member int `json:"member"`
+	// key is pod name
+	Members map[string]Member `json:"members,omitempty"`
+}
+
+// Member describe a pd or tikv pod
+type Member struct {
+	ID      int    `json:"id,omitempty"`
+	Address string `json:"address,omitempty"`
+	State   int    `json:"state,omitempty"`
 }
 
 // NewPd return a Pd instance
@@ -34,6 +46,19 @@ func (p *Pd) beforeSave() error {
 	if p.Replicas < 3 || p.Replicas > max || p.Replicas%2 == 0 {
 		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
 	}
+
+	// set volume
+
+	md, err := GetMetadata()
+	if err != nil {
+		return err
+	}
+	p.Volume = strings.Trim(md.K8s.Volume, " ")
+	if len(p.Volume) == 0 {
+		p.Volume = "emptyDir: {}"
+	} else {
+		p.Volume = fmt.Sprintf("hostPath: {path: %s}", p.Volume)
+	}
 	return nil
 }
 
@@ -48,8 +73,8 @@ func GetPd(cell string) (*Pd, error) {
 	return pd, nil
 }
 
-func (p *Pd) stop() (err error) {
-	e := NewEvent(p.Db.Cell, "pd", "stop")
+func (p *Pd) uninstall() (err error) {
+	e := NewEvent(p.Db.Cell, "pd", "uninstall")
 	defer func() {
 		st := PdStoped
 		if err != nil {
@@ -59,19 +84,19 @@ func (p *Pd) stop() (err error) {
 		p.Ok = false
 		p.Db.Status = st
 		p.Db.Update()
-		e.Trace(err, "Stop pd replicationcontrollers")
+		e.Trace(err, "Uninstall pd pods")
 	}()
-	if err = k8sutil.DelRc(fmt.Sprintf("pd-%s", p.Db.Cell)); err != nil {
+	if err = k8sutil.DeletePodsByCell(p.Db.Cell); err != nil {
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), fmt.Sprintf("pd-%s-srv", p.Db.Cell)); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), p.Db.Cell); err != nil {
 		return err
 	}
 	return err
 }
 
-func (p *Pd) run() (err error) {
-	e := NewEvent(p.Db.Cell, "pd", "start")
+func (p *Pd) install() (err error) {
+	e := NewEvent(p.Db.Cell, "pd", "install")
 	defer func() {
 		st := PdStarted
 		if err != nil {
@@ -81,18 +106,21 @@ func (p *Pd) run() (err error) {
 		}
 		p.Db.Status = st
 		p.Db.Update()
-		e.Trace(err, fmt.Sprintf("Start pd replicationcontrollers with %d replicas on k8s", p.Replicas))
+		e.Trace(err, fmt.Sprintf("Install pd pods with %d replicas on k8s", p.Replicas))
 	}()
-	if err = k8sutil.CreateService(p.getK8sTemplate(pdServiceYaml)); err != nil {
+	if err = k8sutil.CreateService(p.toTemplate(pdServiceYaml)); err != nil {
 		return err
 	}
-	if err = k8sutil.CreateService(p.getK8sTemplate(pdHeadlessServiceYaml)); err != nil {
+	if err = k8sutil.CreateService(p.toTemplate(pdHeadlessServiceYaml)); err != nil {
 		return err
 	}
-	if err = k8sutil.CreateRc(p.getK8sTemplate(pdRcYaml)); err != nil {
-		return err
+	for i := 0; i < p.Replicas; i++ {
+		p.Member++
+		if err = k8sutil.CreateAndWaitPod(p.toTemplate(pdRcYaml)); err != nil {
+			return err
+		}
 	}
-	// waiting for pds完成leader选举
+	// Waiting for pds finished leader election
 	if err = p.waitForComplete(startTidbTimeout); err != nil {
 		return err
 	}
@@ -129,14 +157,18 @@ func (p *Pd) waitForComplete(wait time.Duration) error {
 	return nil
 }
 
-// genK8sTemplate 生成k8s pd template
-func (p *Pd) getK8sTemplate(t string) string {
-	r := strings.NewReplacer("{{version}}", p.Version,
+func (p *Pd) toTemplate(t string) string {
+	r := strings.NewReplacer(
+		"{{namespace}}", getNamespace(),
+		"{{cell}}", p.Db.Cell,
+		"{{id}}", fmt.Sprintf("%d", p.Member),
+		"{{replicas}}", fmt.Sprintf("%d", p.Replicas),
 		"{{cpu}}", fmt.Sprintf("%v", p.CPU),
 		"{{mem}}", fmt.Sprintf("%v", p.Mem),
-		"{{replicas}}", fmt.Sprintf("%v", p.Replicas),
+		"{{version}}", p.Version,
+		"{{tidbdata_volume}}", p.Volume,
 		"{{registry}}", imageRegistry,
-		"{{cell}}", p.Db.Cell)
+	)
 	s := r.Replace(t)
 	return s
 }
