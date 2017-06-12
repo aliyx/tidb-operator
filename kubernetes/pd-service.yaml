@@ -24,7 +24,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: srv-{{cell}}
+  name: pd-{{cell}}-srv
   labels:
     component: pd
     cell: {{cell}}

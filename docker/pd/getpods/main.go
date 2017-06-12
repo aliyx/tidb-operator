@@ -9,7 +9,7 @@ import (
 
 func main() {
 	cell := os.Args[1]
-	_, addrs, err := net.LookupSRV("pd-server", "tcp", fmt.Sprintf("%s", cell))
+	_, addrs, err := net.LookupSRV("pd-server", "tcp", fmt.Sprintf("pd-%s-srv", cell))
 	if err != nil {
 		return
 	}
