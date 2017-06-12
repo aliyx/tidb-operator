@@ -18,7 +18,7 @@ if [ -n "$DATA_VOLUME" ]; then
 fi
 
 echo "Creating pd service for $cell cell..."
-# cat pd-service.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+cat pd-service.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 
 for id in `seq 1 $replicas`; do
   # Create the pod.
@@ -27,8 +27,8 @@ for id in `seq 1 $replicas`; do
     sed_script+="s,{{$var}},${!var},g;"
   done
   echo "Creating pd pod $id for $cell cell..."
-  cat pd-pod.yaml | sed -e "$sed_script"
-  # cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+  # cat pd-pod.yaml | sed -e "$sed_script"
+  cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done
 
 
