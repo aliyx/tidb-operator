@@ -1,0 +1,38 @@
+---
+# Regular service for load balancing client connections.
+kind: Service
+apiVersion: v1
+metadata:
+  name: pd-{{cell}}
+  labels:
+    component: pd
+    cell: {{cell}}
+    app: tidb
+spec:
+  ports:
+    - port: 2379
+  selector:
+    component: pd
+    cell: {{cell}}
+    app: tidb
+  type: NodePort
+---
+# https://kubernetes.io/docs/admin/dns/ 用于容器启动时判断是否所有replica的pod都准备好
+# Headless service for etcd cluster bootstrap.
+kind: Service
+apiVersion: v1
+metadata:
+  name: pd-{{cell}}-srv
+  labels:
+    component: pd
+    cell: {{cell}}
+    app: tidb
+spec:
+  clusterIP: None
+  ports:
+    - name: pd-server
+      port: 2380
+  selector:
+    component: pd
+    cell: {{cell}}
+    app: tidb

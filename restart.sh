@@ -43,8 +43,6 @@ else
   exit 1
 fi
 
-set -e
-
 top=$(pwd)
 # top sanity check
 if [[ "$top" == "${top/\/src\/github.com\/ffan\/tidb-k8s/}" ]]; then
@@ -53,8 +51,9 @@ fi
 
 go version 2>&1 >/dev/null || fail "Go is not installed or is not on \$PATH"
 
-CGO_ENABLED=0 go build -ldflags '-d -w -s'
+set -e
 
+CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
 # start
 ./tidb-k8s & echo $! > /tmp/tidb-k8s.pid

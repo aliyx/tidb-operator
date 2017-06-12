@@ -60,29 +60,26 @@ spec:
                 values:
                 - prometheus
       volumes:
-        - name: datadir
-          emptyDir: {}
-        - name: syslog
-          hostPath: {path: /dev/log}
-        - name: zone
-          hostPath: {path: /etc/localtime}
-      # 默认是30s
-      terminationGracePeriodSeconds: 30
+      - name: tidb-data
+        emptyDir: {}
+      # default is 30s
+      terminationGracePeriodSeconds: 5
+      subdomain: {{cell}}
+      restartPolicy: Always
       containers:
         - name: pd
-          image: {{registry}}/pd:{{version}}
+          image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
           # imagePullPolicy: IfNotPresent
           volumeMounts:
-            - name: datadir
-              mountPath: /data
-            - name: syslog
-              mountPath: /dev/log
-            - name: zone
-              mountPath: /etc/localtime
+          - name: tidb-data
+            mountPath: /var/pd
           resources:
             limits:
               memory: "{{mem}}Mi"
               cpu: "{{cpu}}m"
+          env: 
+          - name: M_INTERVAL
+            value: "15"
           command:
             - bash
             - "-c"
@@ -97,7 +94,7 @@ spec:
               export ADVERTISE_CLIENT_URLS=$advertise_client_urls
               export PEER_URLS=$peer_urls
               export ADVERTISE_PEER_URLS=$advertise_peer_urls
-              export PD_DATA_DIR=/data/$HOSTNAME
+              export PD_DATA_DIR=/var/pd/data
 
               # Gets the id of the pod in dns
               _pid=$(getid {{cell}})
@@ -111,8 +108,28 @@ spec:
               echo $PD_NAME > pod
               echo -e "\033[31mCurrent pod id is $PD_NAME\033[0m"
 
+              # set prometheus
+              sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
+              sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
+
               if [ -d $PD_DATA_DIR ]; then
                 echo "Resuming with existing data dir:$PD_DATA_DIR"
+              else
+                echo "First run for this member"
+              fi
+              # If there's already a functioning cluster, join it.
+              # Get the leader of the cluster, try again 3 times (at the scale will lead to can not access), each time no more than 3 seconds
+              resp=''
+              for i in $(seq 1 3)  
+              do  
+                resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
+                if [ $resp == 200 ]; then
+                  break
+                fi
+                sleep 1   
+              done  
+              if [ $resp == 200 ]; then
+                echo "Joining existing cluster:http://pd-{{cell}}:2379"
                 pd-server \
                 --name="$PD_NAME" \
                 --data-dir="$PD_DATA_DIR" \
@@ -123,54 +140,29 @@ spec:
                 --join="http://pd-{{cell}}:2379" \
                 --config="/etc/pd/config.toml"
               else
-                echo "First run for this member"
-                # If there's already a functioning cluster, join it.
-                # Get the leader of the cluster, try again 3 times (at the scale will lead to can not access), each time no more than 3 seconds
-                resp=''
-                for i in $(seq 1 3)  
-                do  
-                  resp=$(curl --connect-timeout 1 --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/leader)
-                  if [ $resp == 200 ]; then
-                    break
-                  fi
-                  sleep 1   
-                done  
-                if [ $resp == 200 ]; then
-                  echo "Joining existing cluster:http://pd-{{cell}}:2379"
-                  pd-server \
-                  --name="$PD_NAME" \
-                  --data-dir="$PD_DATA_DIR" \
-                  --client-urls="$CLIENT_URLS" \
-                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                  --peer-urls="$PEER_URLS" \
-                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                  --join="http://pd-{{cell}}:2379" \
-                  --config="/etc/pd/config.toml"
-                else
-                  # Join failed. Assume we're trying to bootstrap.
-                  echo "Create a new pd cluster"
-                  # First wait for the desired number of replicas to show up.
-                  echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
-                  until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
-                    echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
-                    sleep 1
-                  done
+                # Join failed. Assume we're trying to bootstrap.
+                echo "Create a new pd cluster"
+                # First wait for the desired number of replicas to show up.
+                echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
+                until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+                  echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
+                  sleep 1
+                done
 
-                  urls=$(getpods {{cell}} | tr '\n' ',')
-                  urls=${urls%,}
-                  echo "Initial-cluster:$urls"
+                urls=$(getpods {{cell}} | tr '\n' ',')
+                urls=${urls%,}
+                echo "Initial-cluster:$urls"
 
-                  # Now run
-                  pd-server \
-                  --name="$PD_NAME" \
-                  --data-dir="$PD_DATA_DIR" \
-                  --client-urls="$CLIENT_URLS" \
-                  --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-                  --peer-urls="$PEER_URLS" \
-                  --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-                  --initial-cluster=$urls \
-                  --config="/etc/pd/config.toml"
-                fi
+                # Now run
+                pd-server \
+                --name="$PD_NAME" \
+                --data-dir="$PD_DATA_DIR" \
+                --client-urls="$CLIENT_URLS" \
+                --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
+                --peer-urls="$PEER_URLS" \
+                --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
+                --initial-cluster=$urls \
+                --config="/etc/pd/config.toml"
               fi
           lifecycle:
             preStop:
@@ -179,6 +171,10 @@ spec:
                   - bash
                   - "-c"
                   - |
+                    # delete prometheus metrics
+                    curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
+
+                    # remove member from pd
                     PD_NAME=$(cat pod)
                     # clear
                     resp=''
