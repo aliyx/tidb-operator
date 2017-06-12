@@ -2,8 +2,11 @@ package main
 
 import (
 	"math/rand"
+	"os"
+	"os/signal"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 
@@ -29,8 +32,14 @@ func main() {
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	rand.Seed(time.Now().Unix())
+	c := make(chan os.Signal, 1)
+	signal.Notify(c)
+	go func() {
+		logrus.Infof("received signal: %v", <-c)
+		os.Exit(1)
+	}()
 
+	rand.Seed(time.Now().Unix())
 	k8sutil.CreateNamespace()
 	models.Init()
 
