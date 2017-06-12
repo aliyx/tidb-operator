@@ -71,7 +71,7 @@ func TestSerializer(t *testing.T) {
 }
 
 func TestDoRequestSuccess(t *testing.T) {
-	testServer, fakeHandler, status := testservenv(t, 200)
+	testServer, fakeHandler, status := testServerEnv(t, 200)
 	defer testServer.Close()
 
 	c, err := restClient(testServer)
@@ -161,7 +161,7 @@ func TestDoRawRequestFailed(t *testing.T) {
 }
 
 func TestDoRequestCreated(t *testing.T) {
-	testServer, fakeHandler, status := testservenv(t, 201)
+	testServer, fakeHandler, status := testServerEnv(t, 201)
 	defer testServer.Close()
 
 	c, err := restClient(testServer)
@@ -177,7 +177,7 @@ func TestDoRequestCreated(t *testing.T) {
 }
 
 func TestDoRequestNotCreated(t *testing.T) {
-	testServer, fakeHandler, expectedStatus := testservenv(t, 202)
+	testServer, fakeHandler, expectedStatus := testServerEnv(t, 202)
 	defer testServer.Close()
 	c, err := restClient(testServer)
 	if err != nil {
@@ -191,7 +191,7 @@ func TestDoRequestNotCreated(t *testing.T) {
 }
 
 func TestDoRequestAcceptedNoContentReturned(t *testing.T) {
-	testServer, fakeHandler, _ := testservenv(t, 204)
+	testServer, fakeHandler, _ := testServerEnv(t, 204)
 	defer testServer.Close()
 
 	c, err := restClient(testServer)
@@ -206,7 +206,7 @@ func TestDoRequestAcceptedNoContentReturned(t *testing.T) {
 }
 
 func TestBadRequest(t *testing.T) {
-	testServer, fakeHandler, _ := testservenv(t, 400)
+	testServer, fakeHandler, _ := testServerEnv(t, 400)
 	defer testServer.Close()
 	c, err := restClient(testServer)
 	if err != nil {
@@ -250,7 +250,7 @@ func validate(testParam TestParam, t *testing.T, body []byte, fakeHandler *utilt
 }
 
 func TestHttpMethods(t *testing.T) {
-	testServer, _, _ := testservenv(t, 200)
+	testServer, _, _ := testServerEnv(t, 200)
 	defer testServer.Close()
 	c, _ := restClient(testServer)
 
@@ -316,7 +316,7 @@ func TestCreateBackoffManager(t *testing.T) {
 
 }
 
-func testservenv(t *testing.T, statusCode int) (*httptest.Server, *utiltesting.FakeHandler, *metav1.Status) {
+func testServerEnv(t *testing.T, statusCode int) (*httptest.Server, *utiltesting.FakeHandler, *metav1.Status) {
 	status := &metav1.Status{Status: fmt.Sprintf("%s", metav1.StatusSuccess)}
 	expectedBody, _ := runtime.Encode(api.Codecs.LegacyCodec(v1.SchemeGroupVersion), status)
 	fakeHandler := utiltesting.FakeHandler{
