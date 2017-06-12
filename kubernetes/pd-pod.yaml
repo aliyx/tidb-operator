@@ -68,9 +68,9 @@ spec:
           else
             echo "First run for this member"
             # First wait for the desired number of replicas to show up.
-            echo "Waiting for {{replicas}} replicas in SRV record for pd-{{cell}}-srv..."
+            echo "Waiting for {{replicas}} replicas in SRV record for {{cell}}..."
             until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
-              echo "[$(date)] waiting for {{replicas}} entries in SRV record for pd-{{cell}}-srv"
+              echo "[$(date)] waiting for {{replicas}} entries in SRV record for {{cell}}"
               sleep 1
             done
           fi

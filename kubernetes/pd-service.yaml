@@ -3,7 +3,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}}-client
+  name: pd-{{cell}}
   labels:
     component: pd
     cell: {{cell}}
@@ -23,7 +23,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}}
+  name: {{cell}}
   labels:
     component: pd
     cell: {{cell}}
