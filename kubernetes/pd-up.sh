@@ -17,11 +17,6 @@ if [ -n "$DATA_VOLUME" ]; then
   tidbdata_volume="hostPath: {path: ${DATA_VOLUME}}"
 fi
 
-echo "Creating pd service for $cell cell..."
-sed_script="s,{{cell}},${cell},g;"
-# cat pd-service.yaml | sed -e "$sed_script"
-cat pd-service.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
-
  echo "Creating pd pod for $cell cell..."
 for id in `seq 1 $replicas`; do
   id=$(printf "%03d\n" $id)
@@ -33,4 +28,7 @@ for id in `seq 1 $replicas`; do
   cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done
 
-
+echo "Creating pd service for $cell cell..."
+sed_script="s,{{cell}},${cell},g;"
+# cat pd-service.yaml | sed -e "$sed_script"
+cat pd-service.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -

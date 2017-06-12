@@ -11,11 +11,7 @@ RUN mkdir -p src/github.com/pingcap && \
     rm -rf ../pd
 
 ADD getpods /go/src/getpods
-ADD getid /go/src/getid
 RUN GOBIN=/go/bin go install getpods
-RUN GOBIN=/go/bin go install getid
-
-ENV TZ=Asia/Shanghai
 
 ADD config.toml /etc/pd/config.toml
 
