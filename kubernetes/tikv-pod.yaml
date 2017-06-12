@@ -6,7 +6,6 @@ metadata:
     app: tidb
     cell: {{cell}}
     component: tikv
-    id: "{{id}}"
 spec:
   affinity:
     nodeAffinity:

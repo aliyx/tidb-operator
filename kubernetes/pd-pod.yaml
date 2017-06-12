@@ -1,9 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
+  name: pd-{{cell}}-{{id}}
   labels:
     component: pd
-    cell: pd-{{cell}}-{{id}}
+    cell: {{cell}}
     app: tidb
 spec:
   affinity:
