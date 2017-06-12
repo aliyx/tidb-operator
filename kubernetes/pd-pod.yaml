@@ -21,8 +21,12 @@ spec:
     emptyDir: {}
   # default is 30s
   terminationGracePeriodSeconds: 5
-  subdomain: {{cell}}
   restartPolicy: Always
+  # DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
+  # For example, pd-test-001 in default namesapce will have DNS name
+  # `pd-test-001.test.default.svc.cluster.local`.
+  hostname: pd-{{cell}}-{{id}}
+  subdomain: {{cell}}
   containers:
     - name: pd
       image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
@@ -42,6 +46,7 @@ spec:
         - "-c"
         - |
           client_urls="http://0.0.0.0:2379"
+          # FQDN
           advertise_client_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2379"
           peer_urls="http://0.0.0.0:2380"
           advertise_peer_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2380"

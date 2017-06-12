@@ -3,7 +3,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}}
+  name: pd-{{cell}}-client
   labels:
     component: pd
     cell: {{cell}}
@@ -17,12 +17,13 @@ spec:
     app: tidb
   type: NodePort
 ---
-# https://kubernetes.io/docs/admin/dns/ 用于容器启动时判断是否所有replica的pod都准备好
+# https://kubernetes.io/docs/admin/dns/
+# https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
 # Headless service for etcd cluster bootstrap.
 kind: Service
 apiVersion: v1
 metadata:
-  name: pd-{{cell}}-srv
+  name: pd-{{cell}}
   labels:
     component: pd
     cell: {{cell}}
