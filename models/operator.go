@@ -60,7 +60,7 @@ func Install(cell string, ch chan int) (err error) {
 		logs.Error("get tidb %s err: %v", cell, err)
 		return err
 	}
-	if db.Status.Phase != Undefined {
+	if db.Status.Phase != Undefined && db.Status.Phase != Auditing {
 		return ErrRepeatOperation
 	}
 	go func() {
