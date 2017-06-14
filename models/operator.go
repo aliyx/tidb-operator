@@ -88,7 +88,7 @@ func Install(cell string, ch chan int) (err error) {
 // Uninstall tidb
 func Uninstall(cell string, ch chan int) (err error) {
 	if !started(cell) {
-		return nil
+		return fmt.Errorf("no installed")
 	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {

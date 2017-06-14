@@ -88,11 +88,15 @@ func DeletePodsBy(cell, component string) error {
 
 // GetPods Gets the pods of the specified cell and component
 func GetPods(cell, component string) ([]v1.Pod, error) {
+	set := make(map[string]string)
+	if cell != "" {
+		set["cell"] = cell
+	}
+	if component != "" {
+		set["component"] = component
+	}
 	opts := meta_v1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"cell":      cell,
-			"component": component,
-		}).String(),
+		LabelSelector: labels.SelectorFromSet(set).String(),
 	}
 	list, err := kubecli.CoreV1().Pods(Namespace).List(opts)
 	if err != nil {

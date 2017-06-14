@@ -212,6 +212,7 @@ func (dc *TidbController) Status() {
 	}
 	td, err := models.GetTidb(cell)
 	errHandler(dc.Controller, err, "Patch tidb status")
+	logs.Debug("%s patch: %+v", cell, s)
 	switch s.Type {
 	case "migrate":
 		td.UpdateMigrateStat(s.Status, "")
@@ -223,7 +224,7 @@ func (dc *TidbController) Status() {
 			td.Owner.Reason = s.Desc
 			td.Update()
 		}
-	default:
+	case "op":
 		switch s.Status {
 		case "start":
 			errHandler(
@@ -246,6 +247,8 @@ func (dc *TidbController) Status() {
 		default:
 			dc.CustomAbort(403, "unsupport operation")
 		}
+	default:
+		dc.CustomAbort(403, "unsupport operation")
 	}
 }
 
