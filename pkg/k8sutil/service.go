@@ -1,52 +1,38 @@
 package k8sutil
 
 import (
-	"fmt"
-	"time"
+	"encoding/json"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/httputil"
-	"github.com/ghodss/yaml"
-	"github.com/tidwall/gjson"
+	"k8s.io/client-go/pkg/api/v1"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetService(name string) ([]byte, error) {
-	resp, err := httputil.Get(fmt.Sprintf(k8sServiceURL+"/%s", masterHost, Namespace, name), time.Second)
+// CreateServiceByJSON create a service by json
+func CreateServiceByJSON(j []byte) (*v1.Service, error) {
+	srv := &v1.Service{}
+	if err := json.Unmarshal(j, srv); err != nil {
+		return nil, err
+	}
+	return CreateService(srv)
+}
+
+// CreateService create a service
+func CreateService(srv *v1.Service) (*v1.Service, error) {
+	retSrv, err := kubecli.CoreV1().Services(Namespace).Create(srv)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	logs.Info(`Service "%s" created`, srv.GetName())
+
+	return retSrv, nil
 }
 
-// getServiceProperties 获取template中的数据
-func GetServiceProperties(name, tem string) (string, error) {
-	resp, err := GetService(name)
-	if err != nil {
-		return "", err
-	}
-	return execTemplate(name, tem, resp)
-}
-
-func CreateService(s string) error {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	logs.Info("yaml: %s", s)
-	url := fmt.Sprintf(k8sServiceURL, masterHost, Namespace)
-	j, _ := yaml.YAMLToJSON([]byte(s))
-	resp, err := httputil.Post(url, j)
-	if err != nil {
-		return err
-	}
-	logs.Info(`Service "%s" created`, gjson.Get(resp, "metadata.name"))
-	return nil
-}
-
+// DelSrvs delete services
 func DelSrvs(names ...string) error {
 	for _, name := range names {
-		uri := fmt.Sprintf(k8sServiceURL+"/%s", masterHost, Namespace, name)
-		if err := httputil.Delete(uri, defaultk8sReqTimeout); err != nil {
-			return err
-		}
+		kubecli.CoreV1().Services(Namespace).Delete(name, &meta_v1.DeleteOptions{})
 		logs.Warn(`Service "%s" deleted`, name)
 	}
 	return nil

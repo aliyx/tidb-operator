@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"errors"
+
+	"github.com/astaxie/beego/logs"
 )
 
 var (
 	// ErrAlreadyExists 409返回该错误
 	ErrAlreadyExists = errors.New("resource already exists")
 	// ErrNotFound 404
-	ErrNotFound = errors.New("resource already exists")
+	ErrNotFound = errors.New("resource not exists")
 )
 
 // Post 发送post请求
@@ -61,7 +63,7 @@ func Get(url string, timeout time.Duration) ([]byte, error) {
 	if resp.StatusCode == 404 {
 		return nil, ErrNotFound
 	}
-	// 201:创建成功
+	logs.Debug("http get statusCode: %d", resp.StatusCode)
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("get server %s error: %v", url, string(r))
 	}

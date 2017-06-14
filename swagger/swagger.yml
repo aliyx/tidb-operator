@@ -105,6 +105,22 @@ paths:
             $ref: '#/definitions/models.Tidb'
         "404":
           description: :key not found
+    delete:
+      tags:
+      - tidbs
+      description: delete the tidb from user
+      operationId: TidbController.Delete tidb
+      parameters:
+      - in: path
+        name: cell
+        description: The cell you want to delete
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{string} delete success!'
+        "403":
+          description: cell is empty
   /tidbs/{cell}/events:
     get:
       tags:
@@ -192,29 +208,32 @@ paths:
           description: body is empty
         "403":
           description: unsupport operation
-  /users/:
-    post:
+  /tidbs/{user}:
+    get:
       tags:
-      - users
-      description: associate tidb to the user
-      operationId: UserController.AddTidb
+      - tidbs
+      description: Get tidbs by user
+      operationId: TidbController.GetTidbsByUser
       parameters:
-      - in: body
-        name: body
-        description: body for user&tidb content
+      - in: path
+        name: user
+        description: The user id
         required: true
-        schema:
-          $ref: '#/definitions/models.Db'
+        type: string
       responses:
-        "200": {}
-        "403":
-          description: body is empty
-  /users/{user}/limit:
+        "200":
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/controllers.Dbs'
+        "404":
+          description: :user not found
+  /tidbs/{user}/limit:
     post:
       tags:
-      - users
+      - tidbs
       description: whether the user creates tidb for approval
-      operationId: UserController.CheckResources
+      operationId: TidbController.CheckResources
       parameters:
       - in: path
         name: user
@@ -231,97 +250,6 @@ paths:
         "200": {}
         "403":
           description: body is empty
-  /users/{user}/tidbs:
-    get:
-      tags:
-      - users
-      description: Get tidbs by user
-      operationId: UserController.GetTidbsByUser
-      parameters:
-      - in: path
-        name: user
-        description: The user id
-        required: true
-        type: string
-      responses:
-        "200":
-          schema:
-            type: array
-            items:
-              $ref: '#/definitions/controllers.Dbs'
-        "404":
-          description: :user not found
-  /users/{user}/tidbs/{cell}:
-    get:
-      tags:
-      - users
-      description: get tidb by user and cell
-      operationId: UserController.GetTidbByUserAndCell
-      parameters:
-      - in: path
-        name: user
-        description: The user id for tidb
-        required: true
-        type: string
-      - in: path
-        name: cell
-        description: The cell for tidb
-        required: true
-        type: string
-      responses:
-        "200":
-          schema:
-            $ref: '#/definitions/models.Db'
-        "404":
-          description: :cell not found
-    delete:
-      tags:
-      - users
-      description: delete the tidb from user
-      operationId: UserController.Delete tidb
-      parameters:
-      - in: path
-        name: user
-        description: The user you want to delete tidb
-        required: true
-        type: string
-      - in: path
-        name: cell
-        description: The cell you want to delete
-        required: true
-        type: string
-      responses:
-        "200":
-          description: '{string} delete success!'
-        "403":
-          description: cell is empty
-  /users/{user}/tidbs/{cell}/status:
-    patch:
-      tags:
-      - users
-      description: modify db status
-      operationId: UserController.status
-      parameters:
-      - in: path
-        name: user
-        description: The user id
-        required: true
-        type: string
-      - in: path
-        name: cell
-        description: The cell for tidb name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: 'The body data type is {''type'': string, status'': string}'
-        required: true
-      responses:
-        "200": {}
-        "400":
-          description: body is empty
-        "403":
-          description: unsupport operation
 definitions:
   controllers.Dbs:
     title: Dbs
@@ -330,40 +258,8 @@ definitions:
       tidbs:
         type: array
         items:
-          $ref: '#/definitions/models.Db'
+          $ref: '#/definitions/models.Tidb'
       total:
-        type: integer
-        format: int64
-  k8sutil.K8sInfo:
-    title: K8sInfo
-    type: object
-    properties:
-      cpu:
-        type: integer
-        format: int64
-      mem:
-        type: integer
-        format: int64
-      nets:
-        type: array
-        items:
-          $ref: '#/definitions/k8sutil.Net'
-      ok:
-        type: boolean
-      replicas:
-        type: integer
-        format: int64
-      version:
-        type: string
-  k8sutil.Net:
-    title: Net
-    type: object
-    properties:
-      ip:
-        type: string
-      name:
-        type: string
-      port:
         type: integer
         format: int64
   models.ApprovalConditions:
@@ -376,49 +272,6 @@ definitions:
       kvr:
         type: integer
         format: int32
-  models.Creater:
-    title: Creater
-    type: object
-    properties:
-      dbid:
-        type: string
-      desc:
-        type: string
-      reason:
-        type: string
-      uscale:
-        $ref: '#/definitions/models.UScale'
-      userid:
-        type: string
-      username:
-        type: string
-  models.Db:
-    title: Tidb
-    type: object
-    properties:
-      cell:
-        type: string
-      hosts: {}
-      password:
-        type: string
-      pd:
-        $ref: '#/definitions/models.Pd'
-      scale:
-        type: integer
-        format: int64
-      schema:
-        type: string
-      status:
-        $ref: '#/definitions/models.TidbStatus'
-      tikv:
-        $ref: '#/definitions/models.Tikv'
-      timecreate:
-        type: string
-        format: string
-      transfer:
-        type: string
-      user:
-        type: string
   models.Event:
     title: Event
     type: object
@@ -447,6 +300,16 @@ definitions:
         type: string
       volume:
         type: string
+  models.Member:
+    title: Member
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+      state:
+        type: integer
+        format: int64
   models.Metadata:
     title: Metadata
     type: object
@@ -462,8 +325,46 @@ definitions:
         items:
           $ref: '#/definitions/models.Specification'
       versions: {}
+  models.Owner:
+    title: Owner
+    type: object
+    properties:
+      desc:
+        type: string
+      reason:
+        type: string
+      userid:
+        type: string
+      username:
+        type: string
   models.Pd:
-    title: Pd
+    title: Spec
+    type: object
+    properties:
+      capatity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
+      innerAddresses: {}
+      mem:
+        type: integer
+        format: int64
+      member:
+        type: integer
+        format: int64
+      members:
+        $ref: '#/definitions/models.Member'
+      outerAddresses: {}
+      replicas:
+        type: integer
+        format: int64
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
+  models.Phase:
     type: object
   models.Preference:
     title: Preference
@@ -474,18 +375,40 @@ definitions:
       name:
         type: string
       pd:
-        $ref: '#/definitions/models.Spec'
+        $ref: '#/definitions/models.Replication'
       tidb:
-        $ref: '#/definitions/models.Spec'
+        $ref: '#/definitions/models.Replication'
       tikv:
-        $ref: '#/definitions/models.Spec'
-  models.Spec:
-    title: Spec
+        $ref: '#/definitions/models.Replication'
+  models.Replication:
+    title: Replication
     type: object
     properties:
       replicas:
         type: integer
         format: int64
+  models.Schemas:
+    type: object
+  models.Spec:
+    title: Spec
+    type: object
+    properties:
+      capatity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      replicas:
+        type: integer
+        format: int64
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
   models.Specification:
     title: Specification
     type: object
@@ -500,72 +423,99 @@ definitions:
           $ref: '#/definitions/models.Preference'
   models.Specifications:
     type: object
+  models.Status:
+    title: Status
+    type: object
+    properties:
+      available:
+        type: boolean
+      desc:
+        type: string
+      migrate:
+        type: string
+      phase:
+        $ref: '#/definitions/models.Phase'
+      scale:
+        type: integer
+        format: int64
   models.Store:
     title: Store
     type: object
     properties:
-      s_address:
+      address:
         type: string
-      s_id:
+      id:
         type: integer
         format: int64
-      s_state:
+      nodeName:
+        type: string
+      state:
         type: integer
         format: int64
   models.Tidb:
-    title: Tidb
-    type: object
-    properties:
-      cell:
-        type: string
-      password:
-        type: string
-      pd:
-        $ref: '#/definitions/models.Pd'
-      scale:
-        type: integer
-        format: int64
-      schema:
-        type: string
-      status:
-        $ref: '#/definitions/models.TidbStatus'
-      tikv:
-        $ref: '#/definitions/models.Tikv'
-      timecreate:
-        type: string
-        format: string
-      transfer:
-        type: string
-      user:
-        type: string
-  models.TidbStatus:
-    type: object
-  models.Tikv:
-    title: Tikv
+    title: Spec
     type: object
     properties:
       capatity:
         type: integer
         format: int64
-      cur:
-        type: string
-      stores:
-        $ref: '#/definitions/models.Store'
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      outerAddresses: {}
+      outerStatusAddresses: {}
+      pd:
+        $ref: '#/definitions/models.Pd'
+      replicas:
+        type: integer
+        format: int64
+      status:
+        $ref: '#/definitions/models.Status'
       tidbdata_volume:
         type: string
-  models.UScale:
-    title: UScale
+      tikv:
+        $ref: '#/definitions/models.Tikv'
+      timecreate:
+        type: string
+        format: string
+      version:
+        type: string
+  models.Tikv:
+    title: Spec
     type: object
     properties:
-      status:
+      availableReplicas:
         type: integer
         format: int64
-      tidb:
+      capatity:
         type: integer
         format: int64
-      tikv:
+      cpu:
         type: integer
         format: int64
+      cur:
+        type: string
+      mem:
+        type: integer
+        format: int64
+      member:
+        type: integer
+        format: int64
+      readyReplicas:
+        type: integer
+        format: int64
+      replicas:
+        type: integer
+        format: int64
+      stores:
+        $ref: '#/definitions/34222.Store'
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
   models.Unit:
     title: Unit
     type: object
@@ -614,6 +564,3 @@ tags:
 - name: tidbs
   description: |
     Operations about tidb
-- name: users
-  description: |
-    Operations about database

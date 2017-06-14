@@ -33,9 +33,8 @@ var (
 // Impl 封装底层storage, 所有的storage必须实现该接口
 type Impl interface {
 	Close()
-
 	ListDir(ctx context.Context, dirPath string) ([]string, error)
-
+	ListKey(ctx context.Context, prefix string) ([]string, error)
 	// Create creates the initial version of a path.
 	Create(ctx context.Context, path string, contents []byte) (Version, error)
 
@@ -43,12 +42,9 @@ type Impl interface {
 	// Returns ErrNodeExists if the path doesn't exist.
 	// Returns ErrBadVersion if the provided version is not current.
 	Delete(ctx context.Context, path string, version Version) error
-
 	DeleteAll(ctx context.Context, path string) error
-
 	// Update updates path
 	Update(ctx context.Context, path string, contents []byte, version Version) (Version, error)
-
 	// Get returns the content and version of a path.
 	Get(ctx context.Context, path string) ([]byte, Version, error)
 }
@@ -98,12 +94,20 @@ func (s *Storage) GetObj(key string, v interface{}) error {
 	return nil
 }
 
-// ListKey 返回指定path下的key
-func (s *Storage) ListKey(parent string) ([]string, error) {
+// ListDir 返回指定path下的key
+func (s *Storage) ListDir(parent string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
 	k := path.Join(tidbRoot, s.namespace, parent)
 	return s.Impl.ListDir(ctx, k)
+}
+
+// ListKey 返回指定path下的key
+func (s *Storage) ListKey(prefix string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
+	defer cancel()
+	k := path.Join(tidbRoot, s.namespace, prefix)
+	return s.Impl.ListKey(ctx, k)
 }
 
 // Delete 删除指定的key

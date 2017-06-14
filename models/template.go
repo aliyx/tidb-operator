@@ -28,7 +28,7 @@ var pdHeadlessServiceYaml = `
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{cell}}
+  name: pd-{{cell}}-srv
   labels:
     component: pd
     cell: {{cell}}
@@ -44,7 +44,7 @@ spec:
     app: tidb
 `
 
-var pdRcYaml = `
+var pdPodYaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -73,7 +73,7 @@ spec:
   # For example, pd-test-001 in default namesapce will have DNS name
   # 'pd-test-001.test.default.svc.cluster.local'.
   hostname: pd-{{cell}}-{{id}}
-  subdomain: {{cell}}
+  subdomain: pd-{{cell}}-srv
   containers:
     - name: pd
       image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
@@ -83,8 +83,8 @@ spec:
         mountPath: /var/pd
       resources:
         limits:
-          memory: "{{mem}}Mi"
-          cpu: "{{cpu}}m"
+          memory: {{mem}}Mi
+          cpu: {{cpu}}m
       env: 
       - name: M_INTERVAL
         value: "15"
@@ -94,9 +94,9 @@ spec:
         - |
           client_urls="http://0.0.0.0:2379"
           # FQDN
-          advertise_client_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2379"
+          advertise_client_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2379"
           peer_urls="http://0.0.0.0:2380"
-          advertise_peer_urls="http://pd-{{cell}}-{{id}}.{{cell}}.{{namespace}}.svc.cluster.local:2380"
+          advertise_peer_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380"
 
           export PD_NAME=$HOSTNAME
           export PD_DATA_DIR=/var/pd/$HOSTNAME/data
@@ -125,7 +125,7 @@ spec:
           urls=""
           for id in {1..{{replicas}}}; do
             id=$(printf "%03d\n" $id)
-            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.{{cell}}.{{namespace}}.svc.cluster.local:2380,"
+            urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380,"
           done
           urls=${urls%,}
           echo "Initial-cluster:$urls"
@@ -163,7 +163,7 @@ spec:
                 if [ $resp == 200 ]
                 then
                   echo 'Delete pd "$PD_NAME" success'
-                fi       
+                fi
 `
 
 var tikvPodYaml = `

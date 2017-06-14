@@ -18,11 +18,6 @@ func init() {
 				&controllers.TidbController{},
 			),
 		),
-		beego.NSNamespace("/users",
-			beego.NSInclude(
-				&controllers.UserController{},
-			),
-		),
 	)
 	beego.AddNamespace(ns)
 }

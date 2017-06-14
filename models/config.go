@@ -16,8 +16,6 @@ const (
 
 	// pdReqTimeout access the request timeout for the pd api service
 	pdReqTimeout = 3 * time.Second
-	// startTidbTimeout start tidb three sub-module pd / tikv / tidb timeout
-	startTidbTimeout = 60 * time.Second
 	// storageTimeout data storage timeout
 	storageTimeout = 3 * time.Second
 )

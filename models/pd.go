@@ -2,34 +2,35 @@ package models
 
 import (
 	"fmt"
-	"strconv"
+	"time"
 
 	"strings"
-
-	"time"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
+	"github.com/ghodss/yaml"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
 // Pd 元数据
 type Pd struct {
-	k8sutil.K8sInfo
-	Volume string `json:"tidbdata_volume"`
+	Spec `json:"spec"`
 
-	Db *Tidb `json:"-"`
+	InnerAddresses []string `json:"innerAddresses,omitempty"`
+	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
 	Member int `json:"member"`
 	// key is pod name
 	Members map[string]Member `json:"members,omitempty"`
+
+	Db *Tidb `json:"-"`
 }
 
 // Member describe a pd or tikv pod
 type Member struct {
-	ID      int    `json:"id,omitempty"`
-	Address string `json:"address,omitempty"`
-	State   int    `json:"state,omitempty"`
+	ID    int `json:"id,omitempty"`
+	State int `json:"state,omitempty"`
 }
 
 // NewPd return a Pd instance
@@ -38,12 +39,12 @@ func NewPd() *Pd {
 }
 
 func (p *Pd) beforeSave() error {
-	if err := p.K8sInfo.Validate(); err != nil {
+	if err := p.Spec.validate(); err != nil {
 		return err
 	}
 	md, _ := GetMetadata()
 	max := md.Units.Pd.Max
-	if p.Replicas < 3 || p.Replicas > max || p.Replicas%2 == 0 {
+	if p.Spec.Replicas < 3 || p.Spec.Replicas > max || p.Spec.Replicas%2 == 0 {
 		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
 	}
 
@@ -53,11 +54,11 @@ func (p *Pd) beforeSave() error {
 	if err != nil {
 		return err
 	}
-	p.Volume = strings.Trim(md.K8s.Volume, " ")
-	if len(p.Volume) == 0 {
-		p.Volume = "emptyDir: {}"
+	p.Spec.Volume = strings.Trim(md.K8s.Volume, " ")
+	if len(p.Spec.Volume) == 0 {
+		p.Spec.Volume = "emptyDir: {}"
 	} else {
-		p.Volume = fmt.Sprintf("hostPath: {path: %s}", p.Volume)
+		p.Spec.Volume = fmt.Sprintf("hostPath: {path: %s}", p.Spec.Volume)
 	}
 	return nil
 }
@@ -76,20 +77,24 @@ func GetPd(cell string) (*Pd, error) {
 func (p *Pd) uninstall() (err error) {
 	e := NewEvent(p.Db.Cell, "pd", "uninstall")
 	defer func() {
-		st := PdStoped
+		ph := pdStoped
 		if err != nil {
-			st = PdStopFailed
+			ph = pdStopFailed
 		}
-		p.Nets = nil
-		p.Ok = false
-		p.Db.Status = st
-		p.Db.Update()
+		p.Member = 0
+		p.InnerAddresses = nil
+		p.OuterAddresses = nil
+		p.Db.Status.Phase = ph
+		err = p.Db.update()
+		if err != nil {
+			logs.Error("uninstall pd %s: %v", p.Db.Cell, err)
+		}
 		e.Trace(err, "Uninstall pd pods")
 	}()
-	if err = k8sutil.DeletePodsByCell(p.Db.Cell); err != nil {
+	if err = k8sutil.DeletePodsBy(p.Db.Cell, "pd"); err != nil {
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), p.Db.Cell); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), fmt.Sprintf("pd-%s-srv", p.Db.Cell)); err != nil {
 		return err
 	}
 	return err
@@ -97,82 +102,110 @@ func (p *Pd) uninstall() (err error) {
 
 func (p *Pd) install() (err error) {
 	e := NewEvent(p.Db.Cell, "pd", "install")
+	rollout(p.Db.Cell, pdPending)
 	defer func() {
-		st := PdStarted
+		ph := pdStarted
 		if err != nil {
-			st = PdStartFailed
-		} else {
-			p.Ok = true
+			ph = pdStartFailed
 		}
-		p.Db.Status = st
-		p.Db.Update()
-		e.Trace(err, fmt.Sprintf("Install pd pods with %d replicas on k8s", p.Replicas))
+		p.Db.Status.Phase = ph
+		p.Db.update()
+		e.Trace(err, fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Spec.Replicas, p.Member))
 	}()
-	if err = k8sutil.CreateService(p.toTemplate(pdServiceYaml)); err != nil {
+	if err = p.createServices(); err != nil {
 		return err
 	}
-	if err = k8sutil.CreateService(p.toTemplate(pdHeadlessServiceYaml)); err != nil {
-		return err
-	}
-	for i := 0; i < p.Replicas; i++ {
+	for i := 0; i < p.Spec.Replicas; i++ {
 		p.Member++
-		if err = k8sutil.CreateAndWaitPod(p.toTemplate(pdRcYaml)); err != nil {
+		if err = p.createPod(); err != nil {
 			return err
 		}
 	}
-	// Waiting for pds finished leader election
-	if err = p.waitForComplete(startTidbTimeout); err != nil {
+	// Waiting for pds available
+	if err = p.waitForOk(); err != nil {
 		return err
 	}
 	return err
 }
 
-func (p *Pd) waitForComplete(wait time.Duration) error {
-	if err := k8sutil.WaitComponentRuning(wait, p.Db.Cell, "pd"); err != nil {
+func (p *Pd) createServices() error {
+	// create headless
+	if _, err := p.createService(pdHeadlessServiceYaml); err != nil {
 		return err
 	}
-	name := fmt.Sprintf("pd-%s", p.Db.Cell)
-	cip, err := k8sutil.GetServiceProperties(name, `{{.spec.clusterIP}}:{{index (index .spec.ports 0) "nodePort"}}`)
-	if err != nil || len(cip) == 0 {
-		return fmt.Errorf("cannt get %s cluster ip, error: %v", name, err)
+
+	// create service
+	srv, err := p.createService(pdServiceYaml)
+	if err != nil {
+		return err
 	}
-	h := strings.Split(cip, ":")
-	if len(h) != 2 {
-		return fmt.Errorf("cannt get external cluster ip and port")
-	}
-	cip = h[0]
-	nodePort, _ := strconv.Atoi(h[1])
+	p.InnerAddresses = append(p.InnerAddresses, fmt.Sprintf("%s:%d", srv.Spec.ClusterIP, srv.Spec.Ports[0].Port))
 	ps := getProxys()
-	p.Nets = append(p.Nets, k8sutil.Net{portEtcd, cip, 2379})
-	p.Nets = append(p.Nets, k8sutil.Net{portEtcdStatus, ps[0], nodePort})
-	logs.Debug("Pd cluster host: %s external host: %s", p.Nets[0].String(), p.Nets[1].String())
-	// must run on docker or k8s master node
-	// 本地测试时注释掉
-	if err := retryutil.RetryIfErr(wait, func() error {
-		_, err = pdLeaderGet(p.Nets[0].String())
+	p.OuterAddresses = append(p.OuterAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[0].NodePort))
+	return nil
+}
+
+func (p *Pd) createService(temp string) (*v1.Service, error) {
+	j, err := p.toJSONTemplate(temp)
+	if err != nil {
+		return nil, err
+	}
+	retSrv, err := k8sutil.CreateServiceByJSON(j)
+	if err != nil {
+		return nil, err
+	}
+	return retSrv, nil
+}
+
+func (p *Pd) createPod() (err error) {
+	var j []byte
+	if j, err = p.toJSONTemplate(pdPodYaml); err != nil {
 		return err
-	}); err != nil {
-		return fmt.Errorf(`waiting for service "%s" started timout`, name)
+	}
+	if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (p *Pd) toTemplate(t string) string {
+func (p *Pd) waitForOk() (err error) {
+	logs.Info("waiting for run pd %s ok...", p.Db.Cell)
+	interval := 3 * time.Second
+	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
+		if _, err = pdLeaderGet(p.OuterAddresses[0]); err != nil {
+			logs.Warn("get pd leader: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		logs.Error("wait pd %s available: %v", p.Db.Cell, err)
+	} else {
+		logs.Info("pd %s ok", p.Db.Cell)
+	}
+	return err
+}
+
+func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
 		"{{cell}}", p.Db.Cell,
-		"{{id}}", fmt.Sprintf("%d", p.Member),
-		"{{replicas}}", fmt.Sprintf("%d", p.Replicas),
-		"{{cpu}}", fmt.Sprintf("%v", p.CPU),
-		"{{mem}}", fmt.Sprintf("%v", p.Mem),
-		"{{version}}", p.Version,
-		"{{tidbdata_volume}}", p.Volume,
+		"{{id}}", fmt.Sprintf("%03d", p.Member),
+		"{{replicas}}", fmt.Sprintf("%d", p.Spec.Replicas),
+		"{{cpu}}", fmt.Sprintf("%v", p.Spec.CPU),
+		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
+		"{{version}}", p.Spec.Version,
+		"{{tidbdata_volume}}", p.Spec.Volume,
 		"{{registry}}", imageRegistry,
 	)
-	s := r.Replace(t)
-	return s
+	str := r.Replace(temp)
+	j, err := yaml.YAMLToJSON([]byte(str))
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
 }
 
 func (p *Pd) isNil() bool {
-	return p.Replicas < 1
+	return p.Spec.Replicas < 1
 }

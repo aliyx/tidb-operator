@@ -9,87 +9,163 @@ import (
 	"github.com/astaxie/beego/logs"
 
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
-	tsql "github.com/ffan/tidb-k8s/pkg/mysqlutil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
 
 	"errors"
-	"strconv"
 	"sync"
 
+	"strconv"
+
 	"github.com/ffan/tidb-k8s/pkg/httputil"
+	"github.com/ghodss/yaml"
 )
 
-// TidbStatus 描述tidb的创建/扩容/删除过程中每个节点的状态
-type TidbStatus int
+// Phase tidb runing status
+type Phase int
 
 const (
-	// Undefined 未开始创建
-	Undefined TidbStatus = iota
-	// PdPending pd待处理
-	PdPending
-	// PdStartFailed pd服务启动失败
-	PdStartFailed
-	// PdStarted pd模块服务可用
-	PdStarted
-	// TikvPending tikv待处理
-	TikvPending
-	// TikvStartFailed tikv服务启动失败
-	TikvStartFailed
-	// TikvStarted tikv服务可用
-	TikvStarted
-	// TidbPending tidb待处理
-	TidbPending
-	// TidbStartFailed tidb服务启动失败
-	TidbStartFailed
-	// TidbStarted tidb服务可用
-	TidbStarted
-	// TidbInitFailed 初始化失败
-	TidbInitFailed
-	// TidbInited 初始化完成，可对外提供服务
-	TidbInited
-	// TidbStopFailed fail to stop tidb
-	TidbStopFailed
-	// TidbStoped tidb服务已停止
-	TidbStoped
-	// TikvStopFailed fail to stop tikv
-	TikvStopFailed
-	// TikvStoped tikv服务已停止
-	TikvStoped
-	// PdStopFailed fail to stop tikv
-	PdStopFailed
-	// PdStoped  delete pd pods from k8s
-	PdStoped
-	// tidbDeleting wait for delete tidb
+	// Undefined init status
+	Undefined Phase = iota
+	pdPending
+	pdStartFailed
+	pdStarted
+	tikvPending
+	tikvStartFailed
+	tikvStarted
+	tidbPending
+	tidbStartFailed
+	tidbStarted
+	tidbInitFailed
+	// tidbInited 初始化完成，可对外提供服务
+	tidbInited
+	tidbStopFailed
+	tidbStoped
+	tikvStopFailed
+	tikvStoped
+	pdStopFailed
+	pdStoped
 	tidbDeleting
 )
 
 const (
-	portMysql       = "mysql"
-	portMysqlStatus = "mst"
-	portEtcd        = "etcd"
-	portEtcdStatus  = "est"
-
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
 
-	defaultStopTidbTimeout = 60 // 60s
+	defaultStopTidbTimeout            = 60 // 60s
+	waitPodRuningTimeout              = 30 * time.Second
+	waitTidbComponentAvailableTimeout = 60 * time.Second
 
 	scaling      = 1 << 8
 	tikvScaleErr = 1
 	tidbScaleErr = 1 << 1
 )
 
+const (
+	// ScaleUndefined no scale request
+	ScaleUndefined int = iota
+	// ScalePending wait for the admin to scale
+	ScalePending
+	// ScaleFailure scale failure
+	ScaleFailure
+	// Scaled scale success
+	Scaled
+)
+
 var (
 	tidbS Storage
 
-	errCellIsNil = errors.New("cell is nil")
+	errCellIsNil               = errors.New("cell is nil")
+	errInvalidSchema           = errors.New("invalid database schema")
+	errInvalidDatabaseUsername = errors.New("invalid database username")
+	errInvalidDatabasePassword = errors.New("invalid database password")
+
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
 	ErrRepeatOperation = errors.New("the previous operation is being executed")
+	errInvalidReplica  = errors.New("invalid replica")
 
 	scaleMu sync.Mutex
-
-	errInvalidReplica = errors.New("invalid replica")
 )
+
+// Tidb metadata
+type Tidb struct {
+	Cell    string  `json:"cell"`
+	Owner   *Owner  `json:"owner,omitempty"`
+	Schemas Schemas `json:"schemas,omitempty"`
+	Spec    `json:"spec"`
+	Pd      *Pd   `json:"pd"`
+	Tikv    *Tikv `json:"tikv"`
+
+	Status               Status    `json:"status"`
+	OuterAddresses       []string  `json:"outerAddresses,omitempty"`
+	OuterStatusAddresses []string  `json:"outerStatusAddresses,omitempty"`
+	TimeCreate           time.Time `json:"timecreate,omitempty"`
+}
+
+// Owner creater
+type Owner struct {
+	ID     string `json:"userid"` //user
+	Name   string `json:"username"`
+	Desc   string `json:"desc"`
+	Reason string `json:"reason"`
+}
+
+// Schema database schema
+type Schema struct {
+	Name     string `json:"name"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+// Schemas schema slice
+type Schemas []Schema
+
+// Spec describe pd/tikv/tidb component
+type Spec struct {
+	CPU      int    `json:"cpu"`
+	Mem      int    `json:"mem"`
+	Version  string `json:"version"`
+	Replicas int    `json:"replicas"`
+	Volume   string `json:"tidbdata_volume,omitempty"`
+	Capatity int    `json:"capatity,omitempty"`
+}
+
+// Validate cpu or mem is effective
+func (s *Spec) validate() error {
+	if s.CPU < 200 || s.CPU > 2000 {
+		return fmt.Errorf("cpu must be between 200-2000")
+	}
+	if s.Mem < 256 || s.CPU > 8184 {
+		return fmt.Errorf("cpu must be between 256-8184")
+	}
+	if s.Replicas < 1 {
+		return fmt.Errorf("replicas must be greater than 1")
+	}
+	return nil
+}
+
+func (ss Schemas) validate() error {
+	for _, s := range ss {
+		if len(s.Name) < 1 || len(s.Name) > 32 {
+			return errInvalidSchema
+		}
+		if len(s.User) < 1 || len(s.User) > 32 {
+			return errInvalidDatabaseUsername
+		}
+		if len(s.Password) < 1 || len(s.Password) > 32 {
+			return errInvalidDatabasePassword
+		}
+	}
+	return nil
+}
+
+// Status tidb status
+type Status struct {
+	Available    bool   `json:"available"`
+	Phase        Phase  `json:"phase"`
+	MigrateState string `json:"migrate,omitempty"`
+	ScaleState   int    `json:"scale,omitempty"`
+	Desc         string `json:"desc,omitempty"`
+}
 
 func tidbInit() {
 	s, err := newStorage(tidbNamespace)
@@ -97,24 +173,6 @@ func tidbInit() {
 		panic(fmt.Errorf("Create storage tidb error: %v", err))
 	}
 	tidbS = s
-}
-
-// Tidb tidb数据库管理model
-type Tidb struct {
-	k8sutil.K8sInfo
-
-	Cell     string `json:"cell"`
-	Schema   string `json:"schema"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-
-	Pd   *Pd   `json:"pd"`
-	Tikv *Tikv `json:"tikv"`
-
-	Status       TidbStatus `json:"status"`
-	TimeCreate   time.Time  `json:"timecreate,omitempty"`
-	MigrateState string     `json:"transfer,omitempty"`
-	ScaleState   int        `json:"scale,omitempty"`
 }
 
 // NewTidb create a tidb instance
@@ -126,21 +184,24 @@ func NewTidb(cell ...string) *Tidb {
 	return &td
 }
 
-// Save tidb/tikv/pd info
+// Save tidb
 func (db *Tidb) Save() error {
+	db.Cell = strings.Trim(db.Cell, " ")
 	if db.Cell == "" {
 		return errCellIsNil
 	}
-	db.Cell = strings.Trim(db.Cell, " ")
-	if err := db.Pd.beforeSave(); err != nil {
+	if err := db.check(); err != nil {
 		return err
 	}
-	if err := db.Tikv.beforeSave(); err != nil {
-		return err
+	if old, _ := GetTidb(db.Cell); old != nil {
+		return fmt.Errorf(`tidb "%s" has created`, old.Cell)
 	}
-	if err := db.beforeSave(); err != nil {
-		return err
+	if pods, err := k8sutil.ListPodNames(db.Cell, ""); err != nil || len(pods) > 1 {
+		return fmt.Errorf(`tidb "%s" has not been cleared yet: %v`, db.Cell, err)
 	}
+	db.TimeCreate = time.Now()
+	logs.Debug("tidb: %+v", db)
+
 	j, err := json.Marshal(db)
 	if err != nil {
 		return err
@@ -151,43 +212,49 @@ func (db *Tidb) Save() error {
 	return nil
 }
 
-// beforeSave 创建之前的检查工作
-func (db *Tidb) beforeSave() error {
-	if err := db.K8sInfo.Validate(); err != nil {
+func (db *Tidb) check() (err error) {
+	if err = db.validate(); err != nil {
 		return err
 	}
-	if old, _ := GetTidb(db.Cell); old != nil {
-		return fmt.Errorf(`tidb "%s" has created`, old.Cell)
+	if err = db.Schemas.validate(); err != nil {
+		return err
+	}
+	if err = db.Pd.beforeSave(); err != nil {
+		return err
+	}
+	if err = db.Tikv.beforeSave(); err != nil {
+		return err
 	}
 	return nil
 }
 
-// Update tidb metadata
+func encodeUserID(uid string) string {
+	var u string
+	if i, err := strconv.ParseInt(uid, 10, 32); err == nil {
+		u = fmt.Sprintf("%03x", i)
+	} else {
+		u = fmt.Sprintf("%03s", uid)
+	}
+	return u
+}
+
+// Update tidb
 func (db *Tidb) Update() error {
 	if db.Cell == "" {
-		return fmt.Errorf("cell is nil")
+		return errCellIsNil
 	}
+	if err := db.check(); err != nil {
+		return err
+	}
+	return db.update()
+}
+
+func (db *Tidb) update() error {
 	j, err := json.Marshal(db)
 	if err != nil {
 		return err
 	}
 	return tidbS.Update(db.Cell, j)
-}
-
-func rollout(cell string, s TidbStatus) error {
-	db, err := GetTidb(cell)
-	if err != nil {
-		return err
-	}
-	db.Status = s
-	return db.Update()
-}
-
-func isPdOk(cell string) bool {
-	if p, err := GetPd(cell); err != nil || p == nil || !p.Ok {
-		return false
-	}
-	return true
 }
 
 // GetTidb get a Tidb instance
@@ -209,94 +276,190 @@ func GetTidb(cell string) (*Tidb, error) {
 	return db, nil
 }
 
-func (db *Tidb) run() (err error) {
-	e := NewEvent(db.Cell, "tidb", "start")
-	defer func() {
-		st := TidbStarted
+// GetDbs get specified user tidbs
+func GetDbs(userID string) ([]Tidb, error) {
+	if len(userID) < 1 {
+		return nil, fmt.Errorf("userid is nil")
+	}
+	if userID != "admin" {
+		userID = encodeUserID(userID) + "-"
+	} else {
+		userID = ""
+	}
+	cells, err := tidbS.ListKey(userID)
+	if err != nil && err != ErrNoNode {
+		return nil, err
+	}
+	if len(cells) < 1 {
+		return nil, nil
+	}
+	all := []Tidb{}
+	for _, cell := range cells {
+		db, err := GetTidb(cell)
 		if err != nil {
-			st = TidbStartFailed
-		} else {
-			db.Ok = true
-			if err = db.Update(); err != nil {
-				st = TidbStartFailed
-			}
+			return nil, err
 		}
-		db.Status = st
-		db.Update()
-		e.Trace(err, fmt.Sprintf("Start tidb replicationcontrollers with %d replicas on k8s", db.Replicas))
+		all = append(all, *db)
+	}
+	return all, nil
+}
+
+// NeedLimitResources whether the user creates tidb for approval
+func NeedLimitResources(ID string, kvr, dbr uint) bool {
+	if len(ID) < 1 {
+		return true
+	}
+	md, err := GetMetadata()
+	if err != nil {
+		logs.Error("cant get metadata when invoke limitResources: %v", err)
+		return true
+	}
+	dbs, err := GetDbs(ID)
+	if err != nil {
+		logs.Error("cant get user %s dbs: %v", ID, err)
+	}
+	for _, db := range dbs {
+		kvr = kvr + uint(db.Tikv.Spec.Replicas)
+		dbr = dbr + uint(db.Spec.Replicas)
+	}
+	if kvr > md.AC.KvReplicas {
+		return true
+	}
+	if dbr > md.AC.DbReplicas {
+		return true
+	}
+	return false
+}
+
+func rollout(cell string, ph Phase) error {
+	db, err := GetTidb(cell)
+	if err != nil {
+		return err
+	}
+	db.Status.Phase = ph
+	return db.update()
+}
+
+func isOkPd(cell string) bool {
+	if db, err := GetTidb(cell); err != nil ||
+		db == nil || db.Status.Phase < pdStarted || db.Status.Phase > tikvStoped {
+		return false
+	}
+	return true
+}
+
+func isOkTikv(cell string) bool {
+	if db, err := GetTidb(cell); err != nil ||
+		db == nil || db.Status.Phase < tikvStarted || db.Status.Phase > tidbStoped {
+		return false
+	}
+	return true
+}
+
+func (db *Tidb) install() (err error) {
+	e := NewEvent(db.Cell, "tidb", "install")
+	rollout(db.Cell, tidbPending)
+	defer func() {
+		ph := tidbStarted
+		if err != nil {
+			ph = tidbStartFailed
+		}
+		db.Status.Phase = ph
+		err = db.update()
+		e.Trace(err, fmt.Sprintf("Install tidb replicationcontrollers with %d replicas on k8s", db.Spec.Replicas))
 	}()
-	if err = k8sutil.CreateService(db.getK8sTemplate(tidbServiceYaml)); err != nil {
+	if err = db.createService(); err != nil {
 		return err
 	}
-	if err = k8sutil.CreateRc(db.getK8sTemplate(tidbRcYaml)); err != nil {
+	if err = db.createReplicationController(); err != nil {
 		return err
 	}
-	// wait tidb启动完成
-	if err = db.waitForComplete(startTidbTimeout); err != nil {
+	// wait tidb started
+	if err = db.waitForOk(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db *Tidb) getK8sTemplate(t string) string {
-	r := strings.NewReplacer(
-		"{{version}}", db.Version,
-		"{{cpu}}", fmt.Sprintf("%v", db.CPU), "{{mem}}", fmt.Sprintf("%v", db.Mem),
-		"{{namespace}}", getNamespace(),
-		"{{replicas}}", fmt.Sprintf("%v", db.Replicas),
-		"{{registry}}", imageRegistry, "{{cell}}", db.Cell)
-	s := r.Replace(t)
-	return s
-}
-
-func (db *Tidb) waitForComplete(wait time.Duration) error {
-	if err := k8sutil.WaitComponentRuning(wait, db.Cell, "tidb"); err != nil {
+func (db *Tidb) createService() (err error) {
+	j, err := db.toJSONTemplate(tidbServiceYaml)
+	if err != nil {
 		return err
 	}
-	pts, err := k8sutil.GetServiceProperties(
-		fmt.Sprintf("tidb-%s", db.Cell),
-		`{{index (index .spec.ports 0) "nodePort"}}:{{index (index .spec.ports 1) "nodePort"}}`)
-	if err != nil || len(pts) == 0 {
-		return fmt.Errorf(`cannt get tidb "%s" cluster ports: %v`, db.Cell, err)
+	srv, err := k8sutil.CreateServiceByJSON(j)
+	if err != nil {
+		return err
 	}
-	pp := strings.Split(pts, ":")
-	if len(pp) != 2 {
-		return fmt.Errorf("cannt get external ports")
-	}
-	om, _ := strconv.Atoi(pp[0])
-	os, _ := strconv.Atoi(pp[1])
 	ps := getProxys()
-	for _, p := range ps {
-		db.Nets = append(db.Nets, k8sutil.Net{portMysql, p, om}, k8sutil.Net{portMysqlStatus, p, os})
+	for _, py := range ps {
+		db.OuterAddresses = append(db.OuterAddresses, fmt.Sprintf("%s:%d", py, srv.Spec.Ports[0].NodePort))
 	}
-	// wait tidb status端口可访问
-	if err := retryutil.RetryIfErr(wait, func() error {
-		if _, err := httputil.Get("http://"+db.Nets[1].String(), pdReqTimeout); err != httputil.ErrNotFound {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf(`start up tidbs timout`)
-	}
-	logs.Debug("Tidb proxy: %v", db.Nets)
+	db.OuterStatusAddresses = append(db.OuterStatusAddresses,
+		fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
+	logs.Info("tidb %s mysql address: %s, status address: %s", db.Cell, db.OuterAddresses, db.OuterStatusAddresses)
 	return nil
 }
 
-func (db *Tidb) stop() (err error) {
-	e := NewEvent(db.Cell, "tidb", "stop")
-	defer func() {
-		st := TidbStoped
-		if err != nil {
-			st = TidbStopFailed
-		} else {
+func (db *Tidb) createReplicationController() (err error) {
+	j, err := db.toJSONTemplate(tidbRcYaml)
+	if err != nil {
+		return err
+	}
+	_, err = k8sutil.CreateRcByJSON(j, waitPodRuningTimeout)
+	return err
+}
+
+func (db *Tidb) toJSONTemplate(temp string) ([]byte, error) {
+	r := strings.NewReplacer(
+		"{{version}}", db.Spec.Version,
+		"{{cpu}}", fmt.Sprintf("%v", db.Spec.CPU), "{{mem}}", fmt.Sprintf("%v", db.Spec.Mem),
+		"{{namespace}}", getNamespace(),
+		"{{replicas}}", fmt.Sprintf("%v", db.Spec.Replicas),
+		"{{registry}}", imageRegistry, "{{cell}}", db.Cell)
+	str := r.Replace(temp)
+	j, err := yaml.YAMLToJSON([]byte(str))
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
+}
+
+func (db *Tidb) waitForOk() (err error) {
+	logs.Info("waiting for run tidb %s ok...", db.Cell)
+	interval := 3 * time.Second
+	sURL := fmt.Sprintf("http://%s/status", db.OuterStatusAddresses[0])
+	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
+		if _, err := httputil.Get(sURL, 2*time.Second); err != nil {
+			logs.Warn("get tidb status: %v", err)
+			return false, nil
 		}
-		db.Nets = nil
-		db.Ok = false
-		db.Status = st
-		db.MigrateState = ""
-		db.ScaleState = 0
-		db.Update()
-		e.Trace(err, "Stop tidb replicationcontrollers")
+		return true, nil
+	})
+	if err != nil {
+		logs.Error("wait tidb %s available: %v", db.Cell, err)
+	} else {
+		logs.Info("tidb %s ok", db.Cell)
+	}
+	return err
+}
+
+func (db *Tidb) uninstall() (err error) {
+	e := NewEvent(db.Cell, "tidb", "uninstall")
+	defer func() {
+		ph := tidbStoped
+		if err != nil {
+			ph = tidbStopFailed
+		}
+		db.Status.Phase = ph
+		db.Status.MigrateState = ""
+		db.Status.ScaleState = 0
+		db.OuterAddresses = nil
+		db.OuterStatusAddresses = nil
+		err = db.update()
+		if err != nil {
+			logs.Error("uninstall tidb %s: %v", db.Cell, err)
+		}
+		e.Trace(err, "Uninstall tidb replicationcontrollers")
 	}()
 	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
 		return err
@@ -366,21 +529,21 @@ func Scale(cell string, kvReplica, dbReplica int) (err error) {
 	if db, err = GetTidb(cell); err != nil {
 		return err
 	}
-	if db.Status != TidbInited {
+	if db.Status.Available {
 		return fmt.Errorf("tidb %s not inited", cell)
 	}
-	if db.ScaleState&scaling > 0 {
+	if db.Status.ScaleState&scaling > 0 {
 		return fmt.Errorf("tidb %s is scaling", cell)
 	}
-	db.ScaleState |= scaling
-	db.Update()
+	db.Status.ScaleState |= scaling
+	db.update()
 	var wg sync.WaitGroup
 	db.scaleTikvs(kvReplica, &wg)
 	db.scaleTidbs(dbReplica, &wg)
 	go func() {
 		wg.Wait()
-		db.ScaleState ^= scaling
-		db.Update()
+		db.Status.ScaleState ^= scaling
+		db.update()
 	}()
 	return nil
 }
@@ -389,7 +552,7 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
-	if replica == db.Replicas {
+	if replica == db.Spec.Replicas {
 		return
 	}
 	wg.Add(1)
@@ -403,284 +566,40 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 		e := NewEvent(db.Cell, "tidb", "scale")
 		defer func(r int) {
 			if err != nil {
-				db.ScaleState |= tidbScaleErr
+				db.Status.ScaleState |= tidbScaleErr
 			}
 			db.Update()
 			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Cell, r, replica))
-		}(db.Replicas)
+		}(db.Spec.Replicas)
 		md, _ := GetMetadata()
 		if replica > md.Units.Tidb.Max {
 			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Units.Tidb.Max)
 			return
 		}
-		if replica > db.Replicas*3 || db.Replicas > replica*3 {
+		if replica > db.Spec.Replicas*3 || db.Spec.Replicas > replica*3 {
 			err = fmt.Errorf("each scale can not more or less then 2 times")
 			return
 		}
-		old := db.Replicas
-		db.Replicas = replica
-		if err = db.Validate(); err != nil {
-			db.Replicas = old
+		old := db.Spec.Replicas
+		db.Spec.Replicas = replica
+		if err = db.Spec.validate(); err != nil {
+			db.Spec.Replicas = old
 			return
 		}
-		logs.Info(`Scale "tidb-%s" from %d to %d`, db.Cell, db.Replicas, replica)
-		if err = k8sutil.ScaleReplicationcontroller(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
-			return
-		}
-		if err = k8sutil.WaitComponentRuning(startTidbTimeout, db.Cell, "tidb"); err != nil {
+		logs.Info(`Scale "tidb-%s" from %d to %d`, db.Cell, db.Spec.Replicas, replica)
+		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
 			return
 		}
 	}()
 }
 
 func (db *Tidb) isNil() bool {
-	return db.Replicas < 1
+	return db.Spec.Replicas < 1
 }
 
 func (db *Tidb) isOk() bool {
-	return db.Status == TidbInited
-}
-
-func (db *Tidb) initSchema() (err error) {
-	e := NewEvent(db.Cell, "tidb", "init")
-	defer func() {
-		e.Trace(err, "Init tidb privileges")
-	}()
-	if db.Status < TidbStarted || db.Status > TidbInited {
-		return fmt.Errorf(`tidb "%s" no started`, db.Cell)
+	if db.Status.Phase < tidbStarted || db.Status.Phase > tidbInited {
+		return false
 	}
-	my := tsql.NewMysql(db.Schema, db.Nets[0].IP, db.Nets[0].Port, db.User, db.Password)
-	if err = my.Init(); err != nil {
-		rollout(db.Cell, TidbInitFailed)
-		return err
-	}
-	rollout(db.Cell, TidbInited)
-	return nil
-}
-
-// Start tidb server
-func Start(cell string) (err error) {
-	if started(cell) {
-		return ErrRepeatOperation
-	}
-	var db *Tidb
-	if db, err = GetTidb(cell); err != nil {
-		logs.Error("Get tidb %s err: %v", cell, err)
-		return err
-	}
-	go func() {
-		e := NewEvent(cell, "tidb", "start")
-		defer func() {
-			e.Trace(err, "Start deploying tidb cluster on kubernete")
-		}()
-		rollout(cell, PdPending)
-		if err = db.Pd.install(); err != nil {
-			logs.Error("Run pd %s on k8s err: %v", cell, err)
-			return
-		}
-		rollout(cell, TikvPending)
-		if err = db.Tikv.run(); err != nil {
-			logs.Error("Run tikv %s on k8s err: %v", cell, err)
-			return
-		}
-		rollout(cell, TidbPending)
-		if err = db.run(); err != nil {
-			logs.Error("Run tidb %s on k8s err: %v", cell, err)
-			return
-		}
-		if err = db.initSchema(); err != nil {
-			logs.Error("Init tidb %s privileges err: %v", cell, err)
-			return
-		}
-	}()
-	return nil
-}
-
-// Stop tidb server
-func Stop(cell string, ch chan int) (err error) {
-	if !started(cell) {
-		return err
-	}
-	var db *Tidb
-	if db, err = GetTidb(cell); err != nil {
-		return err
-	}
-	e := NewEvent(cell, "tidb", "stop")
-	defer func() {
-		if err != nil {
-			e.Trace(err, "Stop tidb pods on k8s")
-		}
-	}()
-	if err = stopMigrateTask(cell); err != nil {
-		return err
-	}
-	if err = db.stop(); err != nil {
-		return err
-	}
-	if err = db.Tikv.stop(); err != nil {
-		return err
-	}
-	if err = db.Pd.uninstall(); err != nil {
-		return err
-	}
-	// waiting for all pods deleted from k8s
-	go func() {
-		defer func() {
-			stoped := 1
-			st := Undefined
-			if started(cell) {
-				st = TidbStopFailed
-				stoped = 0
-				err = errors.New("async delete pods timeout")
-			}
-			rollout(cell, st)
-			if ch != nil {
-				ch <- stoped
-			}
-			e.Trace(err, "Stop tidb pods on k8s")
-		}()
-		for i := 0; i < defaultStopTidbTimeout; i++ {
-			if started(cell) {
-				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
-		}
-	}()
-	return err
-}
-
-// Restart first stop tidb, second start tidb
-func Restart(cell string) (err error) {
-	go func() {
-		td, _ := GetTidb(cell)
-		e := NewEvent(cell, "tidb", "restart")
-		defer func() {
-			e.Trace(err, fmt.Sprintf("Restart tidb[status=%d]", td.Status))
-		}()
-		ch := make(chan int, 1)
-		if err = Stop(cell, ch); err != nil {
-			logs.Error("Delete tidb %s pods on k8s error: %v", cell, err)
-			return
-		}
-		// waiting for all pod deleted
-		stoped := <-ch
-		if stoped == 0 {
-			logs.Error("stop tidb %s timeout", cell)
-			return
-		}
-		if err = Start(cell); err != nil {
-			logs.Error("Create tidb %s pods on k8s error: %v", cell, err)
-			return
-		}
-	}()
-	return err
-}
-
-// Migrate the mysql data to the current tidb
-func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
-	if !db.isOk() {
-		return fmt.Errorf("tidb is not available")
-	}
-	// if db.MigrateState != "" {
-	// 	return errors.New("can not migrate multiple times")
-	// }
-	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
-		return fmt.Errorf("invalid database %+v", src)
-	}
-	if db.Schema != src.Database {
-		return fmt.Errorf("both schemas must be the same")
-	}
-	var net k8sutil.Net
-	for _, n := range db.Nets {
-		if n.Name == portMysql {
-			net = n
-			break
-		}
-	}
-	my := &tsql.Migration{
-		Src:  src,
-		Dest: *tsql.NewMysql(db.Schema, net.IP, net.Port, db.User, db.Password),
-
-		ToggleSync: sync,
-		NotifyAPI:  notify,
-	}
-	if err := my.Check(); err != nil {
-		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
-	}
-	db.MigrateState = migrating
-	if err := db.Update(); err != nil {
-		return err
-	}
-	return db.startMigrateTask(my)
-}
-
-// UpdateMigrateStat update tidb migrate stat
-func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
-	var e *Event
-	db.MigrateState = s
-	if err := db.Update(); err != nil {
-		return err
-	}
-	logs.Info("Current tidb %s migrate status: %s", db.Cell, s)
-	switch s {
-	case "Dumping":
-		e = NewEvent(db.Cell, "migration", "dump")
-		e.Trace(nil, "Start Dumping mysql data to local")
-	case "DumpError":
-		e = NewEvent(db.Cell, "migration", "dump")
-		e.Trace(fmt.Errorf("Unknow"), "Dumped mysql data to local error")
-	case "Loading":
-		e = NewEvent(db.Cell, "migration", "load")
-		e.Trace(nil, "End dumped and start loading local to tidb")
-	case "LoadError":
-		e = NewEvent(db.Cell, "migration", "load")
-		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
-	case "Finished":
-		e = NewEvent(db.Cell, "tidb", "migration")
-		err = stopMigrateTask(db.Cell)
-		e.Trace(err, "End the full migration and delete migration docker on k8s")
-	case "Syncing":
-		e = NewEvent(db.Cell, "migration", "sync")
-		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
-	}
-	return nil
-}
-
-func (db *Tidb) startMigrateTask(my *tsql.Migration) (err error) {
-	sync := ""
-	if my.ToggleSync {
-		sync = "sync"
-	}
-	r := strings.NewReplacer(
-		"{{namespace}}", getNamespace(),
-		"{{cell}}", db.Cell,
-		"{{image}}", fmt.Sprintf("%s/migration:latest", imageRegistry),
-		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
-		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
-		"{{db}}", my.Src.Database,
-		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
-		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
-		"{{sync}}", sync,
-		"{{api}}", my.NotifyAPI)
-	s := r.Replace(mysqlMigraeYaml)
-	go func() {
-		e := NewEvent(db.Cell, "tidb", "migration")
-		defer func() {
-			e.Trace(err, "Startup migration docker on k8s")
-		}()
-		if err = k8sutil.CreateAndWaitPod(s); err != nil {
-			return
-		}
-		if err = k8sutil.WaitComponentRuning(startTidbTimeout, db.Cell, "migration"); err != nil {
-			db.MigrateState = migStartMigrateErr
-			err = db.Update()
-		}
-	}()
-	return nil
-}
-
-func stopMigrateTask(cell string) error {
-	return k8sutil.DelPodsBy(cell, "migration")
+	return true
 }

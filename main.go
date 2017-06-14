@@ -1,12 +1,10 @@
 package main
 
 import (
-	"math/rand"
 	"os"
 	"os/signal"
-	"time"
+	"syscall"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 
@@ -32,16 +30,24 @@ func main() {
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c)
-	go func() {
-		logrus.Infof("received signal: %v", <-c)
-		os.Exit(1)
-	}()
-
-	rand.Seed(time.Now().Unix())
 	k8sutil.CreateNamespace()
 	models.Init()
 
-	beego.Run()
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+
+	go beego.Run()
+
+	sig := <-sc
+	logs.Info("Got signal [%d] to exit.", sig)
+	switch sig {
+	case syscall.SIGTERM:
+		os.Exit(0)
+	default:
+		os.Exit(1)
+	}
 }

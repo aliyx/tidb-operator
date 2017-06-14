@@ -1,31 +1,28 @@
 package k8sutil
 
 import (
-	"fmt"
+	"k8s.io/client-go/pkg/api/v1"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/httputil"
-	"github.com/ghodss/yaml"
-	"github.com/tidwall/gjson"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func createNamespace(s string) error {
-	k8sMu.Lock()
-	defer k8sMu.Unlock()
-	logs.Info("yaml: %s", s)
-	url := fmt.Sprintf(k8sNamespaceURL, masterHost)
-	j, _ := yaml.YAMLToJSON([]byte(s))
-	resp, err := httputil.Post(url, j)
+func createNamespace(name string) error {
+	ns := &v1.Namespace{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name: name,
+		},
+	}
+	retNs, err := kubecli.CoreV1().Namespaces().Create(ns)
 	if err != nil {
 		return err
 	}
-	logs.Info(`Namespace "%s" created`, gjson.Get(resp, "metadata.name"))
+	logs.Info(`Namespace "%s" created`, retNs.GetName())
 	return nil
 }
 
-func DelNamespace(name string) error {
-	var err error
-	if err = httputil.Delete(fmt.Sprintf(k8sNamespaceURL+"/%s", masterHost, name), defaultk8sReqTimeout); err != nil {
+func delNamespace(name string) error {
+	if err := kubecli.CoreV1().Namespaces().Delete(name, meta_v1.NewDeleteOptions(0)); err != nil {
 		return err
 	}
 	logs.Warn(`Namespace "%s" deleted`, name)

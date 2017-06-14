@@ -81,6 +81,52 @@ func (s *Storage) ListDir(ctx context.Context, dirPath string) ([]string, error)
 	return result, nil
 }
 
+// ListKey is part of the models.Impl interface.
+func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) {
+	resp, err := s.ec.cli.Get(ctx, prefix,
+		clientv3.WithPrefix(),
+		clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend),
+		clientv3.WithKeysOnly())
+	if err != nil {
+		return nil, convertError(err)
+	}
+	if len(resp.Kvs) == 0 {
+		// No key starts with this prefix, means the directory
+		// doesn't exist.
+		return nil, models.ErrNoNode
+	}
+
+	nodePath := prefix
+	i := strings.LastIndex(prefix, "/")
+	if i >= 0 {
+		nodePath = prefix[i+1:]
+	}
+
+	prefixLen := len(nodePath)
+	var result []string
+	for _, ev := range resp.Kvs {
+		p := string(ev.Key)
+
+		// Remove the prefix, base path.
+		if !strings.HasPrefix(p, nodePath) {
+			return nil, ErrBadResponse
+		}
+		p = p[prefixLen:]
+
+		// Keep only the part until the first '/'.
+		if i := strings.Index(p, "/"); i >= 0 {
+			p = p[:i]
+		}
+
+		// Remove duplicates, add to list.
+		if len(result) == 0 || result[len(result)-1] != p {
+			result = append(result, p)
+		}
+	}
+
+	return result, nil
+}
+
 // Create is part of the models.Impl interface.
 func (s *Storage) Create(ctx context.Context, path string, contents []byte) (models.Version, error) {
 	resp, err := s.ec.cli.Put(ctx, path, string(contents))

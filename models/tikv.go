@@ -2,37 +2,50 @@ package models
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
+
+	"k8s.io/client-go/pkg/api/v1"
+
 	"time"
 
-	"strconv"
+	"errors"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
+	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+)
+
+const (
+	defaultTikvPort = 20160
+)
+
+var (
+	errMultipleStoresOneAddress = errors.New("multiple stores one address")
 )
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	k8sutil.K8sInfo
-	Volume   string `json:"tidbdata_volume"`
-	Capatity int    `json:"capatity,omitempty"`
+	Spec `json:"spec"`
 
-	Db *Tidb `json:"-"`
+	cur string
+	Db  *Tidb `json:"-"`
 
-	cur    string
-	Stores map[string]Store `json:"stores,omitempty"`
+	Member            int               `json:"member"`
+	ReadyReplicas     int               `json:"readyReplicas"`
+	AvailableReplicas int               `json:"availableReplicas"`
+	Stores            map[string]*Store `json:"stores,omitempty"`
 }
 
 // Store tikv在tidb集群中的状态
 type Store struct {
 	// tikv info
-	ID      int    `json:"s_id,omitempty"`
-	Address string `json:"s_address,omitempty"`
-	State   int    `json:"s_state,omitempty"`
+	ID      int    `json:"id,omitempty"`
+	Address string `json:"address,omitempty"`
+	Node    string `json:"nodeName,omitempty"`
+	State   int    `json:"state,omitempty"`
 }
 
 // NewTikv return a Pd instance
@@ -49,35 +62,35 @@ func (kv *Tikv) beforeSave() error {
 	if err != nil {
 		return err
 	}
-	kv.Volume = strings.Trim(md.K8s.Volume, " ")
-	if len(kv.Volume) == 0 {
-		kv.Volume = "emptyDir: {}"
+	kv.Spec.Volume = strings.Trim(md.K8s.Volume, " ")
+	if len(kv.Spec.Volume) == 0 {
+		kv.Spec.Volume = "emptyDir: {}"
 	} else {
-		kv.Volume = fmt.Sprintf("hostPath: {path: %s}", kv.Volume)
+		kv.Spec.Volume = fmt.Sprintf("hostPath: {path: %s}", kv.Spec.Volume)
 	}
-	if kv.Capatity < 1 {
-		kv.Capatity = md.Units.Tikv.Capacity
+	if kv.Spec.Capatity < 1 {
+		kv.Spec.Capatity = md.Units.Tikv.Capacity
 	}
 	return nil
 }
 
 func (kv *Tikv) validate() error {
-	if err := kv.K8sInfo.Validate(); err != nil {
+	if err := kv.Spec.validate(); err != nil {
 		return err
 	}
 	md, _ := GetMetadata()
 	max := md.Units.Tikv.Max
-	if kv.Replicas < 3 || kv.Replicas > max {
+	if kv.Spec.Replicas < 3 || kv.Spec.Replicas > max {
 		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
 	return nil
 }
 
 func (kv *Tikv) update() error {
-	return kv.Db.Update()
+	return kv.Db.update()
 }
 
-// GetTikv 获取tikv元数据
+// GetTikv get a tikv instance
 func GetTikv(cell string) (*Tikv, error) {
 	db, err := GetTidb(cell)
 	if err != nil {
@@ -88,139 +101,145 @@ func GetTikv(cell string) (*Tikv, error) {
 	return kv, nil
 }
 
-// Run tikv
-func (kv *Tikv) run() (err error) {
-	e := NewEvent(kv.Db.Cell, "tikv", "start")
-	kv.Stores = make(map[string]Store)
+func (kv *Tikv) install() (err error) {
+	e := NewEvent(kv.Db.Cell, "tikv", "install")
+	rollout(kv.Db.Cell, tikvPending)
+	kv.Stores = make(map[string]*Store)
 	defer func() {
-		st := TikvStarted
+		ph := tikvStarted
 		if err != nil {
-			st = TikvStartFailed
-		} else {
-			kv.Ok = true
+			ph = tikvStartFailed
 		}
-		kv.Db.Status = st
-		kv.Db.Update()
-		e.Trace(err, fmt.Sprintf("Start tikv %d pods on k8s", kv.Replicas))
+		kv.Db.Status.Phase = ph
+		kv.Db.update()
+		e.Trace(err, fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", kv.Spec.Replicas, kv.AvailableReplicas))
 	}()
-	for r := 1; r <= kv.Replicas; r++ {
-		if err = kv._run(r); err != nil {
+	for r := 1; r <= kv.Spec.Replicas; r++ {
+		kv.Member++
+		if err = kv._install(); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func (kv *Tikv) _run(r int) (err error) {
-	// 先设置，防止tikv启动失败的情况下，没有保存tikv信息，导致delete时失败
-	kv.cur = fmt.Sprintf("tikv-%s-%d", kv.Db.Cell, r)
-	kv.Stores[kv.cur] = Store{}
-	if err = k8sutil.CreateAndWaitPod(kv.getK8sTemplate(tikvPodYaml, r)); err != nil {
+func (kv *Tikv) _install() (err error) {
+	kv.cur = fmt.Sprintf("tikv-%s-%03d", kv.Db.Cell, kv.Member)
+	kv.Stores[kv.cur] = &Store{}
+	kv.ReadyReplicas++
+	if err = kv.createPod(); err != nil {
 		return err
 	}
-	if err = kv.waitForComplete(startTidbTimeout); err != nil {
+	if err = kv.waitForOk(); err != nil {
 		return err
 	}
+	kv.AvailableReplicas++
 	return nil
 }
 
-// getK8sTemplate 生成k8s tikv template
-func (kv *Tikv) getK8sTemplate(t string, id int) string {
+func (kv *Tikv) createPod() (err error) {
+	var j []byte
+	if j, err = kv.toJSONTemplate(tikvPodYaml); err != nil {
+		return err
+	}
+	var pod *v1.Pod
+	if pod, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
+		return err
+	}
+	s := kv.Stores[kv.cur]
+	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
+	s.Node = pod.Spec.NodeName
+	return nil
+}
+
+func (kv *Tikv) toJSONTemplate(temp string) ([]byte, error) {
 	r := strings.NewReplacer(
-		"{{version}}", kv.Version,
-		"{{cpu}}", fmt.Sprintf("%v", kv.CPU),
-		"{{mem}}", fmt.Sprintf("%v", kv.Mem),
-		"{{capacity}}", fmt.Sprintf("%v", kv.Capatity),
-		"{{tidbdata_volume}}", fmt.Sprintf("%v", kv.Volume),
-		"{{id}}", fmt.Sprintf("%v", id),
+		"{{version}}", kv.Spec.Version,
+		"{{cpu}}", fmt.Sprintf("%v", kv.Spec.CPU),
+		"{{mem}}", fmt.Sprintf("%v", kv.Spec.Mem),
+		"{{capacity}}", fmt.Sprintf("%v", kv.Spec.Capatity),
+		"{{tidbdata_volume}}", fmt.Sprintf("%v", kv.Spec.Volume),
+		"{{id}}", fmt.Sprintf("%03v", kv.Member),
 		"{{registry}}", imageRegistry,
 		"{{cell}}", kv.Db.Cell,
 		"{{namespace}}", getNamespace())
-	s := r.Replace(t)
-	return s
+	str := r.Replace(temp)
+	j, err := yaml.YAMLToJSON([]byte(str))
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
 }
 
-func (kv *Tikv) waitForComplete(wait time.Duration) error {
-	if err := k8sutil.WaitPodsRuning(wait, kv.cur); err != nil {
-		return err
-	}
-	if err := retryutil.RetryIfErr(wait, func() error {
-		j, err := pdStoresGet(kv.Db.Pd.Nets[0].String())
+func (kv *Tikv) waitForOk() (err error) {
+	logs.Info("waiting for run tikv %s ok...", kv.cur)
+	interval := 3 * time.Second
+	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
+		j, err := pdStoresGet(kv.Db.Pd.OuterAddresses[0])
 		if err != nil {
-			return err
+			logs.Error("get stores by pd API: %v", err)
+			return false, err
 		}
 		ret := gjson.Get(j, "count")
 		if ret.Int() < 1 {
-			return fmt.Errorf("no tikv cluster")
+			logs.Warn("current stores count: %d", ret.Int())
+			return false, nil
 		}
 		// 获取online的tikv
-		ret = gjson.Get(j, "stores.#[store.state==0]#.store.id")
-		logs.Debug("PdStores: %v", ret)
+		s := kv.Stores[kv.cur]
+		ret = gjson.Get(j, fmt.Sprintf("stores.#[store.address==%s]#.store.id", s.Address))
 		if ret.Type == gjson.Null {
-			return fmt.Errorf("no online tikv cluster")
+			logs.Warn("cannt get store[%s]", kv.Stores[kv.cur].Address)
+			return false, nil
 		}
-		for _, id := range ret.Array() {
-			var have bool
-			storeID := id.Int()
-			if storeID < 1 {
-				// 未知错误
-				logs.Warn("Invalid store id: %d", storeID)
-				continue
-			}
-			for _, s := range kv.Stores {
-				if int(storeID) == s.ID {
-					have = true
-				}
-			}
-			if !have {
-				kv.Stores[kv.cur] = Store{
-					ID: int(id.Int()),
-				}
-			}
+		if len(ret.Array()) != 1 {
+			logs.Error("get multiple store by address[%s]", kv.Stores[kv.cur].Address)
+			return false, errMultipleStoresOneAddress
 		}
-		for _, st := range kv.Stores {
-			if st.ID < 1 {
-				return fmt.Errorf("%s no started", kv.cur)
-			}
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf(`start up tikvs timout`)
-	}
-	return nil
-}
-
-func (kv *Tikv) stop() (err error) {
-	cell := kv.Db.Cell
-	e := NewEvent(cell, "tikv", "stop")
-	defer func() {
-		st := TikvStoped
-		if err != nil {
-			st = TikvStopFailed
-		}
-		kv.Ok = false
-		kv.Stores = nil
-		e.Trace(err, fmt.Sprintf("Stop tikv %d pods", kv.Replicas))
-		kv.update()
-		rollout(cell, st)
-	}()
-	if len(kv.Stores) > 0 {
-		if err := k8sutil.DelPodsBy(cell, "tikv"); err != nil {
-			return err
-		}
+		s.ID = int(ret.Array()[0].Int())
+		s.State = 0
+		return true, nil
+	})
+	if err != nil {
+		logs.Error("wait tikv %s available: %v", kv.cur, err)
 	} else {
-		logs.Error(`No pods "tikv-%s-*", if it exists, please delete it manually`, cell)
+		logs.Info("tikv %s ok", kv.cur)
 	}
 	return err
 }
 
-// scaleTikv 扩容tikv模块,目前replicas只能增减不能减少
+func (kv *Tikv) uninstall() (err error) {
+	cell := kv.Db.Cell
+	e := NewEvent(cell, "tikv", "uninstall")
+	defer func() {
+		ph := tikvStoped
+		if err != nil {
+			ph = tikvStopFailed
+		}
+		kv.Stores = nil
+		kv.Member = 0
+		kv.cur = ""
+		kv.AvailableReplicas = 0
+		kv.ReadyReplicas = 0
+		kv.Db.Status.Phase = ph
+		err = kv.update()
+		if err != nil {
+			logs.Error("uninstall tikv %s: %v", kv.Db.Cell, err)
+		}
+		e.Trace(err, fmt.Sprintf("Uninstall tikv %d pods", kv.Spec.Replicas))
+	}()
+	if err := k8sutil.DeletePodsBy(cell, "tikv"); err != nil {
+		return err
+	}
+	return err
+}
+
 func (td *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
 	kv := td.Tikv
-	if replica == kv.Replicas {
+	if replica == kv.Spec.Replicas {
 		return
 	}
 	wg.Add(1)
@@ -234,60 +253,43 @@ func (td *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
 		e := NewEvent(td.Cell, "tikv", "scale")
 		defer func(r int) {
 			if err != nil {
-				td.ScaleState |= tikvScaleErr
+				td.Status.ScaleState |= tikvScaleErr
 			}
 			td.Update()
 			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, td.Cell, r, replica))
-		}(kv.Replicas)
-		switch n := replica - kv.Replicas; {
+		}(kv.Spec.Replicas)
+		switch n := replica - kv.Spec.Replicas; {
 		case n > 0:
-			err = kv.increase(replica)
+			err = kv.increase(n)
 		case n < 0:
-			err = kv.decrease(replica)
+			err = kv.decrease(-n)
 		}
 	}()
 }
 
 func (kv *Tikv) decrease(replicas int) error {
-	return fmt.Errorf("current unsupport for reducing the number of tikvs src:%d desc:%d", kv.Replicas, replicas)
+	return fmt.Errorf("current unsupport for reducing the number of tikvs src:%d desc:%d", kv.Spec.Replicas, replicas)
 }
 
 func (kv *Tikv) increase(replicas int) (err error) {
 	md, _ := GetMetadata()
-	if replicas > md.Units.Tikv.Max {
+	if (replicas + kv.Spec.Replicas) > md.Units.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Units.Tikv.Max)
 	}
-	if replicas > kv.Replicas*3 || kv.Replicas > replicas*3 {
+	if replicas > kv.Spec.Replicas*3 || kv.Spec.Replicas > replicas*3 {
 		return fmt.Errorf("each scale can not exceed 2 times")
 	}
-	var max int
-	keys := getMapSortedKeys(kv.Stores)
-	last := strings.Split(keys[len(keys)-1], "-")
-	max, err = strconv.Atoi(last[len(last)-1])
-	if err != nil {
-		return fmt.Errorf("cannt get tikv max seq: %v", err)
-	}
-	logs.Info("start scaling tikv %s max-seq:%d src:%d desc:%d", kv.Db.Cell, max, kv.Replicas, replicas)
-	for i := max + 1; i <= max+(replicas-kv.Replicas); i++ {
-		kv.Replicas = kv.Replicas + 1
-		if err = kv._run(i); err != nil {
+	logs.Info("start incrementally scale tikv pod count: %d", replicas)
+	for i := 0; i <= replicas; i++ {
+		kv.Member++
+		if err = kv._install(); err != nil {
 			return err
 		}
 	}
-	logs.Info("end scale tikv %s", kv.Db.Cell)
+	logs.Info("end incrementally scale tikv %s pod desire: %d, available: %d", kv.Db.Cell, kv.Spec.Replicas, kv.AvailableReplicas)
 	return err
 }
 
-// getMapSortedKeys 获取map被排序之后的keys
-func getMapSortedKeys(m map[string]Store) []string {
-	var keys []string
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
 func (kv *Tikv) isNil() bool {
-	return kv.Replicas < 1
+	return kv.Spec.Replicas < 1
 }

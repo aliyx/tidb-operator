@@ -54,18 +54,18 @@ var (
 	specKey = "specifications"
 )
 
-// Spec tidb每个模块的计算单元
-type Spec struct {
+// Replication controller
+type Replication struct {
 	Replicas int `json:"replicas"`
 }
 
 // Preference 数据库偏好
 type Preference struct {
-	Name string `json:"name"`
-	Desc string `json:"desc"`
-	Pd   Spec   `json:"pd"`
-	Tikv Spec   `json:"tikv"`
-	Tidb Spec   `json:"tidb"`
+	Name string      `json:"name"`
+	Desc string      `json:"desc"`
+	Pd   Replication `json:"pd"`
+	Tikv Replication `json:"tikv"`
+	Tidb Replication `json:"tidb"`
 }
 
 // Specification 规格说明书，比如“1核2 GB ...”
