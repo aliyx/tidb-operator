@@ -468,7 +468,8 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 	if len(db.Cell) < 1 {
 		return nil
 	}
-	if err = Uninstall(db.Cell, nil); err != nil && err != errNoInstalled {
+	ch := make(chan int, 1)
+	if err = Uninstall(db.Cell, ch); err != nil && err != errNoInstalled {
 		return err
 	}
 	if err = delEventsBy(db.Cell); err != nil {
@@ -477,6 +478,8 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 	go func() {
 		db.Status.Phase = tidbDeleting
 		db.update()
+		// wait end
+		<-ch
 		for {
 			if !started(db.Cell) {
 				if err := db.delete(); err != nil && err != storage.ErrNoNode {
