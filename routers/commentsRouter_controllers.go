@@ -65,14 +65,6 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "GetAll",
-			Router: `/:user`,
-			AllowHTTPMethods: []string{"get"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
-		beego.ControllerComments{
 			Method: "CheckResources",
 			Router: `/:user/limit`,
 			AllowHTTPMethods: []string{"post"},
@@ -108,6 +100,14 @@ func init() {
 			Method: "Status",
 			Router: `/:cell/status`,
 			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
+		beego.ControllerComments{
+			Method: "GetAll",
+			Router: `/:user/tidbs`,
+			AllowHTTPMethods: []string{"get"},
 			MethodParams: param.Make(),
 			Params: nil})
 

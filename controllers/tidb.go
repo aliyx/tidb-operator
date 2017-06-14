@@ -95,27 +95,6 @@ func (dc *TidbController) Get() {
 	dc.ServeJSON()
 }
 
-// GetAll 指定用户的tidbs
-// @Title GetTidbsByUser
-// @Description Get tidbs by user
-// @Param	user	path	string	true "The user id"
-// @Success 200 {object} []Dbs
-// @Failure 404 :user not found
-// @router /:user [get]
-func (dc *TidbController) GetAll() {
-	user := dc.GetString(":user")
-	if len(user) < 1 {
-		dc.CustomAbort(403, "user id is nil")
-	}
-	dbs, err := models.GetDbs(user)
-	if err != nil {
-		logs.Error("Cannt get user:%s tidbs: %v", user, err)
-		dc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get user:%s tidbs: %v", user, err))
-	}
-	dc.Data["json"] = Dbs{len(dbs), dbs}
-	dc.ServeJSON()
-}
-
 // CheckResources Check the user's request for resources
 // @Title CheckResources
 // @Description whether the user creates tidb for approval
@@ -283,12 +262,6 @@ type status struct {
 type scale struct {
 	DbReplica int `json:"dbReplica"`
 	KvReplica int `json:"kvReplica"`
-}
-
-// Dbs db array
-type Dbs struct {
-	Total int           `json:"total"`
-	Tidbs []models.Tidb `json:"tidbs"`
 }
 
 func uniqueID(uid, schema string) string {

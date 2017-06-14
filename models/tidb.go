@@ -281,12 +281,16 @@ func GetDbs(userID string) ([]Tidb, error) {
 	if len(userID) < 1 {
 		return nil, fmt.Errorf("userid is nil")
 	}
+	var (
+		err   error
+		cells []string
+	)
 	if userID != "admin" {
 		userID = encodeUserID(userID) + "-"
+		cells, err = tidbS.ListKey(userID)
 	} else {
-		userID = ""
+		cells, err = tidbS.ListDir("")
 	}
-	cells, err := tidbS.ListKey(userID)
 	if err != nil && err != ErrNoNode {
 		return nil, err
 	}

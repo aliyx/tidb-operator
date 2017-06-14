@@ -208,26 +208,6 @@ paths:
           description: body is empty
         "403":
           description: unsupport operation
-  /tidbs/{user}:
-    get:
-      tags:
-      - tidbs
-      description: Get tidbs by user
-      operationId: TidbController.GetTidbsByUser
-      parameters:
-      - in: path
-        name: user
-        description: The user id
-        required: true
-        type: string
-      responses:
-        "200":
-          schema:
-            type: array
-            items:
-              $ref: '#/definitions/controllers.Dbs'
-        "404":
-          description: :user not found
   /tidbs/{user}/limit:
     post:
       tags:
@@ -250,6 +230,26 @@ paths:
         "200": {}
         "403":
           description: body is empty
+  /users/{user}/tidbs:
+    get:
+      tags:
+      - users
+      description: Get tidbs by user
+      operationId: UserController.GetTidbsByUser
+      parameters:
+      - in: path
+        name: user
+        description: The user id
+        required: true
+        type: string
+      responses:
+        "200":
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/controllers.Dbs'
+        "404":
+          description: :user not found
 definitions:
   controllers.Dbs:
     title: Dbs
@@ -526,5 +526,8 @@ tags:
   description: |
     Operations about metadata
 - name: tidbs
+  description: |
+    Operations about tidb
+- name: users
   description: |
     Operations about tidb

@@ -8,10 +8,9 @@ import (
 
 const (
 	// Path components
-	tidbRoot       = "/tk/tidb"
+	tidbRoot       = "/tk"
 	tidbNamespace  = "tidbs"
 	metaNamespace  = "metadata"
-	userNamespace  = "users"
 	eventNamespace = "events"
 
 	// pdReqTimeout access the request timeout for the pd api service

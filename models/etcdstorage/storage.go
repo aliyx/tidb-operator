@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/ffan/tidb-k8s/models"
 )
@@ -101,7 +102,7 @@ func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) 
 	if i >= 0 {
 		nodePath = prefix[i+1:]
 	}
-
+	logs.Debug("%s %s", prefix, nodePath)
 	prefixLen := len(nodePath)
 	var result []string
 	for _, ev := range resp.Kvs {
