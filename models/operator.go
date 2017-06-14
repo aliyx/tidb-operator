@@ -29,7 +29,8 @@ func (db *Tidb) initSchema() (err error) {
 		e.Trace(err, "Init tidb privileges")
 	}()
 	if !db.isOk() {
-		return fmt.Errorf(`tidb "%s" no started`, db.Cell)
+		err = fmt.Errorf(`tidb "%s" no started`, db.Cell)
+		return
 	}
 	var (
 		h string
@@ -48,31 +49,32 @@ func (db *Tidb) initSchema() (err error) {
 	return nil
 }
 
-// Start tidb server
-func Start(cell string) (err error) {
-	if started(cell) {
-		return ErrRepeatOperation
-	}
+// Install tidb
+func Install(cell string, ch chan int) (err error) {
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
-		logs.Error("Get tidb %s err: %v", cell, err)
+		logs.Error("get tidb %s err: %v", cell, err)
 		return err
+	}
+	if db.Status.Phase != Undefined {
+		return ErrRepeatOperation
 	}
 	go func() {
 		e := NewEvent(cell, "tidb", "install")
 		defer func() {
 			e.Trace(err, "Start installing tidb cluster on kubernete")
+			ch <- 0
 		}()
 		if err = db.Pd.install(); err != nil {
-			logs.Error("Run pd %s on k8s err: %v", cell, err)
+			logs.Error("Start pd %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.Tikv.install(); err != nil {
-			logs.Error("Run tikv %s on k8s err: %v", cell, err)
+			logs.Error("Start tikv %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.install(); err != nil {
-			logs.Error("Run tidb %s on k8s err: %v", cell, err)
+			logs.Error("Start tidb %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.initSchema(); err != nil {
@@ -83,55 +85,53 @@ func Start(cell string) (err error) {
 	return nil
 }
 
-// Stop tidb server
-func Stop(cell string, ch chan int) (err error) {
-	// if !started(cell) {
-	// 	return err
-	// }
+// Uninstall tidb
+func Uninstall(cell string, ch chan int) (err error) {
+	if !started(cell) {
+		return nil
+	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
 		return err
 	}
-	logs.Debug("%v", db)
-	e := NewEvent(cell, "db", "uninstall")
-	defer func() {
-		if err != nil {
-			logs.Error("uninstall tidb %s: %v", cell, err)
-			e.Trace(err, "Uninstall tidb")
-		}
-	}()
-	if err = stopMigrateTask(cell); err != nil {
-		return err
-	}
-	if err = db.uninstall(); err != nil {
-		return err
-	}
-	if err = db.Tikv.uninstall(); err != nil {
-		return err
-	}
-	if err = db.Pd.uninstall(); err != nil {
+	db.Status.Available = false
+	if err = db.update(); err != nil {
 		return err
 	}
 	// waiting for all pods deleted from k8s
 	go func() {
+		e := NewEvent(cell, "db", "uninstall")
 		defer func() {
 			stoped := 1
-			st := Undefined
+			ph := Undefined
 			if started(cell) {
-				st = tidbStopFailed
+				ph = tidbStopFailed
 				stoped = 0
 				err = errors.New("async delete pods timeout")
 			}
-			rollout(cell, st)
+			db.Status.Phase = ph
+			err = db.update()
 			if ch != nil {
 				ch <- stoped
 			}
-			e.Trace(err, "Stop tidb pods on k8s")
+			e.Trace(err, "Uninstall tidb pods/rc/service on k8s")
 		}()
-		for i := 0; i < defaultStopTidbTimeout; i++ {
+		if err = stopMigrateTask(cell); err != nil {
+			return
+		}
+		if err = db.uninstall(); err != nil {
+			return
+		}
+		if err = db.Tikv.uninstall(); err != nil {
+			return
+		}
+		if err = db.Pd.uninstall(); err != nil {
+			return
+		}
+		for i := 0; i < int(stopTidbTimeout/2); i++ {
 			if started(cell) {
 				logs.Warn(`tidb "%s" has not been cleared yet`, cell)
-				time.Sleep(time.Second)
+				time.Sleep(2 * time.Second)
 			} else {
 				break
 			}
@@ -140,31 +140,36 @@ func Stop(cell string, ch chan int) (err error) {
 	return err
 }
 
-// Restart first stop tidb, second start tidb
-func Restart(cell string) (err error) {
+// Reinstall first uninstall tidb, second install tidb
+func Reinstall(cell string) (err error) {
+	db, err := GetTidb(cell)
+	if err != nil {
+		return err
+	}
 	go func() {
-		td, _ := GetTidb(cell)
 		e := NewEvent(cell, "tidb", "restart")
-		defer func() {
-			e.Trace(err, fmt.Sprintf("Restart tidb[status=%d]", td.Status))
-		}()
+		defer func(ph Phase) {
+			e.Trace(err, fmt.Sprintf("Restart tidb status from %d -> %d", ph, db.Status.Phase))
+		}(db.Status.Phase)
 		ch := make(chan int, 1)
-		if err = Stop(cell, ch); err != nil {
-			logs.Error("Delete tidb %s pods on k8s error: %v", cell, err)
+		if err = Uninstall(cell, ch); err != nil {
+			logs.Error("delete tidb %s error: %v", cell, err)
 			return
 		}
 		// waiting for all pod deleted
 		stoped := <-ch
 		if stoped == 0 {
-			logs.Error("stop tidb %s timeout", cell)
+			logs.Error("Uninstall tidb %s timeout", cell)
 			return
 		}
-		if err = Start(cell); err != nil {
-			logs.Error("Create tidb %s pods on k8s error: %v", cell, err)
+		if err = Install(cell, ch); err != nil {
+			logs.Error("Install tidb %s error: %v", cell, err)
 			return
 		}
+		// end
+		<-ch
 	}()
-	return err
+	return nil
 }
 
 // Migrate the mysql data to the current tidb
@@ -178,7 +183,13 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
 		return fmt.Errorf("invalid database %+v", src)
 	}
-	if db.Schemas[0].Name != src.Database {
+	var sch *Schema
+	for _, s := range db.Schemas {
+		if s.Name == src.Database {
+			sch = &s
+		}
+	}
+	if sch == nil {
 		return fmt.Errorf("both schemas must be the same")
 	}
 	h, p, err := net.SplitHostPort(db.OuterAddresses[0])
@@ -189,7 +200,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	schema := db.Schemas[0]
 	my := &tsql.Migration{
 		Src:  src,
-		Dest: *tsql.NewMysql(schema.Name, h, port, schema.User, schema.Password),
+		Dest: *tsql.NewMysql(sch.Name, h, port, sch.User, sch.Password),
 
 		ToggleSync: sync,
 		NotifyAPI:  notify,
@@ -198,7 +209,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Cell, err)
 	}
 	db.Status.MigrateState = migrating
-	if err := db.Update(); err != nil {
+	if err := db.update(); err != nil {
 		return err
 	}
 	return db.startMigrateTask(my)
@@ -252,7 +263,7 @@ func (db *Tidb) startMigrateTask(my *tsql.Migration) (err error) {
 		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
 		"{{sync}}", sync,
 		"{{api}}", my.NotifyAPI)
-	s := r.Replace(mysqlMigraeYaml)
+	s := r.Replace(mysqlMigrateYaml)
 	var j []byte
 	if j, err = yaml.YAMLToJSON([]byte(s)); err != nil {
 		return err
@@ -264,7 +275,7 @@ func (db *Tidb) startMigrateTask(my *tsql.Migration) (err error) {
 		}()
 		if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
 			db.Status.MigrateState = migStartMigrateErr
-			err = db.Update()
+			err = db.update()
 			return
 		}
 	}()

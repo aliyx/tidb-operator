@@ -12,6 +12,8 @@ import (
 
 	"sync/atomic"
 
+	"time"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/storage"
@@ -42,13 +44,6 @@ approvalConditions:
   kvReplicas: 3
   dbReplicas: 1
 `
-
-var (
-	// metaS all metadata model共享storage
-	metaS storage.Storage
-	// count 原子计数器
-	count int32
-)
 
 // Unit 共享单元
 type Unit struct {
@@ -87,6 +82,17 @@ type Metadata struct {
 	AC             ApprovalConditions `json:"ac" yaml:"approvalConditions"`
 }
 
+const (
+	syncMetadataInterval = 5 * time.Second
+)
+
+var (
+	metaS storage.Storage
+	// count 原子计数器
+	count int32
+	md    *Metadata
+)
+
 // Init Metadata
 func metaInit() {
 	s, err := storage.NewDefaultStorage(metaNamespace, etcdAddress)
@@ -96,6 +102,15 @@ func metaInit() {
 	metaS = s
 
 	initMetadataIfNot()
+
+	go func() {
+		m, err := GetMetadata()
+		if err != nil {
+			logs.Critical("sync metadata error: %", err)
+		}
+		md = m
+		time.Sleep(syncMetadataInterval)
+	}()
 }
 
 func initMetadataIfNot() {
@@ -149,7 +164,7 @@ func (m *Metadata) Update() error {
 	return nil
 }
 
-// GetMetadata 获取Metadata
+// GetMetadata get metadata
 func GetMetadata() (*Metadata, error) {
 	if metaS.IsNil() {
 		return nil, fmt.Errorf("metaS not created")
@@ -166,17 +181,17 @@ func GetMetadata() (*Metadata, error) {
 	return &m, err
 }
 
+func getCachedMetadata() *Metadata {
+	return md
+}
+
 func getNamespace() string {
 	return k8sutil.Namespace
 }
 
 func getProxys() []string {
 	hosts := make([]string, 2)
-	m, err := GetMetadata()
-	if err != nil {
-		logs.Error("Cannt get metadata")
-		return hosts
-	}
+	m := getCachedMetadata()
 	ps := strings.Split(m.K8s.Proxys, ",")
 	if len(ps) < 3 {
 		return ps

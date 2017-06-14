@@ -37,7 +37,7 @@ func (p *Pd) beforeSave() error {
 	if err := p.Spec.validate(); err != nil {
 		return err
 	}
-	md, _ := GetMetadata()
+	md := getCachedMetadata()
 	max := md.Units.Pd.Max
 	if p.Spec.Replicas < 3 || p.Spec.Replicas > max || p.Spec.Replicas%2 == 0 {
 		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
@@ -45,10 +45,6 @@ func (p *Pd) beforeSave() error {
 
 	// set volume
 
-	md, err := GetMetadata()
-	if err != nil {
-		return err
-	}
 	p.Spec.Volume = strings.Trim(md.K8s.Volume, " ")
 	if len(p.Spec.Volume) == 0 {
 		p.Spec.Volume = "emptyDir: {}"

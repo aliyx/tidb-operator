@@ -52,7 +52,7 @@ const (
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
 
-	defaultStopTidbTimeout            = 60 // 60s
+	stopTidbTimeout                   = 60 // 60s
 	waitPodRuningTimeout              = 30 * time.Second
 	waitTidbComponentAvailableTimeout = 60 * time.Second
 
@@ -81,7 +81,7 @@ var (
 	errInvalidDatabasePassword = errors.New("invalid database password")
 
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
-	ErrRepeatOperation = errors.New("the previous operation is being executed")
+	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")
 	errInvalidReplica  = errors.New("invalid replica")
 
 	scaleMu sync.Mutex
@@ -308,11 +308,6 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 	if len(ID) < 1 {
 		return true
 	}
-	md, err := GetMetadata()
-	if err != nil {
-		logs.Error("cant get metadata when invoke limitResources: %v", err)
-		return true
-	}
 	dbs, err := GetDbs(ID)
 	if err != nil {
 		logs.Error("cant get user %s dbs: %v", ID, err)
@@ -321,6 +316,7 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 		kvr = kvr + uint(db.Tikv.Spec.Replicas)
 		dbr = dbr + uint(db.Spec.Replicas)
 	}
+	md := getCachedMetadata()
 	if kvr > md.AC.KvReplicas {
 		return true
 	}
@@ -330,14 +326,14 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 	return false
 }
 
-func rollout(cell string, ph Phase) error {
-	db, err := GetTidb(cell)
-	if err != nil {
-		return err
-	}
-	db.Status.Phase = ph
-	return db.update()
-}
+// func rollout(cell string, ph Phase) error {
+// 	db, err := GetTidb(cell)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	db.Status.Phase = ph
+// 	return db.update()
+// }
 
 func isOkPd(cell string) bool {
 	if db, err := GetTidb(cell); err != nil ||
@@ -357,7 +353,8 @@ func isOkTikv(cell string) bool {
 
 func (db *Tidb) install() (err error) {
 	e := NewEvent(db.Cell, "tidb", "install")
-	rollout(db.Cell, tidbPending)
+	db.Status.Phase = tidbPending
+	db.update()
 	defer func() {
 		ph := tidbStarted
 		if err != nil {
@@ -484,7 +481,8 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 		return err
 	}
 	go func() {
-		rollout(db.Cell, tidbDeleting)
+		db.Status.Phase = tidbDeleting
+		db.update()
 		for {
 			if !started(db.Cell) {
 				if err := db.delete(); err != nil && err != storage.ErrNoNode {
@@ -570,7 +568,7 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			db.Update()
 			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Cell, r, replica))
 		}(db.Spec.Replicas)
-		md, _ := GetMetadata()
+		md := getCachedMetadata()
 		if replica > md.Units.Tidb.Max {
 			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Units.Tidb.Max)
 			return

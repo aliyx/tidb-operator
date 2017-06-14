@@ -51,10 +51,7 @@ func (kv *Tikv) beforeSave() error {
 	if err := kv.Spec.validate(); err != nil {
 		return err
 	}
-	md, err := GetMetadata()
-	if err != nil {
-		return err
-	}
+	md := getCachedMetadata()
 	max := md.Units.Tikv.Max
 	if kv.Spec.Replicas < 3 || kv.Spec.Replicas > max {
 		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
@@ -257,7 +254,7 @@ func (kv *Tikv) decrease(replicas int) error {
 }
 
 func (kv *Tikv) increase(replicas int) (err error) {
-	md, _ := GetMetadata()
+	md := getCachedMetadata()
 	if (replicas + kv.Spec.Replicas) > md.Units.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Units.Tikv.Max)
 	}

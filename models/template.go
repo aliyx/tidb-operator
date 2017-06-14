@@ -334,7 +334,7 @@ spec:
             - --metrics-interval=15
 `
 
-var mysqlMigraeYaml = `
+var mysqlMigrateYaml = `
 apiVersion: v1
 kind: Pod
 metadata:
