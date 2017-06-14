@@ -195,9 +195,9 @@ func (dc *TidbController) GetEvents() {
 	dc.ServeJSON()
 }
 
-// Status start/stop/restart tidb server
+// Status patch tidb status
 // @Title status
-// @Description start/stop/restart tidb server
+// @Description patch tidb status
 // @Param	cell	path	string	true	"The cell for pd name"
 // @Param	body	body 	status	true	"The body data type is {'type': string, status': string}"
 // @Success 200

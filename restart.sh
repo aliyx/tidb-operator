@@ -55,5 +55,6 @@ set -e
 
 CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
+# if [ !-f tidb-k8s ]
 # start
 ./tidb-k8s & echo $! > /tmp/tidb-k8s.pid

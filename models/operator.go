@@ -15,6 +15,10 @@ import (
 	tsql "github.com/ffan/tidb-k8s/pkg/mysqlutil"
 )
 
+var (
+	errNoInstalled = errors.New("no installed")
+)
+
 func (db *Tidb) initSchema() (err error) {
 	e := NewEvent(db.Cell, "tidb", "init")
 	defer func() {
@@ -88,7 +92,7 @@ func Install(cell string, ch chan int) (err error) {
 // Uninstall tidb
 func Uninstall(cell string, ch chan int) (err error) {
 	if !started(cell) {
-		return fmt.Errorf("no installed")
+		return errNoInstalled
 	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {

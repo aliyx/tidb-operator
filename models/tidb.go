@@ -468,7 +468,7 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 	if len(db.Cell) < 1 {
 		return nil
 	}
-	if err = Uninstall(db.Cell, nil); err != nil {
+	if err = Uninstall(db.Cell, nil); err != nil && err != errNoInstalled {
 		return err
 	}
 	if err = delEventsBy(db.Cell); err != nil {
