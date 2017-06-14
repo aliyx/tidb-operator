@@ -28,15 +28,14 @@ var (
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	Spec Spec `json:"spec"`
+	Spec              Spec              `json:"spec"`
+	Member            int               `json:"member,omitempty"`
+	ReadyReplicas     int               `json:"readyReplicas,omitempty"`
+	AvailableReplicas int               `json:"availableReplicas,omitempty"`
+	Stores            map[string]*Store `json:"stores,omitempty"`
 
 	cur string
 	Db  *Tidb `json:"-"`
-
-	Member            int               `json:"member"`
-	ReadyReplicas     int               `json:"readyReplicas"`
-	AvailableReplicas int               `json:"availableReplicas"`
-	Stores            map[string]*Store `json:"stores,omitempty"`
 }
 
 // Store tikv在tidb集群中的状态
@@ -48,19 +47,17 @@ type Store struct {
 	State   int    `json:"state,omitempty"`
 }
 
-// NewTikv return a Pd instance
-func NewTikv() *Tikv {
-	return &Tikv{}
-}
-
-// beforeSave 创建之前的检查工作
 func (kv *Tikv) beforeSave() error {
-	if err := kv.validate(); err != nil {
+	if err := kv.Spec.validate(); err != nil {
 		return err
 	}
 	md, err := GetMetadata()
 	if err != nil {
 		return err
+	}
+	max := md.Units.Tikv.Max
+	if kv.Spec.Replicas < 3 || kv.Spec.Replicas > max {
+		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
 	kv.Spec.Volume = strings.Trim(md.K8s.Volume, " ")
 	if len(kv.Spec.Volume) == 0 {
@@ -70,18 +67,6 @@ func (kv *Tikv) beforeSave() error {
 	}
 	if kv.Spec.Capatity < 1 {
 		kv.Spec.Capatity = md.Units.Tikv.Capacity
-	}
-	return nil
-}
-
-func (kv *Tikv) validate() error {
-	if err := kv.Spec.validate(); err != nil {
-		return err
-	}
-	md, _ := GetMetadata()
-	max := md.Units.Tikv.Max
-	if kv.Spec.Replicas < 3 || kv.Spec.Replicas > max {
-		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
 	return nil
 }
@@ -111,7 +96,7 @@ func (kv *Tikv) install() (err error) {
 			ph = tikvStartFailed
 		}
 		kv.Db.Status.Phase = ph
-		kv.Db.update()
+		err = kv.Db.update()
 		e.Trace(err, fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", kv.Spec.Replicas, kv.AvailableReplicas))
 	}()
 	for r := 1; r <= kv.Spec.Replicas; r++ {

@@ -28,7 +28,7 @@ func (uc *UserController) GetAll() {
 	dbs, err := models.GetDbs(user)
 	if err != nil {
 		logs.Error("Cannt get %s tidbs: %v", user, err)
-		uc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get user:%s tidbs: %v", user, err))
+		uc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get %s tidbs: %v", user, err))
 	}
 	uc.Data["json"] = Dbs{len(dbs), dbs}
 	uc.ServeJSON()

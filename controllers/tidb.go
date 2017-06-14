@@ -2,8 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"fmt"
 
@@ -23,9 +21,9 @@ type TidbController struct {
 	beego.Controller
 }
 
-// Post 创建tidb服务,返回对外ip和port
+// Post create a tidb
 // @Title CreateTidb
-// @Description create tidb
+// @Description create a tidb
 // @Param	body	body 	models.Tidb	true	"body for tidb content"
 // @Success 200
 // @Failure 403 body is empty
@@ -39,11 +37,10 @@ func (dc *TidbController) Post() {
 	if err := json.Unmarshal(b, db); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	db.Cell = uniqueID(db.Owner.ID, db.Schemas[0].Name)
 	errHandler(
 		dc.Controller,
 		db.Save(),
-		fmt.Sprintf("Create tidb %s", db.Cell),
+		fmt.Sprintf("Create tidb %s", db.Schemas[0].Name),
 	)
 	// start is async
 	if db.Status.Phase == models.Undefined {
@@ -262,14 +259,4 @@ type status struct {
 type scale struct {
 	DbReplica int `json:"dbReplica"`
 	KvReplica int `json:"kvReplica"`
-}
-
-func uniqueID(uid, schema string) string {
-	var u string
-	if i, err := strconv.ParseInt(uid, 10, 32); err == nil {
-		u = fmt.Sprintf("%03x", i)
-	} else {
-		u = fmt.Sprintf("%03s", uid)
-	}
-	return strings.ToLower(fmt.Sprintf("%s-%s", u[len(u)-3:], strings.Replace(schema, "_", "-", -1)))
 }

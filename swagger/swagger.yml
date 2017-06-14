@@ -74,7 +74,7 @@ paths:
     post:
       tags:
       - tidbs
-      description: create tidb
+      description: create a tidb
       operationId: TidbController.CreateTidb
       parameters:
       - in: body
@@ -333,9 +333,9 @@ definitions:
         type: string
       reason:
         type: string
-      userid:
+      userId:
         type: string
-      username:
+      userName:
         type: string
   models.Pd:
     title: Pd
@@ -373,8 +373,16 @@ definitions:
       replicas:
         type: integer
         format: int64
-  models.Schemas:
+  models.Schema:
+    title: Schema
     type: object
+    properties:
+      name:
+        type: string
+      password:
+        type: string
+      user:
+        type: string
   models.Spec:
     title: Spec
     type: object
@@ -417,11 +425,11 @@ definitions:
         type: boolean
       desc:
         type: string
-      migrate:
+      migrateState:
         type: string
       phase:
         $ref: '#/definitions/models.Phase'
-      scale:
+      scaleState:
         type: integer
         format: int64
   models.Store:
@@ -444,6 +452,9 @@ definitions:
     properties:
       cell:
         type: string
+      creationTimestamp:
+        type: string
+        format: string
       outerAddresses: {}
       outerStatusAddresses: {}
       owner:
@@ -451,16 +462,15 @@ definitions:
       pd:
         $ref: '#/definitions/models.Pd'
       schemas:
-        $ref: '#/definitions/models.Schemas'
+        type: array
+        items:
+          $ref: '#/definitions/models.Schema'
       spec:
         $ref: '#/definitions/models.Spec'
       status:
         $ref: '#/definitions/models.Status'
       tikv:
         $ref: '#/definitions/models.Tikv'
-      timecreate:
-        type: string
-        format: string
   models.Tikv:
     title: Tikv
     type: object
@@ -479,7 +489,7 @@ definitions:
       spec:
         $ref: '#/definitions/models.Spec'
       stores:
-        $ref: '#/definitions/34249.Store'
+        $ref: '#/definitions/33928.Store'
   models.Unit:
     title: Unit
     type: object

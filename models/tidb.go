@@ -88,25 +88,25 @@ var (
 
 // Tidb metadata
 type Tidb struct {
-	Cell    string  `json:"cell"`
-	Owner   *Owner  `json:"owner,omitempty"`
-	Schemas Schemas `json:"schemas,omitempty"`
-	Spec    Spec    `json:"spec"`
-	Pd      *Pd     `json:"pd"`
-	Tikv    *Tikv   `json:"tikv"`
+	Cell    string   `json:"cell"`
+	Owner   *Owner   `json:"owner,omitempty"`
+	Schemas []Schema `json:"schemas"`
+	Spec    Spec     `json:"spec"`
+	Pd      *Pd      `json:"pd"`
+	Tikv    *Tikv    `json:"tikv"`
 
-	Status               Status    `json:"status"`
+	Status               Status    `json:"status,omitempty"`
 	OuterAddresses       []string  `json:"outerAddresses,omitempty"`
 	OuterStatusAddresses []string  `json:"outerStatusAddresses,omitempty"`
-	TimeCreate           time.Time `json:"timecreate,omitempty"`
+	CreationTimestamp    time.Time `json:"creationTimestamp,omitempty"`
 }
 
 // Owner creater
 type Owner struct {
 	ID     string `json:"userId"` //user
 	Name   string `json:"userName"`
-	Desc   string `json:"desc"`
-	Reason string `json:"reason"`
+	Desc   string `json:"desc,omitempty"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // Schema database schema
@@ -116,10 +116,7 @@ type Schema struct {
 	Password string `json:"password"`
 }
 
-// Schemas schema slice
-type Schemas []Schema
-
-// Spec describe pd/tikv/tidb component
+// Spec describe a pd/tikv/tidb specification
 type Spec struct {
 	CPU      int    `json:"cpu"`
 	Mem      int    `json:"mem"`
@@ -140,28 +137,16 @@ func (s *Spec) validate() error {
 	if s.Replicas < 1 {
 		return fmt.Errorf("replicas must be greater than 1")
 	}
-	return nil
-}
-
-func (ss Schemas) validate() error {
-	for _, s := range ss {
-		if len(s.Name) < 1 || len(s.Name) > 32 {
-			return errInvalidSchema
-		}
-		if len(s.User) < 1 || len(s.User) > 32 {
-			return errInvalidDatabaseUsername
-		}
-		if len(s.Password) < 1 || len(s.Password) > 32 {
-			return errInvalidDatabasePassword
-		}
+	if s.Version == "" {
+		return fmt.Errorf("please specify image version")
 	}
 	return nil
 }
 
 // Status tidb status
 type Status struct {
-	Available    bool   `json:"available"`
-	Phase        Phase  `json:"phase"`
+	Available    bool   `json:"available,omitempty"`
+	Phase        Phase  `json:"phase,omitempty"`
 	MigrateState string `json:"migrateState,omitempty"`
 	ScaleState   int    `json:"scaleState,omitempty"`
 	Desc         string `json:"desc,omitempty"`
@@ -186,10 +171,7 @@ func NewTidb(cell ...string) *Tidb {
 
 // Save tidb
 func (db *Tidb) Save() error {
-	db.Cell = strings.Trim(db.Cell, " ")
-	if db.Cell == "" {
-		return errCellIsNil
-	}
+	db.Cell = uniqueID(db.Owner.ID, db.Schemas[0].Name)
 	if err := db.check(); err != nil {
 		return err
 	}
@@ -199,7 +181,7 @@ func (db *Tidb) Save() error {
 	if pods, err := k8sutil.ListPodNames(db.Cell, ""); err != nil || len(pods) > 1 {
 		return fmt.Errorf(`tidb "%s" has not been cleared yet: %v`, db.Cell, err)
 	}
-	db.TimeCreate = time.Now()
+	db.CreationTimestamp = time.Now()
 	logs.Debug("tidb: %+v", db)
 
 	j, err := json.Marshal(db)
@@ -216,8 +198,16 @@ func (db *Tidb) check() (err error) {
 	if err = db.Spec.validate(); err != nil {
 		return err
 	}
-	if err = db.Schemas.validate(); err != nil {
-		return err
+	for _, s := range db.Schemas {
+		if len(s.Name) < 1 || len(s.Name) > 32 {
+			return errInvalidSchema
+		}
+		if len(s.User) < 1 || len(s.User) > 32 {
+			return errInvalidDatabaseUsername
+		}
+		if len(s.Password) < 1 || len(s.Password) > 32 {
+			return errInvalidDatabasePassword
+		}
 	}
 	if err = db.Pd.beforeSave(); err != nil {
 		return err
@@ -228,6 +218,11 @@ func (db *Tidb) check() (err error) {
 	return nil
 }
 
+func uniqueID(uid, schema string) string {
+	u := encodeUserID(uid)
+	return strings.ToLower(fmt.Sprintf("%s-%s", u, strings.Replace(schema, "_", "-", -1)))
+}
+
 func encodeUserID(uid string) string {
 	var u string
 	if i, err := strconv.ParseInt(uid, 10, 32); err == nil {
@@ -235,7 +230,7 @@ func encodeUserID(uid string) string {
 	} else {
 		u = fmt.Sprintf("%03s", uid)
 	}
-	return u
+	return u[len(u)-3:]
 }
 
 // Update tidb
@@ -286,8 +281,7 @@ func GetDbs(userID string) ([]Tidb, error) {
 		cells []string
 	)
 	if userID != "admin" {
-		userID = encodeUserID(userID) + "-"
-		cells, err = tidbS.ListKey(userID)
+		cells, err = tidbS.ListKey(encodeUserID(userID) + "-")
 	} else {
 		cells, err = tidbS.ListDir("")
 	}

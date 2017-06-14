@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/astaxie/beego/logs"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/ffan/tidb-k8s/models"
 )
@@ -100,14 +99,12 @@ func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) 
 	nodePath := prefix
 	i := strings.LastIndex(prefix, "/")
 	if i >= 0 {
-		nodePath = prefix[i+1:]
+		nodePath = prefix[:i+1]
 	}
-	logs.Debug("%s %s", prefix, nodePath)
 	prefixLen := len(nodePath)
 	var result []string
 	for _, ev := range resp.Kvs {
 		p := string(ev.Key)
-
 		// Remove the prefix, base path.
 		if !strings.HasPrefix(p, nodePath) {
 			return nil, ErrBadResponse

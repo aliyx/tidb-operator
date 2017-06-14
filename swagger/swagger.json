@@ -114,7 +114,7 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "create tidb",
+                "description": "create a tidb",
                 "operationId": "TidbController.CreateTidb",
                 "parameters": [
                     {
@@ -500,10 +500,10 @@
                 "reason": {
                     "type": "string"
                 },
-                "userid": {
+                "userId": {
                     "type": "string"
                 },
-                "username": {
+                "userName": {
                     "type": "string"
                 }
             }
@@ -560,8 +560,20 @@
                 }
             }
         },
-        "models.Schemas": {
-            "type": "object"
+        "models.Schema": {
+            "title": "Schema",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
         },
         "models.Spec": {
             "title": "Spec",
@@ -622,13 +634,13 @@
                 "desc": {
                     "type": "string"
                 },
-                "migrate": {
+                "migrateState": {
                     "type": "string"
                 },
                 "phase": {
                     "$ref": "#/definitions/models.Phase"
                 },
-                "scale": {
+                "scaleState": {
                     "type": "integer",
                     "format": "int64"
                 }
@@ -661,6 +673,10 @@
                 "cell": {
                     "type": "string"
                 },
+                "creationTimestamp": {
+                    "type": "string",
+                    "format": "string"
+                },
                 "outerAddresses": {},
                 "outerStatusAddresses": {},
                 "owner": {
@@ -670,7 +686,10 @@
                     "$ref": "#/definitions/models.Pd"
                 },
                 "schemas": {
-                    "$ref": "#/definitions/models.Schemas"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Schema"
+                    }
                 },
                 "spec": {
                     "$ref": "#/definitions/models.Spec"
@@ -680,10 +699,6 @@
                 },
                 "tikv": {
                     "$ref": "#/definitions/models.Tikv"
-                },
-                "timecreate": {
-                    "type": "string",
-                    "format": "string"
                 }
             }
         },
@@ -710,7 +725,7 @@
                     "$ref": "#/definitions/models.Spec"
                 },
                 "stores": {
-                    "$ref": "#/definitions/34249.Store"
+                    "$ref": "#/definitions/33928.Store"
                 }
             }
         },

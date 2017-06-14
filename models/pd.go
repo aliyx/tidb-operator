@@ -20,7 +20,7 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member int `json:"member"`
+	Member int `json:"member,omitempty"`
 	// key is pod name
 	Members map[string]Member `json:"members,omitempty"`
 
@@ -31,11 +31,6 @@ type Pd struct {
 type Member struct {
 	ID    int `json:"id,omitempty"`
 	State int `json:"state,omitempty"`
-}
-
-// NewPd return a Pd instance
-func NewPd() *Pd {
-	return &Pd{}
 }
 
 func (p *Pd) beforeSave() error {
