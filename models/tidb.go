@@ -103,8 +103,8 @@ type Tidb struct {
 
 // Owner creater
 type Owner struct {
-	ID     string `json:"userid"` //user
-	Name   string `json:"username"`
+	ID     string `json:"userId"` //user
+	Name   string `json:"userName"`
 	Desc   string `json:"desc"`
 	Reason string `json:"reason"`
 }
@@ -162,8 +162,8 @@ func (ss Schemas) validate() error {
 type Status struct {
 	Available    bool   `json:"available"`
 	Phase        Phase  `json:"phase"`
-	MigrateState string `json:"migrate,omitempty"`
-	ScaleState   int    `json:"scale,omitempty"`
+	MigrateState string `json:"migrateState,omitempty"`
+	ScaleState   int    `json:"scaleState,omitempty"`
 	Desc         string `json:"desc,omitempty"`
 }
 
