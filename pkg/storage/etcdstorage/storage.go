@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
-	"github.com/ffan/tidb-k8s/models"
+	"github.com/ffan/tidb-k8s/pkg/storage"
 )
 
 // etcdClient 访问etcd接口
@@ -35,12 +35,12 @@ type Storage struct {
 	ec *etcdClient
 }
 
-// Close is part of the models.Impl interface.
+// Close is part of the storage.Impl interface.
 func (s *Storage) Close() {
 	s.ec.cli.Close()
 }
 
-// ListDir is part of the models.Impl interface.
+// ListDir is part of the storage.Impl interface.
 func (s *Storage) ListDir(ctx context.Context, dirPath string) ([]string, error) {
 	nodePath := dirPath + "/"
 	resp, err := s.ec.cli.Get(ctx, nodePath,
@@ -53,7 +53,7 @@ func (s *Storage) ListDir(ctx context.Context, dirPath string) ([]string, error)
 	if len(resp.Kvs) == 0 {
 		// No key starts with this prefix, means the directory
 		// doesn't exist.
-		return nil, models.ErrNoNode
+		return nil, storage.ErrNoNode
 	}
 
 	prefixLen := len(nodePath)
@@ -81,7 +81,7 @@ func (s *Storage) ListDir(ctx context.Context, dirPath string) ([]string, error)
 	return result, nil
 }
 
-// ListKey is part of the models.Impl interface.
+// ListKey is part of the storage.Impl interface.
 func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) {
 	resp, err := s.ec.cli.Get(ctx, prefix,
 		clientv3.WithPrefix(),
@@ -93,7 +93,7 @@ func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) 
 	if len(resp.Kvs) == 0 {
 		// No key starts with this prefix, means the directory
 		// doesn't exist.
-		return nil, models.ErrNoNode
+		return nil, storage.ErrNoNode
 	}
 
 	nodePath := prefix
@@ -125,8 +125,8 @@ func (s *Storage) ListKey(ctx context.Context, prefix string) ([]string, error) 
 	return result, nil
 }
 
-// Create is part of the models.Impl interface.
-func (s *Storage) Create(ctx context.Context, path string, contents []byte) (models.Version, error) {
+// Create is part of the storage.Impl interface.
+func (s *Storage) Create(ctx context.Context, path string, contents []byte) (storage.Version, error) {
 	resp, err := s.ec.cli.Put(ctx, path, string(contents))
 	if err != nil {
 		return nil, convertError(err)
@@ -134,8 +134,8 @@ func (s *Storage) Create(ctx context.Context, path string, contents []byte) (mod
 	return EtcdVersion(resp.Header.Revision), nil
 }
 
-// Delete is part of the models.Impl interface.
-func (s *Storage) Delete(ctx context.Context, path string, version models.Version) error {
+// Delete is part of the storage.Impl interface.
+func (s *Storage) Delete(ctx context.Context, path string, version storage.Version) error {
 	if version != nil {
 		// We have to do a transaction. This means: if the
 		// node revision is what we expect, delete it,
@@ -154,10 +154,10 @@ func (s *Storage) Delete(ctx context.Context, path string, version models.Versio
 		if !txnresp.Succeeded {
 			if len(txnresp.Responses) > 0 {
 				if len(txnresp.Responses[0].GetResponseRange().Kvs) > 0 {
-					return models.ErrBadVersion
+					return storage.ErrBadVersion
 				}
 			}
-			return models.ErrNoNode
+			return storage.ErrNoNode
 		}
 		return nil
 	}
@@ -168,12 +168,12 @@ func (s *Storage) Delete(ctx context.Context, path string, version models.Versio
 		return convertError(err)
 	}
 	if resp.Deleted != 1 {
-		return models.ErrNoNode
+		return storage.ErrNoNode
 	}
 	return nil
 }
 
-// DeleteAll is part of the models.Impl interface.
+// DeleteAll is part of the storage.Impl interface.
 func (s *Storage) DeleteAll(ctx context.Context, path string) error {
 	// This is just a regular unconditional Delete here.
 	_, err := s.ec.cli.Delete(ctx, path, clientv3.WithPrefix())
@@ -183,8 +183,8 @@ func (s *Storage) DeleteAll(ctx context.Context, path string) error {
 	return nil
 }
 
-// Update is part of the models.Impl interface.
-func (s *Storage) Update(ctx context.Context, path string, contents []byte, version models.Version) (models.Version, error) {
+// Update is part of the storage.Impl interface.
+func (s *Storage) Update(ctx context.Context, path string, contents []byte, version storage.Version) (storage.Version, error) {
 	if version != nil {
 		// We have to do a transaction. This means: if the
 		// current file revision is what we expect, save it.
@@ -196,7 +196,7 @@ func (s *Storage) Update(ctx context.Context, path string, contents []byte, vers
 			return nil, convertError(err)
 		}
 		if !txnresp.Succeeded {
-			return nil, models.ErrBadVersion
+			return nil, storage.ErrBadVersion
 		}
 		return EtcdVersion(txnresp.Header.Revision), nil
 	}
@@ -209,14 +209,14 @@ func (s *Storage) Update(ctx context.Context, path string, contents []byte, vers
 	return EtcdVersion(resp.Header.Revision), nil
 }
 
-// Get is part of the models.Impl interface.
-func (s *Storage) Get(ctx context.Context, path string) ([]byte, models.Version, error) {
+// Get is part of the storage.Impl interface.
+func (s *Storage) Get(ctx context.Context, path string) ([]byte, storage.Version, error) {
 	resp, err := s.ec.cli.Get(ctx, path)
 	if err != nil {
 		return nil, nil, convertError(err)
 	}
 	if len(resp.Kvs) != 1 {
-		return nil, nil, models.ErrNoNode
+		return nil, nil, storage.ErrNoNode
 	}
 	return resp.Kvs[0].Value, EtcdVersion(resp.Header.Revision), nil
 }
@@ -233,9 +233,9 @@ func NewStorage(serverAddr string) (*Storage, error) {
 }
 
 func init() {
-	models.RegisterStorageFactory("etcd", func(serverAddr string) (models.Impl, error) {
+	storage.RegisterStorageFactory("etcd", func(serverAddr string) (storage.Impl, error) {
 		return NewStorage(serverAddr)
 	})
 }
 
-var _ models.Impl = &Storage{} // compile-time interface check
+var _ storage.Impl = &Storage{} // compile-time interface check

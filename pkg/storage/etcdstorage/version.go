@@ -3,7 +3,7 @@ package etcdstorage
 import (
 	"fmt"
 
-	"github.com/ffan/tidb-k8s/models"
+	"github.com/ffan/tidb-k8s/pkg/storage"
 )
 
 // EtcdVersion is etcd's idea of a version.
@@ -16,4 +16,4 @@ func (v EtcdVersion) String() string {
 	return fmt.Sprintf("%v", uint64(v))
 }
 
-var _ models.Version = (EtcdVersion)(0) // compile-time interface check
+var _ storage.Version = (EtcdVersion)(0) // compile-time interface check

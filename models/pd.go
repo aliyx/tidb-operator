@@ -20,7 +20,7 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member int `json:"member,omitempty"`
+	Member int `json:"member"`
 	// key is pod name
 	Members map[string]Member `json:"members,omitempty"`
 

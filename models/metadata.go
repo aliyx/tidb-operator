@@ -14,6 +14,7 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	"github.com/ffan/tidb-k8s/pkg/storage"
 )
 
 var initData = `
@@ -44,7 +45,7 @@ approvalConditions:
 
 var (
 	// metaS all metadata model共享storage
-	metaS Storage
+	metaS storage.Storage
 	// count 原子计数器
 	count int32
 )
@@ -88,7 +89,7 @@ type Metadata struct {
 
 // Init Metadata
 func metaInit() {
-	s, err := newStorage(metaNamespace)
+	s, err := storage.NewDefaultStorage(metaNamespace, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage metadata error: %v", err))
 	}

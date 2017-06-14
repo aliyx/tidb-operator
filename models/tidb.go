@@ -10,6 +10,7 @@ import (
 
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
+	"github.com/ffan/tidb-k8s/pkg/storage"
 
 	"errors"
 	"sync"
@@ -72,7 +73,7 @@ const (
 )
 
 var (
-	tidbS Storage
+	tidbS storage.Storage
 
 	errCellIsNil               = errors.New("cell is nil")
 	errInvalidSchema           = errors.New("invalid database schema")
@@ -95,7 +96,7 @@ type Tidb struct {
 	Pd      *Pd      `json:"pd"`
 	Tikv    *Tikv    `json:"tikv"`
 
-	Status               Status    `json:"status,omitempty"`
+	Status               Status    `json:"status"`
 	OuterAddresses       []string  `json:"outerAddresses,omitempty"`
 	OuterStatusAddresses []string  `json:"outerStatusAddresses,omitempty"`
 	CreationTimestamp    time.Time `json:"creationTimestamp,omitempty"`
@@ -145,15 +146,15 @@ func (s *Spec) validate() error {
 
 // Status tidb status
 type Status struct {
-	Available    bool   `json:"available,omitempty"`
-	Phase        Phase  `json:"phase,omitempty"`
-	MigrateState string `json:"migrateState,omitempty"`
-	ScaleState   int    `json:"scaleState,omitempty"`
+	Available    bool   `json:"available"`
+	Phase        Phase  `json:"phase"`
+	MigrateState string `json:"migrateState"`
+	ScaleState   int    `json:"scaleState"`
 	Desc         string `json:"desc,omitempty"`
 }
 
 func tidbInit() {
-	s, err := newStorage(tidbNamespace)
+	s, err := storage.NewDefaultStorage(tidbNamespace, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage tidb error: %v", err))
 	}
@@ -285,7 +286,7 @@ func GetDbs(userID string) ([]Tidb, error) {
 	} else {
 		cells, err = tidbS.ListDir("")
 	}
-	if err != nil && err != ErrNoNode {
+	if err != nil && err != storage.ErrNoNode {
 		return nil, err
 	}
 	if len(cells) < 1 {
@@ -486,7 +487,7 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 		rollout(db.Cell, tidbDeleting)
 		for {
 			if !started(db.Cell) {
-				if err := db.delete(); err != nil && err != ErrNoNode {
+				if err := db.delete(); err != nil && err != storage.ErrNoNode {
 					logs.Error("delete tidb error: %v", err)
 					return
 				}

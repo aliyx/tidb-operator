@@ -1,14 +1,20 @@
-package models
+package storage
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"path"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+)
+
+const (
+	// storageTimeout data storage timeout
+	storageTimeout = 3 * time.Second
 )
 
 var (
@@ -68,7 +74,7 @@ func (s *Storage) IsNil() bool { return s == nil || s.namespace == "" }
 func (s *Storage) Create(key string, contents []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, key)
+	k := path.Join(s.namespace, key)
 	_, err := s.Impl.Create(ctx, k, contents)
 	return err
 }
@@ -77,7 +83,7 @@ func (s *Storage) Create(key string, contents []byte) error {
 func (s *Storage) Get(key string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, key)
+	k := path.Join(s.namespace, key)
 	data, _, err := s.Impl.Get(ctx, k)
 	return data, err
 }
@@ -98,7 +104,7 @@ func (s *Storage) GetObj(key string, v interface{}) error {
 func (s *Storage) ListDir(parent string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, parent)
+	k := path.Join(s.namespace, parent)
 	return s.Impl.ListDir(ctx, k)
 }
 
@@ -106,7 +112,7 @@ func (s *Storage) ListDir(parent string) ([]string, error) {
 func (s *Storage) ListKey(prefix string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, prefix)
+	k := path.Join(s.namespace, prefix)
 	return s.Impl.ListKey(ctx, k)
 }
 
@@ -114,7 +120,7 @@ func (s *Storage) ListKey(prefix string) ([]string, error) {
 func (s *Storage) Delete(key string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, key)
+	k := path.Join(s.namespace, key)
 	return s.Impl.Delete(ctx, k, nil)
 }
 
@@ -122,7 +128,7 @@ func (s *Storage) Delete(key string) error {
 func (s *Storage) DeleteAll(key string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, key)
+	k := path.Join(s.namespace, key)
 	return s.Impl.DeleteAll(ctx, k)
 }
 
@@ -130,7 +136,7 @@ func (s *Storage) DeleteAll(key string) error {
 func (s *Storage) Update(key string, contents []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(tidbRoot, s.namespace, key)
+	k := path.Join(s.namespace, key)
 	_, err := s.Impl.Update(ctx, k, contents, nil)
 	return err
 }
@@ -167,7 +173,8 @@ func NewStorage(implementation, serverAddress, root string) (Storage, error) {
 	}, nil
 }
 
-func newStorage(root string) (Storage, error) {
+// NewDefaultStorage new default storage
+func NewDefaultStorage(root, etcdAddress string) (Storage, error) {
 	st := beego.AppConfig.String("storage")
 	if len(st) == 0 {
 		st = "etcd"

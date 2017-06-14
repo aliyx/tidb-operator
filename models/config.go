@@ -8,15 +8,13 @@ import (
 
 const (
 	// Path components
-	tidbRoot       = "/tk"
-	tidbNamespace  = "tidbs"
-	metaNamespace  = "metadata"
-	eventNamespace = "events"
+	tidbRoot       = "/tk/"
+	tidbNamespace  = tidbRoot + "tidbs"
+	metaNamespace  = tidbRoot + "metadata"
+	eventNamespace = tidbRoot + "events"
 
 	// pdReqTimeout access the request timeout for the pd api service
 	pdReqTimeout = 3 * time.Second
-	// storageTimeout data storage timeout
-	storageTimeout = 3 * time.Second
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	"github.com/ffan/tidb-k8s/models"
+	"github.com/ffan/tidb-k8s/pkg/storage"
 	"google.golang.org/grpc/codes"
 )
 
@@ -26,14 +26,14 @@ func convertError(err error) error {
 	case rpctypes.EtcdError:
 		switch typeErr.Code() {
 		case codes.NotFound:
-			return models.ErrNoNode
+			return storage.ErrNoNode
 		}
 	default:
 		switch err {
 		case context.Canceled:
-			return models.ErrInterrupted
+			return storage.ErrInterrupted
 		case context.DeadlineExceeded:
-			return models.ErrTimeout
+			return storage.ErrTimeout
 		}
 	}
 	return err

@@ -18,6 +18,14 @@ import (
 func (db *Tidb) initSchema() (err error) {
 	e := NewEvent(db.Cell, "tidb", "init")
 	defer func() {
+		ph := tidbInited
+		if err != nil {
+			ph = tidbInitFailed
+		} else {
+			db.Status.Available = true
+		}
+		db.Status.Phase = ph
+		err = db.update()
 		e.Trace(err, "Init tidb privileges")
 	}()
 	if !db.isOk() {
@@ -34,11 +42,9 @@ func (db *Tidb) initSchema() (err error) {
 	for _, schema := range db.Schemas {
 		my := tsql.NewMysql(schema.Name, h, port, schema.User, schema.Password)
 		if err = my.Init(); err != nil {
-			rollout(db.Cell, tidbInitFailed)
 			return err
 		}
 	}
-	rollout(db.Cell, tidbInited)
 	return nil
 }
 

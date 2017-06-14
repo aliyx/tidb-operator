@@ -29,9 +29,9 @@ var (
 // Tikv 元数据存储模块
 type Tikv struct {
 	Spec              Spec              `json:"spec"`
-	Member            int               `json:"member,omitempty"`
-	ReadyReplicas     int               `json:"readyReplicas,omitempty"`
-	AvailableReplicas int               `json:"availableReplicas,omitempty"`
+	Member            int               `json:"member"`
+	ReadyReplicas     int               `json:"readyReplicas"`
+	AvailableReplicas int               `json:"availableReplicas"`
 	Stores            map[string]*Store `json:"stores,omitempty"`
 
 	cur string

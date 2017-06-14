@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/ffan/tidb-k8s/pkg/storage"
 )
 
 const (
@@ -29,11 +31,11 @@ type Event struct {
 
 var (
 	evtMu sync.Mutex
-	evtS  Storage
+	evtS  storage.Storage
 )
 
 func eventInit() {
-	s, err := newStorage(eventNamespace)
+	s, err := storage.NewDefaultStorage(eventNamespace, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage event error: %v", err))
 	}
@@ -102,7 +104,7 @@ func save(es ...Event) error {
 func GetEventsBy(cell string) ([]Event, error) {
 	bs, err := evtS.Get(cell)
 	if err != nil {
-		if err != ErrNoNode {
+		if err != storage.ErrNoNode {
 			return nil, err
 		}
 		return []Event{}, nil
@@ -116,7 +118,7 @@ func GetEventsBy(cell string) ([]Event, error) {
 
 // DelEventsBy del cell all events
 func delEventsBy(cell string) error {
-	if err := evtS.Delete(cell); err != nil && err != ErrNoNode {
+	if err := evtS.Delete(cell); err != nil && err != storage.ErrNoNode {
 		return err
 	}
 	return nil
