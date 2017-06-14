@@ -85,7 +85,8 @@ func GetTikv(cell string) (*Tikv, error) {
 
 func (kv *Tikv) install() (err error) {
 	e := NewEvent(kv.Db.Cell, "tikv", "install")
-	rollout(kv.Db.Cell, tikvPending)
+	kv.Db.Status.Phase = tikvPending
+	kv.Db.update()
 	kv.Stores = make(map[string]*Store)
 	defer func() {
 		ph := tikvStarted
@@ -237,7 +238,7 @@ func (td *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
 			if err != nil {
 				td.Status.ScaleState |= tikvScaleErr
 			}
-			td.Update()
+			td.update()
 			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, td.Cell, r, replica))
 		}(kv.Spec.Replicas)
 		switch n := replica - kv.Spec.Replicas; {

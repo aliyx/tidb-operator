@@ -197,7 +197,6 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 		return err
 	}
 	port, _ := strconv.Atoi(p)
-	schema := db.Schemas[0]
 	my := &tsql.Migration{
 		Src:  src,
 		Dest: *tsql.NewMysql(sch.Name, h, port, sch.User, sch.Password),
@@ -219,7 +218,7 @@ func (db *Tidb) Migrate(src tsql.Mysql, notify string, sync bool) error {
 func (db *Tidb) UpdateMigrateStat(s, desc string) (err error) {
 	var e *Event
 	db.Status.MigrateState = s
-	if err := db.Update(); err != nil {
+	if err := db.update(); err != nil {
 		return err
 	}
 	logs.Info("Current tidb %s migrate status: %s", db.Cell, s)

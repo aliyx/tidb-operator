@@ -25,8 +25,12 @@ import (
 type Phase int
 
 const (
-	// Undefined init status
-	Undefined Phase = iota
+	// Refuse user apply create a tidb
+	Refuse Phase = iota - 2
+	// Auditing wait admin audit
+	Auditing
+	// Undefined wait install tidb
+	Undefined
 	pdPending
 	pdStartFailed
 	pdStarted
@@ -326,15 +330,6 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 	return false
 }
 
-// func rollout(cell string, ph Phase) error {
-// 	db, err := GetTidb(cell)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	db.Status.Phase = ph
-// 	return db.update()
-// }
-
 func isOkPd(cell string) bool {
 	if db, err := GetTidb(cell); err != nil ||
 		db == nil || db.Status.Phase < pdStarted || db.Status.Phase > tikvStoped {
@@ -473,11 +468,10 @@ func (db *Tidb) Delete(callbacks ...clear) (err error) {
 	if len(db.Cell) < 1 {
 		return nil
 	}
-	if err = Stop(db.Cell, nil); err != nil {
+	if err = Uninstall(db.Cell, nil); err != nil {
 		return err
 	}
 	if err = delEventsBy(db.Cell); err != nil {
-		logs.Error("Delete events: %v", err)
 		return err
 	}
 	go func() {
@@ -520,14 +514,12 @@ func (db *Tidb) delete() error {
 
 // Scale tikv and tidb
 func Scale(cell string, kvReplica, dbReplica int) (err error) {
-	scaleMu.Lock()
-	defer scaleMu.Unlock()
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
 		return err
 	}
 	if db.Status.Available {
-		return fmt.Errorf("tidb %s not inited", cell)
+		return fmt.Errorf("tidb %s unavailable", cell)
 	}
 	if db.Status.ScaleState&scaling > 0 {
 		return fmt.Errorf("tidb %s is scaling", cell)
@@ -565,7 +557,7 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			if err != nil {
 				db.Status.ScaleState |= tidbScaleErr
 			}
-			db.Update()
+			db.update()
 			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Cell, r, replica))
 		}(db.Spec.Replicas)
 		md := getCachedMetadata()

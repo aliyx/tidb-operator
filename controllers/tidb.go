@@ -44,7 +44,7 @@ func (dc *TidbController) Post() {
 	)
 	// start is async
 	if db.Status.Phase == models.Undefined {
-		models.Start(db.Cell)
+		models.Install(db.Cell, nil)
 	}
 	dc.Data["json"] = db.Cell
 	dc.ServeJSON()
@@ -210,31 +210,38 @@ func (dc *TidbController) Status() {
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
+	td, err := models.GetTidb(cell)
+	errHandler(dc.Controller, err, "Patch tidb status")
 	switch s.Type {
 	case "migrate":
-		td, err := models.GetTidb(cell)
-		errHandler(dc.Controller, err, "Patch tidb status")
 		td.UpdateMigrateStat(s.Status, "")
 		errHandler(dc.Controller, err, "Patch tidb status")
+	case "audit":
+		switch s.Status {
+		case "-2":
+			td.Status.Phase = models.Refuse
+			td.Owner.Reason = s.Desc
+			td.Update()
+		}
 	default:
 		switch s.Status {
 		case "start":
 			errHandler(
 				dc.Controller,
-				models.Start(cell),
-				fmt.Sprintf("Start tidb %s", cell),
+				models.Install(cell, nil),
+				fmt.Sprintf("Install tidb %s", cell),
 			)
 		case "stop":
 			errHandler(
 				dc.Controller,
-				models.Stop(cell, nil),
-				fmt.Sprintf("Stop tidb %s", cell),
+				models.Uninstall(cell, nil),
+				fmt.Sprintf("Uninstall tidb %s", cell),
 			)
 		case "retart":
 			errHandler(
 				dc.Controller,
-				models.Restart(cell),
-				fmt.Sprintf("Restart tidb %s", cell),
+				models.Reinstall(cell),
+				fmt.Sprintf("Reinstall tidb %s", cell),
 			)
 		default:
 			dc.CustomAbort(403, "unsupport operation")

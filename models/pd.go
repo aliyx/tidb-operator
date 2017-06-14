@@ -93,7 +93,8 @@ func (p *Pd) uninstall() (err error) {
 
 func (p *Pd) install() (err error) {
 	e := NewEvent(p.Db.Cell, "pd", "install")
-	rollout(p.Db.Cell, pdPending)
+	p.Db.Status.Phase = pdPending
+	p.Db.update()
 	defer func() {
 		ph := pdStarted
 		if err != nil {
