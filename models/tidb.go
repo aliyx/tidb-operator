@@ -91,9 +91,9 @@ type Tidb struct {
 	Cell    string  `json:"cell"`
 	Owner   *Owner  `json:"owner,omitempty"`
 	Schemas Schemas `json:"schemas,omitempty"`
-	Spec    `json:"spec"`
-	Pd      *Pd   `json:"pd"`
-	Tikv    *Tikv `json:"tikv"`
+	Spec    Spec    `json:"spec"`
+	Pd      *Pd     `json:"pd"`
+	Tikv    *Tikv   `json:"tikv"`
 
 	Status               Status    `json:"status"`
 	OuterAddresses       []string  `json:"outerAddresses,omitempty"`
@@ -213,7 +213,7 @@ func (db *Tidb) Save() error {
 }
 
 func (db *Tidb) check() (err error) {
-	if err = db.validate(); err != nil {
+	if err = db.Spec.validate(); err != nil {
 		return err
 	}
 	if err = db.Schemas.validate(); err != nil {

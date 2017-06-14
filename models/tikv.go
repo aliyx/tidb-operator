@@ -28,7 +28,7 @@ var (
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	Spec `json:"spec"`
+	Spec Spec `json:"spec"`
 
 	cur string
 	Db  *Tidb `json:"-"`

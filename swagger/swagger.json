@@ -509,22 +509,10 @@
             }
         },
         "models.Pd": {
-            "title": "Spec",
+            "title": "Pd",
             "type": "object",
             "properties": {
-                "capatity": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "cpu": {
-                    "type": "integer",
-                    "format": "int64"
-                },
                 "innerAddresses": {},
-                "mem": {
-                    "type": "integer",
-                    "format": "int64"
-                },
                 "member": {
                     "type": "integer",
                     "format": "int64"
@@ -533,15 +521,8 @@
                     "$ref": "#/definitions/models.Member"
                 },
                 "outerAddresses": {},
-                "replicas": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "tidbdata_volume": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
+                "spec": {
+                    "$ref": "#/definitions/models.Spec"
                 }
             }
         },
@@ -674,35 +655,28 @@
             }
         },
         "models.Tidb": {
-            "title": "Spec",
+            "title": "Tidb",
             "type": "object",
             "properties": {
-                "capatity": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "cpu": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "mem": {
-                    "type": "integer",
-                    "format": "int64"
+                "cell": {
+                    "type": "string"
                 },
                 "outerAddresses": {},
                 "outerStatusAddresses": {},
+                "owner": {
+                    "$ref": "#/definitions/models.Owner"
+                },
                 "pd": {
                     "$ref": "#/definitions/models.Pd"
                 },
-                "replicas": {
-                    "type": "integer",
-                    "format": "int64"
+                "schemas": {
+                    "$ref": "#/definitions/models.Schemas"
+                },
+                "spec": {
+                    "$ref": "#/definitions/models.Spec"
                 },
                 "status": {
                     "$ref": "#/definitions/models.Status"
-                },
-                "tidbdata_volume": {
-                    "type": "string"
                 },
                 "tikv": {
                     "$ref": "#/definitions/models.Tikv"
@@ -710,34 +684,19 @@
                 "timecreate": {
                     "type": "string",
                     "format": "string"
-                },
-                "version": {
-                    "type": "string"
                 }
             }
         },
         "models.Tikv": {
-            "title": "Spec",
+            "title": "Tikv",
             "type": "object",
             "properties": {
                 "availableReplicas": {
                     "type": "integer",
                     "format": "int64"
                 },
-                "capatity": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "cpu": {
-                    "type": "integer",
-                    "format": "int64"
-                },
                 "cur": {
                     "type": "string"
-                },
-                "mem": {
-                    "type": "integer",
-                    "format": "int64"
                 },
                 "member": {
                     "type": "integer",
@@ -747,18 +706,11 @@
                     "type": "integer",
                     "format": "int64"
                 },
-                "replicas": {
-                    "type": "integer",
-                    "format": "int64"
+                "spec": {
+                    "$ref": "#/definitions/models.Spec"
                 },
                 "stores": {
-                    "$ref": "#/definitions/34222.Store"
-                },
-                "tidbdata_volume": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
+                    "$ref": "#/definitions/34249.Store"
                 }
             }
         },

@@ -15,7 +15,7 @@ import (
 
 // Pd 元数据
 type Pd struct {
-	Spec `json:"spec"`
+	Spec Spec `json:"spec"`
 
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
