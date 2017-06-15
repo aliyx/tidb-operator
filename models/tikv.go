@@ -159,7 +159,7 @@ func (kv *Tikv) waitForOk() (err error) {
 		j, err := pdStoresGet(kv.Db.Pd.OuterAddresses[0])
 		if err != nil {
 			logs.Error("get stores by pd API: %v", err)
-			return false, err
+			return false, nil
 		}
 		ret := gjson.Get(j, "count")
 		if ret.Int() < 1 {
