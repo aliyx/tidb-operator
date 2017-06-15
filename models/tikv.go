@@ -68,10 +68,6 @@ func (kv *Tikv) beforeSave() error {
 	return nil
 }
 
-func (kv *Tikv) update() error {
-	return kv.Db.update()
-}
-
 // GetTikv get a tikv instance
 func GetTikv(cell string) (*Tikv, error) {
 	db, err := GetTidb(cell)
@@ -94,7 +90,9 @@ func (kv *Tikv) install() (err error) {
 			ph = tikvStartFailed
 		}
 		kv.Db.Status.Phase = ph
-		err = kv.Db.update()
+		if uerr := kv.Db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
+		}
 		e.Trace(err, fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", kv.Spec.Replicas, kv.AvailableReplicas))
 	}()
 	for r := 1; r <= kv.Spec.Replicas; r++ {
@@ -195,19 +193,13 @@ func (kv *Tikv) uninstall() (err error) {
 	cell := kv.Db.Cell
 	e := NewEvent(cell, "tikv", "uninstall")
 	defer func() {
-		ph := tikvStoped
-		if err != nil {
-			ph = tikvStopFailed
-		}
 		kv.Stores = nil
 		kv.Member = 0
 		kv.cur = ""
 		kv.AvailableReplicas = 0
 		kv.ReadyReplicas = 0
-		kv.Db.Status.Phase = ph
-		err = kv.update()
-		if err != nil {
-			logs.Error("uninstall tikv %s: %v", kv.Db.Cell, err)
+		if uerr := kv.Db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
 		}
 		e.Trace(err, fmt.Sprintf("Uninstall tikv %d pods", kv.Spec.Replicas))
 	}()
@@ -217,29 +209,29 @@ func (kv *Tikv) uninstall() (err error) {
 	return err
 }
 
-func (td *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
+func (db *Tidb) scaleTikvs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
-	kv := td.Tikv
+	kv := db.Tikv
 	if replica == kv.Spec.Replicas {
 		return
 	}
 	wg.Add(1)
 	go func() {
-		scaleMu.Lock()
+		db.Lock()
 		defer func() {
-			scaleMu.Unlock()
+			db.Unlock()
 			wg.Done()
 		}()
 		var err error
-		e := NewEvent(td.Cell, "tikv", "scale")
+		e := NewEvent(db.Cell, "tikv", "scale")
 		defer func(r int) {
 			if err != nil {
-				td.Status.ScaleState |= tikvScaleErr
+				db.Status.ScaleState |= tikvScaleErr
 			}
-			td.update()
-			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, td.Cell, r, replica))
+			db.update()
+			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, db.Cell, r, replica))
 		}(kv.Spec.Replicas)
 		switch n := replica - kv.Spec.Replicas; {
 		case n > 0:

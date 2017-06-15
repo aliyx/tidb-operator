@@ -68,17 +68,12 @@ func GetPd(cell string) (*Pd, error) {
 func (p *Pd) uninstall() (err error) {
 	e := NewEvent(p.Db.Cell, "pd", "uninstall")
 	defer func() {
-		ph := pdStoped
-		if err != nil {
-			ph = pdStopFailed
-		}
 		p.Member = 0
 		p.InnerAddresses = nil
 		p.OuterAddresses = nil
-		p.Db.Status.Phase = ph
-		err = p.Db.update()
-		if err != nil {
-			logs.Error("uninstall pd %s: %v", p.Db.Cell, err)
+		p.Db.update()
+		if uerr := p.Db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
 		}
 		e.Trace(err, "Uninstall pd pods")
 	}()
@@ -101,7 +96,9 @@ func (p *Pd) install() (err error) {
 			ph = pdStartFailed
 		}
 		p.Db.Status.Phase = ph
-		p.Db.update()
+		if uerr := p.Db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
+		}
 		e.Trace(err, fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Spec.Replicas, p.Member))
 	}()
 	if err = p.createServices(); err != nil {

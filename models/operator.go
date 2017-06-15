@@ -64,21 +64,21 @@ func Install(cell string, ch chan int) (err error) {
 		return ErrRepeatOperation
 	}
 	go func() {
-		e := NewEvent(cell, "tidb", "install")
+		e := NewEvent(cell, "db", "install")
 		defer func() {
 			e.Trace(err, "Start installing tidb cluster on kubernete")
 			ch <- 0
 		}()
 		if err = db.Pd.install(); err != nil {
-			logs.Error("Start pd %s on k8s err: %v", cell, err)
+			logs.Error("Install pd %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.Tikv.install(); err != nil {
-			logs.Error("Start tikv %s on k8s err: %v", cell, err)
+			logs.Error("Install tikv %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.install(); err != nil {
-			logs.Error("Start tidb %s on k8s err: %v", cell, err)
+			logs.Error("Install tidb %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.initSchema(); err != nil {
@@ -99,6 +99,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 		return err
 	}
 	db.Status.Available = false
+	db.Status.Phase = tidbDeleting
 	if err = db.update(); err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 			stoped := 1
 			ph := Undefined
 			if started(cell) {
-				ph = tidbStopFailed
+				ph = tidbDeleting
 				stoped = 0
 				err = errors.New("async delete pods timeout")
 			}

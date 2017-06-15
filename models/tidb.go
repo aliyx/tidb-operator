@@ -43,12 +43,6 @@ const (
 	tidbInitFailed
 	// tidbInited 初始化完成，可对外提供服务
 	tidbInited
-	tidbStopFailed
-	tidbStoped
-	tikvStopFailed
-	tikvStoped
-	pdStopFailed
-	pdStoped
 	tidbDeleting
 )
 
@@ -87,12 +81,12 @@ var (
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
 	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")
 	errInvalidReplica  = errors.New("invalid replica")
-
-	scaleMu sync.Mutex
 )
 
 // Tidb metadata
 type Tidb struct {
+	sync.Mutex
+
 	Cell    string   `json:"cell"`
 	Owner   *Owner   `json:"owner,omitempty"`
 	Schemas []Schema `json:"schemas"`
@@ -332,7 +326,7 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 
 func isOkPd(cell string) bool {
 	if db, err := GetTidb(cell); err != nil ||
-		db == nil || db.Status.Phase < pdStarted || db.Status.Phase > tikvStoped {
+		db == nil || db.Status.Phase < pdStarted || db.Status.Phase > tidbInited {
 		return false
 	}
 	return true
@@ -340,7 +334,7 @@ func isOkPd(cell string) bool {
 
 func isOkTikv(cell string) bool {
 	if db, err := GetTidb(cell); err != nil ||
-		db == nil || db.Status.Phase < tikvStarted || db.Status.Phase > tidbStoped {
+		db == nil || db.Status.Phase < tikvStarted || db.Status.Phase > tidbInited {
 		return false
 	}
 	return true
@@ -356,7 +350,9 @@ func (db *Tidb) install() (err error) {
 			ph = tidbStartFailed
 		}
 		db.Status.Phase = ph
-		err = db.update()
+		if uerr := db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
+		}
 		e.Trace(err, fmt.Sprintf("Install tidb replicationcontrollers with %d replicas on k8s", db.Spec.Replicas))
 	}()
 	if err = db.createService(); err != nil {
@@ -437,20 +433,14 @@ func (db *Tidb) waitForOk() (err error) {
 func (db *Tidb) uninstall() (err error) {
 	e := NewEvent(db.Cell, "tidb", "uninstall")
 	defer func() {
-		ph := tidbStoped
-		if err != nil {
-			ph = tidbStopFailed
-		}
-		db.Status.Phase = ph
 		db.Status.MigrateState = ""
 		db.Status.ScaleState = 0
 		db.OuterAddresses = nil
 		db.OuterStatusAddresses = nil
-		err = db.update()
-		if err != nil {
-			logs.Error("uninstall tidb %s: %v", db.Cell, err)
+		if uerr := db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
 		}
-		e.Trace(err, "Uninstall tidb replicationcontrollers")
+		e.Trace(err, "Uninstall tidb replicationControllers")
 	}()
 	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", db.Cell)); err != nil {
 		return err
@@ -549,9 +539,9 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	}
 	wg.Add(1)
 	go func() {
-		scaleMu.Lock()
+		db.Lock()
 		defer func() {
-			scaleMu.Unlock()
+			db.Unlock()
 			wg.Done()
 		}()
 		var err error
@@ -578,7 +568,7 @@ func (db *Tidb) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			db.Spec.Replicas = old
 			return
 		}
-		logs.Info(`Scale "tidb-%s" from %d to %d`, db.Cell, db.Spec.Replicas, replica)
+		logs.Info(`scale "tidb-%s" from %d to %d`, db.Cell, old, replica)
 		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Cell), replica); err != nil {
 			return
 		}

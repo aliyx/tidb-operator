@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/storage"
 )
 
@@ -62,6 +63,7 @@ func (e *Event) Trace(err error, msg ...string) {
 	if err != nil {
 		e.Type = Eerror
 		e.Message = fmt.Sprintf("%s:%v", msg, err)
+		logs.Error(e.Message)
 	}
 	e.save()
 }
