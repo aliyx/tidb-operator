@@ -9,4 +9,4 @@ echo "*  Proxy: $DPROXY"
 echo "*  Image: $REGISTRY/ffan/rds/migration:$VERSION"
 echo "****************************" 
 
-docker build $DPROXY -t $REGISTRY/ffan/rds/migration:$VERSION ./
+docker build $DPROXY -t $REGISTRY/ffan/rds/migration:$VERSION ./ && docker push $REGISTRY/ffan/rds/migration:$VERSION

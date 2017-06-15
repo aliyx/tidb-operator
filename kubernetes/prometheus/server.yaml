@@ -31,15 +31,13 @@ spec:
       volumes:
       - name: prom-data
         hostPath: {path: /var/lib/prometheus}
-      - name: tz-config
-        hostPath: {path: /etc/localtime}
       terminationGracePeriodSeconds: 5
       containers:
       - name: prom-server
         image: 10.209.224.13:10500/rds/prom-server:latest
         env: 
-        - name: TZ
-          value: "Asia/Shanghai"
+        # - name: TZ
+        #   value: "Asia/Shanghai"
         livenessProbe:
           httpGet:
             path: /status
@@ -49,10 +47,8 @@ spec:
         ports:
           - containerPort: 9090
         volumeMounts:
-          - name: prom-data
-            mountPath: /var/lib/prometheus
-          - name: tz-config
-            mountPath: /etc/localtime
+        - name: prom-data
+          mountPath: /var/lib/prometheus
       # tolerations:
       # - key: node-role.prometheus
       #   effect: NoSchedule
