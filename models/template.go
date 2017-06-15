@@ -176,6 +176,15 @@ metadata:
     cell: {{cell}}
     component: tikv
 spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role
+            operator: NotIn
+            values:
+            - prometheus
     # PD 和 TiKV 实例，建议每个实例单独部署一个硬盘，避免 IO 冲突，影响性能
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
