@@ -31,7 +31,7 @@ func (m *Migration) Check() error {
 	dsn := fmt.Sprintf(mysqlDsn, m.Src.User, m.Src.Password, m.Src.IP, m.Src.Port, m.Src.Database)
 	err := execMysqlCommand(dsn, "SELECT 1")
 	if err != nil {
-		return fmt.Errorf("Ping mysql %s timeout: %v", dsn, err)
+		return fmt.Errorf("ping mysql %s timeout: %v", dsn, err)
 	}
 	cmd := fmt.Sprintf(checker, m.Src.IP, m.Src.Port, m.Src.User, m.Src.Password, m.Src.Database)
 	o, err := execShell(cmd)
@@ -43,7 +43,6 @@ func (m *Migration) Check() error {
 
 func execShell(cmd string) ([]byte, error) {
 	logs.Info("Command is %s", cmd)
-	// splitting head => g++ parts => rest of the command
 	parts := strings.Fields(cmd)
 	head := parts[0]
 	parts = parts[1:len(parts)]

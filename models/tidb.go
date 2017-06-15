@@ -521,7 +521,7 @@ func Scale(cell string, kvReplica, dbReplica int) (err error) {
 	if db, err = GetTidb(cell); err != nil {
 		return err
 	}
-	if db.Status.Available {
+	if !db.Status.Available {
 		return fmt.Errorf("tidb %s unavailable", cell)
 	}
 	if db.Status.ScaleState&scaling > 0 {
