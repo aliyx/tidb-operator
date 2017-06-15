@@ -175,19 +175,7 @@ metadata:
     app: tidb
     cell: {{cell}}
     component: tikv
-    id: "{{id}}"
 spec:
-  affinity:
-    # 防止数据丢失,设置亲缘的目的是该pod只能在该node上更新
-    podAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: id
-            operator: In
-            values:
-            - "{{id}}"
-        topologyKey: kubernetes.io/hostname
     # PD 和 TiKV 实例，建议每个实例单独部署一个硬盘，避免 IO 冲突，影响性能
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -271,6 +259,7 @@ spec:
     component: tidb
     cell: {{cell}}
     app: tidb
+  sessionAffinity: ClientIP
   type: NodePort
 `
 

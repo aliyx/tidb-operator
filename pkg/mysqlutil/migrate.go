@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	binDir  = fmt.Sprintf("%s/pkg/mysql/bin/", servenv.Root())
+	binDir  = fmt.Sprintf("%s/pkg/mysqlutil/bin/", servenv.Root())
 	checker = binDir + "checker -L error -host %s -port %d -user %s -password %s %s"
 )
 
