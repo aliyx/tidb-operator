@@ -99,7 +99,8 @@ spec:
             privileged: true
       restartPolicy: Always
       tolerations:
-      - key: node-role.kubernetes.io/master
+      #  matches all keys
+      - operator: Exists
         effect: NoSchedule
       serviceAccountName: weave-net
       securityContext:
