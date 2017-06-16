@@ -60,14 +60,14 @@ spec:
         app: kubernetes-dashboard
     spec:
       volumes:
-      - name: zone
+      - name: tz-config
         hostPath: {path: /etc/localtime}
       containers:
       - name: kubernetes-dashboard
         image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.0
-        # imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         volumeMounts:
-        - name: zone
+        - name: tz-config
           mountPath: /etc/localtime
         ports:
         - containerPort: 9090

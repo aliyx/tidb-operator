@@ -48,9 +48,9 @@ metadata:
   name: weave-net
   namespace: kube-system
 spec:
+  updateStrategy:
+    type: RollingUpdate
   template:
-    updateStrategy:
-      type: RollingUpdate
     metadata:
       labels:
         name: weave-net
