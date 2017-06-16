@@ -51,7 +51,7 @@ const (
 	migStartMigrateErr = "StartMigrationTaskError"
 
 	stopTidbTimeout                   = 60 // 60s
-	waitPodRuningTimeout              = 30 * time.Second
+	waitPodRuningTimeout              = 60 * time.Second
 	waitTidbComponentAvailableTimeout = 60 * time.Second
 
 	scaling      = 1 << 8
