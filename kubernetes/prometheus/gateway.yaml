@@ -26,8 +26,6 @@ spec:
       labels:
         name: prom-gateway
     spec:
-      nodeSelector:
-        node-role: prometheus
       terminationGracePeriodSeconds: 5
       containers:
       - name: prom-gateway
@@ -37,6 +35,6 @@ spec:
         #   value: "Asia/Shanghai"
         ports:
           - containerPort: 9091
-      # tolerations:
-      # - key: node-role.prometheus
-      #   effect: NoSchedule
+      tolerations:
+      - key: node-role.prometheus
+        effect: NoSchedule

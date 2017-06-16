@@ -30,18 +30,12 @@ Execute on the specified slve node：
 
 ```bash
 # add
-kubectl label nodes name node-role.proxy=
-kubectl label nodes name node-role.prometheus=
-# or
-kubectl label nodes name --overwrite  node-role=proxy
-kubectl label nodes name --overwrite  node-role=prometheus
+kubectl taint nodes name node-role.proxy=:NoSchedule
+kubectl taint nodes name node-role.prometheus=:NoSchedule
 
 #remove
-kubectl label nodes name node-role.proxy-
-kubectl label nodes name node-role.prometheus-
-# or
-kubectl label nodes name --overwrite  node-role-
-kubectl label nodes name --overwrite  node-role-
+kubectl taint nodes name node-role.proxy-
+kubectl taint nodes name node-role.prometheus-
 ```
 
 ## Access

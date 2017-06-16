@@ -28,8 +28,6 @@ spec:
       labels:
         name: grafana
     spec:
-      nodeSelector:
-        node-role: prometheus
       volumes:
       - name: grafana-data
         hostPath: {path: /var/lib/grafana}
@@ -53,6 +51,6 @@ spec:
         volumeMounts:
           - name: grafana-data
             mountPath: /var/lib/grafana
-      # tolerations:
-      # - key: node-role.prometheus
-      #   effect: NoSchedule
+      tolerations:
+      - key: node-role.prometheus
+        effect: NoSchedule

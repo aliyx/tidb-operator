@@ -26,8 +26,6 @@ spec:
       labels:
         name: prom-server
     spec:
-      nodeSelector:
-        node-role: prometheus
       volumes:
       - name: prom-data
         hostPath: {path: /var/lib/prometheus}
@@ -49,6 +47,6 @@ spec:
         volumeMounts:
         - name: prom-data
           mountPath: /var/lib/prometheus
-      # tolerations:
-      # - key: node-role.prometheus
-      #   effect: NoSchedule
+      tolerations:
+      - key: node-role.prometheus
+        effect: NoSchedule
