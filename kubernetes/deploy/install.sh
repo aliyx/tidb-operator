@@ -1,7 +1,7 @@
 #!/bin/bash
 
-script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/env.sh
+# docker private registries
+registries=10.209.224.13:10500
 
 # set -x
 if (( $EUID != 0 )); then

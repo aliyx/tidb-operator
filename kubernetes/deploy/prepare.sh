@@ -2,8 +2,11 @@
 
 set -ex
 
-script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/env.sh
+# local proxy
+PROXY="http://192.168.14.1:1080/"
+
+# docker private registries
+registries=10.209.224.13:10500
 
 # set proxy
 sudo cat > /etc/systemd/system/docker.service.d/http-proxy.conf <<-EOF
