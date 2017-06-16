@@ -49,6 +49,8 @@ metadata:
   namespace: kube-system
 spec:
   template:
+    updateStrategy:
+      type: RollingUpdate
     metadata:
       labels:
         name: weave-net
@@ -60,6 +62,10 @@ spec:
           image: 10.209.224.13:10500/weaveworks/weave-kube:1.9.4
           command:
             - /home/weave/launch.sh
+          env: 
+          # To prevent ip conflict
+          - name: IPALLOC_RANGE
+            value: "10.32.0.0/16"
           livenessProbe:
             initialDelaySeconds: 30
             httpGet:
