@@ -13,19 +13,17 @@ import (
 	"github.com/astaxie/beego/logs"
 )
 
-const maxBadConnRetries = 3
-
-var defaultMysqlInitTemplate = `
+const (
+	defaultMysqlInitTemplate = `
 CREATE DATABASE IF NOT EXISTS {{database}};
 DELETE FROM mysql.user WHERE User = '';
 CREATE USER '{{user}}'@'%' IDENTIFIED BY '{{password}}';
 GRANT ALL ON {{database}}.* TO '{{user}}'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 `
-
-var (
+	maxBadConnRetries = 3
 	// tidbDsn tidb data source name
-	tidbDsn  = "root@tcp(%s:%d)/mysql?timeout=10s"
+	rootDsn  = "root@tcp(%s:%d)/mysql?timeout=10s"
 	mysqlDsn = "%s:%s@tcp(%s:%d)/%s"
 	grants   = "SHOW GRANTS FOR '{{user}}'@'%'"
 )
@@ -50,12 +48,18 @@ func NewMysql(database, ip string, port int, user, password string) *Mysql {
 	}
 }
 
-func (m Mysql) dsn() string {
-	return fmt.Sprintf(tidbDsn, m.IP, m.Port)
+// Dsn return specify user dsn
+func (m Mysql) Dsn() string {
+	return fmt.Sprintf(mysqlDsn, m.User, m.Password, m.IP, m.Port, m.Database)
 }
 
-// Init 初始化mysql
-func (m *Mysql) Init() error {
+// RootDsn return root user dsn
+func (m Mysql) RootDsn() string {
+	return fmt.Sprintf(rootDsn, m.IP, m.Port)
+}
+
+// CreateDatabaseAndGrant create specify database and grant user privilege
+func (m *Mysql) CreateDatabaseAndGrant() error {
 	if err := m.validate(); err != nil {
 		return err
 	}
@@ -68,7 +72,7 @@ func (m *Mysql) Init() error {
 		c = strings.Trim(c, " ")
 		sqls[i] = c
 	}
-	if err := execMysqlCommand(m.dsn(), sqls...); err != nil {
+	if err := execMysqlCommand(m.RootDsn(), sqls...); err != nil {
 		return err
 	}
 	return nil
@@ -76,7 +80,7 @@ func (m *Mysql) Init() error {
 
 func (m *Mysql) validate() error {
 	if m.Database == "" || m.User == "" || m.Password == "" {
-		return errors.New("database or user password is nil")
+		return errors.New("database or user, password is nil")
 	}
 	return nil
 }
@@ -132,10 +136,16 @@ func getPrivileges(dsn string, user string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if db == nil {
+		return nil, fmt.Errorf("cannt get db for %s", dsn)
+	}
 	defer db.Close()
 	query := strings.Replace(grants, "{{user}}", user, 1)
 	logs.Debug("dsn: %s sql: %s", dsn, query)
 	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	ps := []string{}
 	for rows.Next() {
