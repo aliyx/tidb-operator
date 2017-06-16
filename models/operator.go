@@ -46,7 +46,7 @@ func (db *Tidb) initSchema() (err error) {
 	port, _ := strconv.Atoi(p)
 	for _, schema := range db.Schemas {
 		my := tsql.NewMysql(schema.Name, h, port, schema.User, schema.Password)
-		if err = my.Init(); err != nil {
+		if err = my.CreateDatabaseAndGrant(); err != nil {
 			return err
 		}
 	}
