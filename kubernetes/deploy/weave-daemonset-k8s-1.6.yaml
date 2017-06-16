@@ -59,7 +59,7 @@ spec:
       hostPID: true
       containers:
         - name: weave
-          image: 10.209.224.13:10500/weaveworks/weave-kube:1.9.4
+          image: 10.209.224.13:10500/weaveworks/weave-kube:1.9.8
           command:
             - /home/weave/launch.sh
           env: 
@@ -91,7 +91,7 @@ spec:
             requests:
               cpu: 10m
         - name: weave-npc
-          image: 10.209.224.13:10500/weaveworks/weave-npc:1.9.4
+          image: 10.209.224.13:10500/weaveworks/weave-npc:1.9.8
           resources:
             requests:
               cpu: 10m

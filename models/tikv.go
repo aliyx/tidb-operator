@@ -153,7 +153,6 @@ func (kv *Tikv) toJSONTemplate(temp string) ([]byte, error) {
 }
 
 func (kv *Tikv) waitForOk() (err error) {
-	logs.Info("waiting for run tikv %s ok...", kv.cur)
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
 		j, err := pdStoresGet(kv.Db.Pd.OuterAddresses[0])
