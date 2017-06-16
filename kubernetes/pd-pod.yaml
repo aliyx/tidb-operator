@@ -7,15 +7,6 @@ metadata:
     cell: {{cell}}
     app: tidb
 spec:
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: node-role
-            operator: NotIn
-            values:
-            - prometheus
   volumes:
   - name: tidb-data
     {{tidbdata_volume}}
