@@ -91,8 +91,16 @@ func Install(cell string, ch chan int) (err error) {
 
 // Uninstall tidb
 func Uninstall(cell string, ch chan int) (err error) {
+	defer func() {
+		if err != nil {
+			if ch != nil {
+				ch <- 0
+			}
+		}
+	}()
 	if !started(cell) {
-		return errNoInstalled
+		err = errNoInstalled
+		return err
 	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
@@ -115,11 +123,13 @@ func Uninstall(cell string, ch chan int) (err error) {
 				err = errors.New("async delete pods timeout")
 			}
 			db.Status.Phase = ph
-			err = db.update()
+			if uerr := db.update(); err != nil {
+				logs.Error("update tidb error: %", uerr)
+			}
+			e.Trace(err, "Uninstall tidb pods/rc/service on k8s")
 			if ch != nil {
 				ch <- stoped
 			}
-			e.Trace(err, "Uninstall tidb pods/rc/service on k8s")
 		}()
 		if err = stopMigrateTask(cell); err != nil {
 			return
