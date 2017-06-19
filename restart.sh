@@ -55,7 +55,7 @@ set -e
 
 CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
-if [ !-f tidb-k8s ];then
+if ! [ -f tidb-k8s ]; then
   fail "build failed"
 fi
 

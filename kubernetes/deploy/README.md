@@ -29,9 +29,10 @@ Execute on the specified slve node：
 ## Set proxy and prometheus
 
 ```bash
-# add
+# label proxy
 kubectl label node name node-role.proxy=
 kubectl taint nodes name node-role.proxy=:NoSchedule
+# label prometheus
 kubectl taint nodes name node-role.prometheus=:NoSchedule
 
 #remove
