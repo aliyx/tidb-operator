@@ -16,15 +16,18 @@ package k8sutil
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
-	"github.com/astaxie/beego"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-func init() {
-	beego.AppConfig.Set("K8sAddr", "http://10.213.44.128:10218")
+func TestMain(m *testing.M) {
+	fmt.Print("main----")
+	masterHost = "http://10.213.44.128:10218"
+	kubecli = MustNewKubeClient()
+	os.Exit(m.Run())
 }
 
 func TestMustNewKubeClient(t *testing.T) {
@@ -34,4 +37,15 @@ func TestMustNewKubeClient(t *testing.T) {
 		panic(err.Error())
 	}
 	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+}
+
+func TestGetNodesIP(t *testing.T) {
+	sel := map[string]string{
+		"node-role.proxy": "",
+	}
+	ips, err := GetNodesExternalIP(sel)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	fmt.Printf("size:%d %s\n", len(ips), ips)
 }

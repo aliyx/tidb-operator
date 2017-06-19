@@ -8,11 +8,15 @@ import (
 
 	"github.com/astaxie/beego/logs"
 
+	"fmt"
+
 	"github.com/astaxie/beego"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for gcp auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -30,8 +34,6 @@ var (
 )
 
 func init() {
-	masterHost = beego.AppConfig.String("k8sAddr")
-	logs.Info("kubernetes master host is %s", masterHost)
 	Namespace = os.Getenv("MY_NAMESPACE")
 	if len(Namespace) == 0 {
 		Namespace = "default"
@@ -39,8 +41,11 @@ func init() {
 	logs.Info("current namespace is %s", Namespace)
 }
 
-// CreateNamespace create tidb namespace
-func CreateNamespace() {
+// Init create tidb namespace
+func Init() {
+	masterHost = beego.AppConfig.String("k8sAddr")
+	logs.Info("kubernetes master host is %s", masterHost)
+
 	kubecli = MustNewKubeClient()
 	if err := createNamespace(Namespace); err != nil && !IsKubernetesResourceAlreadyExistError(err) {
 		logs.Critical("Init k8s namespace %s error: %v", Namespace, err)
@@ -158,4 +163,27 @@ func mergeLabels(l1, l2 map[string]string) {
 		}
 		l1[k] = v
 	}
+}
+
+// GetNodesExternalIP get node external IP
+func GetNodesExternalIP(selector map[string]string) ([]string, error) {
+	option := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(selector).String(),
+	}
+	nodes, err := kubecli.CoreV1().Nodes().List(option)
+	if err != nil {
+		return nil, err
+	}
+	var ips []string
+	for _, node := range nodes.Items {
+		addrs := node.Status.Addresses
+		fmt.Printf("%v\n", addrs)
+		for _, addr := range addrs {
+			if addr.Type == v1.NodeInternalIP {
+				ips = append(ips, addr.Address)
+				break
+			}
+		}
+	}
+	return ips, nil
 }

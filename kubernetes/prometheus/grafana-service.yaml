@@ -37,7 +37,7 @@ spec:
         image:  10.209.224.13:10500/rds/grafana:latest
         livenessProbe:
           httpGet:
-            path: /datasources
+            path: /api/health
             port: 3000
           initialDelaySeconds: 30
           timeoutSeconds: 5

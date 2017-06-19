@@ -30,10 +30,12 @@ Execute on the specified slve node：
 
 ```bash
 # add
+kubectl label node name node-role.proxy=
 kubectl taint nodes name node-role.proxy=:NoSchedule
 kubectl taint nodes name node-role.prometheus=:NoSchedule
 
 #remove
+kubectl label node name node-role.proxy-
 kubectl taint nodes name node-role.proxy-
 kubectl taint nodes name node-role.prometheus-
 ```

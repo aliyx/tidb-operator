@@ -30,7 +30,7 @@ func main() {
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	k8sutil.CreateNamespace()
+	k8sutil.Init()
 	models.Init()
 
 	sc := make(chan os.Signal, 1)

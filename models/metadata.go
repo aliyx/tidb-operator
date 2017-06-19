@@ -39,7 +39,7 @@ basic:
     max: 10
 k8s:
   volume: ""
-  proxys: "10.213.44.128,10.213.129.73,10.213.129.74"
+  proxys: ""
 approvalConditions:
   kvReplicas: 3
   dbReplicas: 1
@@ -73,7 +73,7 @@ type ApprovalConditions struct {
 	DbReplicas uint `json:"dbr" yaml:"dbReplicas"`
 }
 
-// Metadata tidb元数据
+// Metadata tidb metadata
 type Metadata struct {
 	Versions       []string           `json:"versions"`
 	Units          Units              `json:"basic" yaml:"basic"`
@@ -88,7 +88,7 @@ const (
 
 var (
 	metaS storage.Storage
-	// count 原子计数器
+
 	count int32
 	md    *Metadata
 )
@@ -121,7 +121,19 @@ func initMetadataIfNot() {
 	if err := yaml.Unmarshal([]byte(initData), m); err != nil {
 		panic(fmt.Sprintf("unmarshal metadata error: %v", err))
 	}
-	logs.Debug("%+v", m)
+
+	// get proxys ip
+
+	sel := map[string]string{
+		"node-role.proxy": "",
+	}
+	ps, err := k8sutil.GetNodesExternalIP(sel)
+	if err != nil {
+		panic(fmt.Sprintf("get proxys error: %v", err))
+	}
+	m.K8s.Proxys = strings.Join(ps, ",")
+
+	logs.Info("%+v", m)
 	m.Update()
 	logs.Info("Init local metadata to storage")
 }
