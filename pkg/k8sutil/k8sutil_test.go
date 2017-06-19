@@ -24,7 +24,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	fmt.Print("main----")
 	masterHost = "http://10.213.44.128:10218"
 	kubecli = MustNewKubeClient()
 	os.Exit(m.Run())
@@ -48,4 +47,12 @@ func TestGetNodesIP(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 	fmt.Printf("size:%d %s\n", len(ips), ips)
+}
+
+func TestGetEtcdIP(t *testing.T) {
+	ip, err := GetEtcdIP()
+	if err != nil {
+		t.Errorf("%v\n", err)
+	}
+	println(ip)
 }

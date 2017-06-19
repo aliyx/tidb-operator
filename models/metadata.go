@@ -95,7 +95,7 @@ var (
 
 // Init Metadata
 func metaInit() {
-	s, err := storage.NewDefaultStorage(metaNamespace, etcdAddress)
+	s, err := storage.NewDefaultStorage(tableMetadata, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage metadata error: %v", err))
 	}
@@ -178,9 +178,6 @@ func (m *Metadata) Update() error {
 
 // GetMetadata get metadata
 func GetMetadata() (*Metadata, error) {
-	if metaS.IsNil() {
-		return nil, fmt.Errorf("metaS not created")
-	}
 	data, err := metaS.Get("")
 	if err != nil {
 		return nil, err

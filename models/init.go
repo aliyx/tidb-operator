@@ -23,6 +23,7 @@ func Init() {
 			os.Exit(1)
 		}
 	}()
+	onInitHooks.Add(parseConfig)
 	onInitHooks.Add(metaInit)
 	onInitHooks.Add(specInit)
 	onInitHooks.Add(tidbInit)

@@ -2,17 +2,17 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
-
-	"path"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 )
 
 const (
+	// Schema like mysql schema
+	Schema = "/tk"
+
 	// storageTimeout data storage timeout
 	storageTimeout = 3 * time.Second
 )
@@ -38,8 +38,8 @@ var (
 
 // Impl 封装底层storage, 所有的storage必须实现该接口
 type Impl interface {
-	Close()
-	ListDir(ctx context.Context, dirPath string) ([]string, error)
+	Close() error
+	List(ctx context.Context) ([]string, error)
 	ListKey(ctx context.Context, prefix string) ([]string, error)
 	// Create creates the initial version of a path.
 	Create(ctx context.Context, path string, contents []byte) (Version, error)
@@ -64,18 +64,15 @@ type Version interface {
 // Storage 数据存储接口
 type Storage struct {
 	Impl
-	namespace string
 }
 
 // IsNil 返回Storage是否被初始化
-func (s *Storage) IsNil() bool { return s == nil || s.namespace == "" }
 
 // Create 保存key/value
 func (s *Storage) Create(key string, contents []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, key)
-	_, err := s.Impl.Create(ctx, k, contents)
+	_, err := s.Impl.Create(ctx, key, contents)
 	return err
 }
 
@@ -83,66 +80,41 @@ func (s *Storage) Create(key string, contents []byte) error {
 func (s *Storage) Get(key string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, key)
-	data, _, err := s.Impl.Get(ctx, k)
+	data, _, err := s.Impl.Get(ctx, key)
 	return data, err
 }
 
-// GetObj 获取指定key的数据，并反序列号
-func (s *Storage) GetObj(key string, v interface{}) error {
-	bs, err := s.Get(key)
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(bs, v); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ListDir 返回指定path下的key
-func (s *Storage) ListDir(parent string) ([]string, error) {
+// List all keys
+func (s *Storage) List() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, parent)
-	return s.Impl.ListDir(ctx, k)
+	return s.Impl.List(ctx)
 }
 
 // ListKey 返回指定path下的key
 func (s *Storage) ListKey(prefix string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, prefix)
-	return s.Impl.ListKey(ctx, k)
+	return s.Impl.ListKey(ctx, prefix)
 }
 
 // Delete 删除指定的key
 func (s *Storage) Delete(key string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, key)
-	return s.Impl.Delete(ctx, k, nil)
-}
-
-// DeleteAll 删除以path开头的所有的key
-func (s *Storage) DeleteAll(key string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
-	defer cancel()
-	k := path.Join(s.namespace, key)
-	return s.Impl.DeleteAll(ctx, k)
+	return s.Impl.Delete(ctx, key, nil)
 }
 
 // Update 保存key/value
 func (s *Storage) Update(key string, contents []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), storageTimeout)
 	defer cancel()
-	k := path.Join(s.namespace, key)
-	_, err := s.Impl.Update(ctx, k, contents, nil)
+	_, err := s.Impl.Update(ctx, key, contents, nil)
 	return err
 }
 
 // Factory Impl工厂
-type Factory func(serverAddr string) (Impl, error)
+type Factory func(serverAddr, name string) (Impl, error)
 
 var (
 	factories = make(map[string]Factory)
@@ -157,28 +129,25 @@ func RegisterStorageFactory(name string, factory Factory) {
 }
 
 // NewStorage 返回一个指定实现的storage
-func NewStorage(implementation, serverAddress, root string) (Storage, error) {
+func NewStorage(implementation, serverAddress, name string) (Storage, error) {
 	factory, ok := factories[implementation]
 	if !ok {
 		return Storage{}, ErrNoImplement
 	}
 
-	impl, err := factory(serverAddress)
+	impl, err := factory(serverAddress, name)
 	if err != nil {
 		return Storage{}, err
 	}
-	return Storage{
-		Impl:      impl,
-		namespace: root,
-	}, nil
+	return Storage{impl}, nil
 }
 
 // NewDefaultStorage new default storage
-func NewDefaultStorage(root, etcdAddress string) (Storage, error) {
+func NewDefaultStorage(name, etcdAddress string) (Storage, error) {
 	st := beego.AppConfig.String("storage")
 	if len(st) == 0 {
 		st = "etcd"
 	}
-	logs.Info("Create %s[%s] %s storage", st, etcdAddress, root)
-	return NewStorage(st, etcdAddress, root)
+	logs.Info("Create %s[%s] %s storage", st, etcdAddress, name)
+	return NewStorage(st, etcdAddress, name)
 }

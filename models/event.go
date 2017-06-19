@@ -36,7 +36,7 @@ var (
 )
 
 func eventInit() {
-	s, err := storage.NewDefaultStorage(eventNamespace, etcdAddress)
+	s, err := storage.NewDefaultStorage(tableEvent, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage event error: %v", err))
 	}

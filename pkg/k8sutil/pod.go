@@ -86,6 +86,18 @@ func DeletePodsBy(cell, component string) error {
 	return nil
 }
 
+// GetPodsByNamespace Gets the pods of the specified namespace
+func GetPodsByNamespace(ns string, ls map[string]string) ([]v1.Pod, error) {
+	opts := meta_v1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(ls).String(),
+	}
+	list, err := kubecli.CoreV1().Pods(ns).List(opts)
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
 // GetPods Gets the pods of the specified cell and component
 func GetPods(cell, component string) ([]v1.Pod, error) {
 	set := make(map[string]string)

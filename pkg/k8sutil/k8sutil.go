@@ -14,8 +14,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for gcp auth
 	"k8s.io/client-go/rest"
@@ -86,26 +90,27 @@ func inClusterConfig() (*rest.Config, error) {
 	return rest.InClusterConfig()
 }
 
-// func NewTPRClient() (*rest.RESTClient, error) {
-// 	config, err := ClusterConfig()
-// 	if err != nil {
-// 		return nil, err
-// 	}
+// NewTPRClient new tpr client
+func NewTPRClient(group, version string) (*rest.RESTClient, error) {
+	config, err := ClusterConfig()
+	if err != nil {
+		return nil, err
+	}
 
-// 	config.GroupVersion = &schema.GroupVersion{
-// 		Group:   spec.TPRGroup,
-// 		Version: spec.TPRVersion,
-// 	}
-// 	config.APIPath = "/apis"
-// 	config.ContentType = runtime.ContentTypeJSON
-// 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+	config.GroupVersion = &schema.GroupVersion{
+		Group:   group,
+		Version: version,
+	}
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
 
-// 	restcli, err := rest.RESTClientFor(config)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return restcli, nil
-// }
+	restcli, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return restcli, nil
+}
 
 // IsKubernetesResourceAlreadyExistError whether it is resource error
 func IsKubernetesResourceAlreadyExistError(err error) bool {
@@ -177,7 +182,6 @@ func GetNodesExternalIP(selector map[string]string) ([]string, error) {
 	var ips []string
 	for _, node := range nodes.Items {
 		addrs := node.Status.Addresses
-		fmt.Printf("%v\n", addrs)
 		for _, addr := range addrs {
 			if addr.Type == v1.NodeInternalIP {
 				ips = append(ips, addr.Address)
@@ -186,4 +190,20 @@ func GetNodesExternalIP(selector map[string]string) ([]string, error) {
 		}
 	}
 	return ips, nil
+}
+
+// GetEtcdIP get kubernetes used etcd
+func GetEtcdIP() (string, error) {
+	ls := map[string]string{
+		"component": "etcd",
+		"tier":      "control-plane",
+	}
+	pods, err := GetPodsByNamespace("kube-system", ls)
+	if err != nil {
+		return "", err
+	}
+	if len(pods) != 1 {
+		return "", fmt.Errorf("get multi etcd %s", GetPodNames(pods))
+	}
+	return pods[0].Status.PodIP, nil
 }

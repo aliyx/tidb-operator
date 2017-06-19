@@ -152,7 +152,7 @@ type Status struct {
 }
 
 func tidbInit() {
-	s, err := storage.NewDefaultStorage(tidbNamespace, etcdAddress)
+	s, err := storage.NewDefaultStorage(tableTidb, etcdAddress)
 	if err != nil {
 		panic(fmt.Errorf("Create storage tidb error: %v", err))
 	}
@@ -282,7 +282,7 @@ func GetDbs(userID string) ([]Tidb, error) {
 	if userID != "admin" {
 		cells, err = tidbS.ListKey(encodeUserID(userID) + "-")
 	} else {
-		cells, err = tidbS.ListDir("")
+		cells, err = tidbS.List()
 	}
 	if err != nil && err != storage.ErrNoNode {
 		return nil, err
