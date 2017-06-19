@@ -98,12 +98,12 @@ func Uninstall(cell string, ch chan int) (err error) {
 			}
 		}
 	}()
-	if !started(cell) {
-		err = errNoInstalled
-		return err
-	}
 	var db *Tidb
 	if db, err = GetTidb(cell); err != nil {
+		return err
+	}
+	if db.Status.Phase <= Undefined {
+		err = errNoInstalled
 		return err
 	}
 	db.Status.Available = false
