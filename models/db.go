@@ -96,7 +96,7 @@ func (db *Db) initSchema() (err error) {
 		}
 		db.Status.Phase = ph
 		err = db.update()
-		e.Trace(err, "Init database privileges")
+		e.Trace(err, fmt.Sprintf("Create schema %s and set database privileges", db.Schema.Name))
 	}()
 	if !db.Tidb.isOk() {
 		err = fmt.Errorf(`tidb "%s" no started`, db.Metadata.Name)

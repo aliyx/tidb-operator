@@ -210,19 +210,19 @@ func (dc *TidbController) Status() {
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
-	td, err := models.GetDb(cell)
-	errHandler(dc.Controller, err, "Patch tidb status")
+	db, err := models.GetDb(cell)
+	errHandler(dc.Controller, err, fmt.Sprintf("Get tidb %s", cell))
 	logs.Debug("%s patch: %+v", cell, s)
 	switch s.Type {
 	case "migrate":
-		td.UpdateMigrateStat(s.Status, "")
+		db.UpdateMigrateStat(s.Status, "")
 		errHandler(dc.Controller, err, "Patch tidb status")
 	case "audit":
 		switch s.Status {
 		case "-2":
-			td.Status.Phase = models.PhaseRefuse
-			td.Owner.Reason = s.Desc
-			td.Update()
+			db.Status.Phase = models.PhaseRefuse
+			db.Owner.Reason = s.Desc
+			db.Update()
 		}
 	case "op":
 		switch s.Status {
@@ -230,19 +230,19 @@ func (dc *TidbController) Status() {
 			errHandler(
 				dc.Controller,
 				models.Install(cell, nil),
-				fmt.Sprintf("Install tidb %s", cell),
+				fmt.Sprintf("Start installing tidb %s", cell),
 			)
 		case "stop":
 			errHandler(
 				dc.Controller,
 				models.Uninstall(cell, nil),
-				fmt.Sprintf("Uninstall tidb %s", cell),
+				fmt.Sprintf("Start uninstalling tidb %s", cell),
 			)
 		case "retart":
 			errHandler(
 				dc.Controller,
 				models.Reinstall(cell),
-				fmt.Sprintf("Reinstall tidb %s", cell),
+				fmt.Sprintf("Start reinstalling tidb %s", cell),
 			)
 		default:
 			dc.CustomAbort(403, "unsupport operation")
@@ -254,6 +254,7 @@ func (dc *TidbController) Status() {
 
 func errHandler(c beego.Controller, err error, msg string) {
 	if err == nil {
+		logs.Info("%s ok.", msg)
 		return
 	}
 	logs.Error("%s: %v", msg, err)

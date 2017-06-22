@@ -38,6 +38,7 @@ func Post(url string, body []byte) (string, error) {
 
 // Get get a resource
 func Get(url string, timeout time.Duration) ([]byte, error) {
+	resty.SetTimeout(timeout)
 	resp, err := resty.R().
 		SetHeader("Content-Type", "application/json").
 		Get(url)

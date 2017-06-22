@@ -7,8 +7,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	url := fmt.Sprintf("http://%s/pd/api/v1/stores", "10.213.44.128:13389")
-	b, err := Get(url, time.Second)
+	b, err := Get("http://10.213.44.128:13390/status", time.Second)
 	if err != nil {
 		t.Error(err)
 	}

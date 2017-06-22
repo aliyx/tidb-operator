@@ -194,6 +194,15 @@ func GetDb(cell string) (*Db, error) {
 	if err != nil {
 		return nil, err
 	}
+	if db.Pd != nil {
+		db.Pd.Db = db
+	}
+	if db.Tikv != nil {
+		db.Tikv.Db = db
+	}
+	if db.Tidb != nil {
+		db.Tidb.Db = db
+	}
 	return db, nil
 }
 

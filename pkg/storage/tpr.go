@@ -3,11 +3,13 @@ package storage
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"errors"
 
 	"encoding/json"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/spec"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -102,16 +104,24 @@ func (s *Storage) DeleteAll() error {
 // Update is part of the storage.Impl interface.
 func (s *Storage) Update(key string, v interface{}) error {
 	for {
-		var statusCode int
+		r := spec.Resource{}
+		if err := s.Get(key, &r); err != nil {
+			return err
+		}
 
+		// set resourceVersion
+		rv := reflect.ValueOf(r).FieldByName("Metadata").FieldByName("ResourceVersion").String()
+		reflect.ValueOf(v).Elem().FieldByName("Metadata").FieldByName("ResourceVersion").SetString(rv)
+
+		var statusCode int
 		err := s.tprClient.Put().
 			Resource(s.kindPlural()).
 			Namespace(s.Namespace).
 			Name(key).
 			Body(v).
 			Do().StatusCode(&statusCode).Error()
-
 		if statusCode == http.StatusConflict {
+			logs.Warn("retry update trp")
 			continue
 		}
 

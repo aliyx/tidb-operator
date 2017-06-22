@@ -39,7 +39,11 @@ func (p *Pd) uninstall() (err error) {
 func (p *Pd) install() (err error) {
 	e := NewEvent(p.Db.Metadata.Name, "pd", "install")
 	p.Db.Status.Phase = PhasePdPending
-	p.Db.update()
+	if err = p.Db.update(); err != nil {
+		e.Trace(err,
+			fmt.Sprintf("Update tidb status to %d error: %v", PhasePdPending, err))
+		return err
+	}
 	defer func() {
 		ph := PhasePdStarted
 		if err != nil {
@@ -49,7 +53,8 @@ func (p *Pd) install() (err error) {
 		if uerr := p.Db.update(); uerr != nil {
 			logs.Error("update tidb error: %v", uerr)
 		}
-		e.Trace(err, fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Spec.Replicas, p.Member))
+		e.Trace(err,
+			fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Replicas, p.Member))
 	}()
 	if err = p.createServices(); err != nil {
 		return err
