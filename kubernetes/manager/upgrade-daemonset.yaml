@@ -8,22 +8,26 @@ spec:
       labels:
         name: pull-image
     spec:
-      hostNetwork: true
-      hostPID: true
       containers:
-        - name: none
-          image: 10.209.224.13:10500/ffan/rds/tidb:rc2
+        - name: pd
+          image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
           imagePullPolicy: Always
           command:
             - bash
             - "-c"
-            - |
-              while :
-              do
-                sleep 10
-                echo "waiting close"
-              done
-          resources:
-            requests:
-              cpu: 10m
+            - echo "waiting close"
+        - name: tikv
+          image: 10.209.224.13:10500/ffan/rds/tikv:{{version}}
+          imagePullPolicy: Always
+          command: 
+            - bash
+            - "-c"
+            - echo "waiting close"
+        - name: tidb
+          image: 10.209.224.13:10500/ffan/rds/tidb:{{version}}
+          imagePullPolicy: Always
+          command: 
+            - bash
+            - "-c"
+            - echo "waiting close"
       restartPolicy: Always

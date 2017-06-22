@@ -47,9 +47,9 @@ func TestDb_Save(t *testing.T) {
 			},
 		},
 	}
-	// if err := db.Save(); err != nil {
-	// 	t.Error(err)
-	// }
+	if err := db.Save(); err != nil {
+		t.Error(err)
+	}
 	fmt.Printf("%+v", *db)
 }
 
