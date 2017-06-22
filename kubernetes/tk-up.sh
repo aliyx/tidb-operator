@@ -10,7 +10,6 @@ source $script_root/env.sh
 # local ip
 ip="http://$(/sbin/ifconfig eth0 | grep 'netmask ' | cut -d: -f2 | awk '{print $2}'):10218"
 
-etcd=${ETCD-'http://10.213.44.128:12379'}
 version=${VERSION}
 registry=${REGISTRY}
 k8s=${K8sAddr:-$ip}

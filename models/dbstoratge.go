@@ -207,7 +207,7 @@ func GetDb(cell string) (*Db, error) {
 }
 
 // GetDbs get specified user dbs
-func GetDbs(userID string) ([]*Db, error) {
+func GetDbs(userID string) ([]Db, error) {
 	if len(userID) < 1 {
 		return nil, fmt.Errorf("userid is nil")
 	}
@@ -223,10 +223,10 @@ func GetDbs(userID string) ([]*Db, error) {
 		}
 		return nil, nil
 	}
-	var all []*Db
+	var all []Db
 	for _, db := range list.Items {
 		if strings.HasPrefix(db.Metadata.Name, userID) {
-			all = append(all, &db)
+			all = append(all, db)
 		}
 	}
 	return all, nil

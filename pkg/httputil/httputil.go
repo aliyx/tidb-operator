@@ -56,6 +56,7 @@ func Get(url string, timeout time.Duration) ([]byte, error) {
 
 // Delete a resource
 func Delete(url string, timeout time.Duration) error {
+	resty.SetTimeout(timeout)
 	resp, err := resty.R().
 		Delete(url)
 	if err != nil {
@@ -69,6 +70,7 @@ func Delete(url string, timeout time.Duration) error {
 
 // Patch a resource
 func Patch(url string, body []byte, timeout time.Duration) error {
+	resty.SetTimeout(timeout)
 	resp, err := resty.R().
 		SetHeader("Content-Type", "application/merge-patch+json").
 		SetBody(body).

@@ -14,7 +14,6 @@ import (
 	"flag"
 
 	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 )
 
 func main() {
@@ -30,9 +29,10 @@ func main() {
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
 	models.ParseConfig()
 	models.Init()
+
+	go beego.Run()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
@@ -40,9 +40,6 @@ func main() {
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
-
-	go beego.Run()
-
 	sig := <-sc
 	logs.Info("Got signal [%d] to exit.", sig)
 	switch sig {

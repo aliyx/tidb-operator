@@ -64,7 +64,6 @@ spec:
         - "-c"
         - |
           export RunMode={{env}}
-          export EtcdAddress={{etcd}}
           export K8sAddr={{k8s}}
           export HTTPAddr=${POD_IP}
           export ForceInitMd=false

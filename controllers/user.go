@@ -36,6 +36,6 @@ func (uc *UserController) GetAll() {
 
 // Dbs db array
 type Dbs struct {
-	Total int          `json:"total"`
-	Tidbs []*models.Db `json:"tidbs"`
+	Total int         `json:"total"`
+	Tidbs []models.Db `json:"tidbs"`
 }
