@@ -51,25 +51,6 @@ paths:
           description: '{string}'
         "404":
           description: :key not found
-  /metadata/specifications:
-    put:
-      tags:
-      - metadata
-      description: update the specifications
-      operationId: MetadataController.PutSpec
-      parameters:
-      - in: body
-        name: body
-        description: body for spec content
-        required: true
-        schema:
-          $ref: '#/definitions/models.Specifications'
-      responses:
-        "200": {}
-        "400":
-          description: bad request
-        "500":
-          description: cannt store specifications
   /tidbs/:
     post:
       tags:
@@ -190,7 +171,7 @@ paths:
     patch:
       tags:
       - tidbs
-      description: start/stop/restart tidb server
+      description: patch tidb status
       operationId: TidbController.status
       parameters:
       - in: path
@@ -251,6 +232,12 @@ paths:
         "404":
           description: :user not found
 definitions:
+  .Mutex:
+    type: object
+  .ObjectMeta:
+    type: object
+  .TypeMeta:
+    type: object
   controllers.Dbs:
     title: Dbs
     type: object
@@ -258,7 +245,7 @@ definitions:
       tidbs:
         type: array
         items:
-          $ref: '#/definitions/models.Tidb'
+          $ref: '#/definitions/models.Db'
       total:
         type: integer
         format: int64
@@ -272,6 +259,24 @@ definitions:
       kvr:
         type: integer
         format: int32
+  models.Db:
+    title: Db
+    type: object
+    properties:
+      metadata:
+        $ref: '#/definitions/metav1.ObjectMeta'
+      owner:
+        $ref: '#/definitions/models.Owner'
+      pd:
+        $ref: '#/definitions/models.Pd'
+      schema:
+        $ref: '#/definitions/models.Schema'
+      status:
+        $ref: '#/definitions/models.Status'
+      tidb:
+        $ref: '#/definitions/models.Tidb'
+      tikv:
+        $ref: '#/definitions/models.Tikv'
   models.Event:
     title: Event
     type: object
@@ -310,21 +315,33 @@ definitions:
       state:
         type: integer
         format: int64
-  models.Metadata:
-    title: Metadata
+  models.MetaSpec:
+    title: MetaSpec
     type: object
     properties:
       ac:
         $ref: '#/definitions/models.ApprovalConditions'
-      basic:
-        $ref: '#/definitions/models.Units'
       k8s:
         $ref: '#/definitions/models.K8s'
+      pd:
+        $ref: '#/definitions/models.Unit'
       specifications:
         type: array
         items:
           $ref: '#/definitions/models.Specification'
+      tidb:
+        $ref: '#/definitions/models.Unit'
+      tikv:
+        $ref: '#/definitions/models.Unit'
       versions: {}
+  models.Metadata:
+    title: Metadata
+    type: object
+    properties:
+      metadata:
+        $ref: '#/definitions/metav1.ObjectMeta'
+      spec:
+        $ref: '#/definitions/models.MetaSpec'
   models.Owner:
     title: Owner
     type: object
@@ -338,18 +355,32 @@ definitions:
       userName:
         type: string
   models.Pd:
-    title: Pd
+    title: Spec
     type: object
     properties:
+      capatity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
       innerAddresses: {}
+      mem:
+        type: integer
+        format: int64
       member:
         type: integer
         format: int64
       members:
         $ref: '#/definitions/models.Member'
       outerAddresses: {}
-      spec:
-        $ref: '#/definitions/models.Spec'
+      replicas:
+        type: integer
+        format: int64
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
   models.Phase:
     type: object
   models.Preference:
@@ -360,19 +391,10 @@ definitions:
         type: string
       name:
         type: string
-      pd:
-        $ref: '#/definitions/models.Replication'
-      tidb:
-        $ref: '#/definitions/models.Replication'
-      tikv:
-        $ref: '#/definitions/models.Replication'
-  models.Replication:
-    title: Replication
-    type: object
-    properties:
       replicas:
-        type: integer
-        format: int64
+        $ref: '#/definitions/models.Replicas'
+  models.Replicas:
+    type: object
   models.Schema:
     title: Schema
     type: object
@@ -415,8 +437,6 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/models.Preference'
-  models.Specifications:
-    type: object
   models.Status:
     title: Status
     type: object
@@ -427,6 +447,8 @@ definitions:
         type: string
       migrateState:
         type: string
+      outerAddresses: {}
+      outerStatusAddresses: {}
       phase:
         $ref: '#/definitions/models.Phase'
       scaleState:
@@ -447,49 +469,58 @@ definitions:
         type: integer
         format: int64
   models.Tidb:
-    title: Tidb
+    title: Spec
     type: object
     properties:
-      cell:
+      capatity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
+      mem:
+        type: integer
+        format: int64
+      replicas:
+        type: integer
+        format: int64
+      tidbdata_volume:
         type: string
-      creationTimestamp:
+      version:
         type: string
-        format: string
-      outerAddresses: {}
-      outerStatusAddresses: {}
-      owner:
-        $ref: '#/definitions/models.Owner'
-      pd:
-        $ref: '#/definitions/models.Pd'
-      schemas:
-        type: array
-        items:
-          $ref: '#/definitions/models.Schema'
-      spec:
-        $ref: '#/definitions/models.Spec'
-      status:
-        $ref: '#/definitions/models.Status'
-      tikv:
-        $ref: '#/definitions/models.Tikv'
   models.Tikv:
-    title: Tikv
+    title: Spec
     type: object
     properties:
       availableReplicas:
         type: integer
         format: int64
+      capatity:
+        type: integer
+        format: int64
+      cpu:
+        type: integer
+        format: int64
       cur:
         type: string
+      mem:
+        type: integer
+        format: int64
       member:
         type: integer
         format: int64
       readyReplicas:
         type: integer
         format: int64
-      spec:
-        $ref: '#/definitions/models.Spec'
+      replicas:
+        type: integer
+        format: int64
       stores:
-        $ref: '#/definitions/33928.Store'
+        $ref: '#/definitions/35348.Store'
+      tidbdata_volume:
+        type: string
+      version:
+        type: string
   models.Unit:
     title: Unit
     type: object
@@ -506,16 +537,6 @@ definitions:
       memory:
         type: integer
         format: int64
-  models.Units:
-    title: Units
-    type: object
-    properties:
-      pd:
-        $ref: '#/definitions/models.Unit'
-      tidb:
-        $ref: '#/definitions/models.Unit'
-      tikv:
-        $ref: '#/definitions/models.Unit'
   mysqlutil.Mysql:
     title: Mysql
     type: object
@@ -540,4 +561,4 @@ tags:
     Operations about tidb
 - name: users
   description: |
-    Operations about tidb
+    Operations about all tidbs

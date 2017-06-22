@@ -31,14 +31,6 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
-		beego.ControllerComments{
-			Method: "PutSpec",
-			Router: `/specifications`,
-			AllowHTTPMethods: []string{"put"},
-			MethodParams: param.Make(),
-			Params: nil})
-
 	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Post",

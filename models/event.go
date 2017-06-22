@@ -1,13 +1,15 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-k8s/pkg/spec"
 	"github.com/ffan/tidb-k8s/pkg/storage"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -18,6 +20,14 @@ const (
 	// Eok event ok type
 	Eok = "ok"
 )
+
+// Events resource
+type Events struct {
+	metav1.TypeMeta `json:",inline"`
+	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Events []Event `json:"events"`
+}
 
 // Event record the tidb creation process
 type Event struct {
@@ -32,11 +42,11 @@ type Event struct {
 
 var (
 	evtMu sync.Mutex
-	evtS  storage.Storage
+	evtS  *storage.Storage
 )
 
 func eventInit() {
-	s, err := storage.NewDefaultStorage(tableEvent, etcdAddress)
+	s, err := storage.NewStorage(getNamespace(), spec.TPRKindEvent)
 	if err != nil {
 		panic(fmt.Errorf("Create storage event error: %v", err))
 	}
@@ -76,44 +86,33 @@ func (e *Event) save() error {
 		return err
 	}
 	e.LastSeen = time.Now()
-	es = append(es, *e)
-	if err := save(es...); err != nil {
+
+	es.Events = append(es.Events, *e)
+	if err := es.save(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func save(es ...Event) error {
-	if len(es) < 1 {
-		return nil
-	}
-	for _, e := range es {
-		if e.Cell == "" {
-			return fmt.Errorf("cell is nil")
-		}
-	}
-	j, err := json.Marshal(es)
-	if err != nil {
-		return err
-	}
-	if err := evtS.Create(es[0].Cell, j); err != nil {
+func (es *Events) save() error {
+	if err := evtS.Create(es); err != nil {
 		return err
 	}
 	return nil
 }
 
 // GetEventsBy get cell events
-func GetEventsBy(cell string) ([]Event, error) {
-	bs, err := evtS.Get(cell)
-	if err != nil {
+func GetEventsBy(cell string) (*Events, error) {
+	es := &Events{
+		Metadata: metav1.ObjectMeta{
+			Name: cell,
+		},
+	}
+	if err := evtS.Get(cell, es); err != nil {
 		if err != storage.ErrNoNode {
 			return nil, err
 		}
-		return []Event{}, nil
-	}
-	es := []Event{}
-	if err := json.Unmarshal(bs, &es); err != nil {
-		return nil, err
+		return es, nil
 	}
 	return es, nil
 }

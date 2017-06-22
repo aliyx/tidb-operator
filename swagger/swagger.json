@@ -54,35 +54,6 @@
                 }
             }
         },
-        "/metadata/specifications": {
-            "put": {
-                "tags": [
-                    "metadata"
-                ],
-                "description": "update the specifications",
-                "operationId": "MetadataController.PutSpec",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "body for spec content",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.Specifications"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {},
-                    "400": {
-                        "description": "bad request"
-                    },
-                    "500": {
-                        "description": "cannt store specifications"
-                    }
-                }
-            }
-        },
         "/metadata/{key}": {
             "get": {
                 "tags": [
@@ -289,7 +260,7 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "start/stop/restart tidb server",
+                "description": "patch tidb status",
                 "operationId": "TidbController.status",
                 "parameters": [
                     {
@@ -383,6 +354,15 @@
         }
     },
     "definitions": {
+        ".Mutex": {
+            "type": "object"
+        },
+        ".ObjectMeta": {
+            "type": "object"
+        },
+        ".TypeMeta": {
+            "type": "object"
+        },
         "controllers.Dbs": {
             "title": "Dbs",
             "type": "object",
@@ -390,7 +370,7 @@
                 "tidbs": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Tidb"
+                        "$ref": "#/definitions/models.Db"
                     }
                 },
                 "total": {
@@ -410,6 +390,33 @@
                 "kvr": {
                     "type": "integer",
                     "format": "int32"
+                }
+            }
+        },
+        "models.Db": {
+            "title": "Db",
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/metav1.ObjectMeta"
+                },
+                "owner": {
+                    "$ref": "#/definitions/models.Owner"
+                },
+                "pd": {
+                    "$ref": "#/definitions/models.Pd"
+                },
+                "schema": {
+                    "$ref": "#/definitions/models.Schema"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.Status"
+                },
+                "tidb": {
+                    "$ref": "#/definitions/models.Tidb"
+                },
+                "tikv": {
+                    "$ref": "#/definitions/models.Tikv"
                 }
             }
         },
@@ -468,18 +475,18 @@
                 }
             }
         },
-        "models.Metadata": {
-            "title": "Metadata",
+        "models.MetaSpec": {
+            "title": "MetaSpec",
             "type": "object",
             "properties": {
                 "ac": {
                     "$ref": "#/definitions/models.ApprovalConditions"
                 },
-                "basic": {
-                    "$ref": "#/definitions/models.Units"
-                },
                 "k8s": {
                     "$ref": "#/definitions/models.K8s"
+                },
+                "pd": {
+                    "$ref": "#/definitions/models.Unit"
                 },
                 "specifications": {
                     "type": "array",
@@ -487,7 +494,25 @@
                         "$ref": "#/definitions/models.Specification"
                     }
                 },
+                "tidb": {
+                    "$ref": "#/definitions/models.Unit"
+                },
+                "tikv": {
+                    "$ref": "#/definitions/models.Unit"
+                },
                 "versions": {}
+            }
+        },
+        "models.Metadata": {
+            "title": "Metadata",
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/metav1.ObjectMeta"
+                },
+                "spec": {
+                    "$ref": "#/definitions/models.MetaSpec"
+                }
             }
         },
         "models.Owner": {
@@ -509,10 +534,22 @@
             }
         },
         "models.Pd": {
-            "title": "Pd",
+            "title": "Spec",
             "type": "object",
             "properties": {
+                "capatity": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "cpu": {
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "innerAddresses": {},
+                "mem": {
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "member": {
                     "type": "integer",
                     "format": "int64"
@@ -521,8 +558,15 @@
                     "$ref": "#/definitions/models.Member"
                 },
                 "outerAddresses": {},
-                "spec": {
-                    "$ref": "#/definitions/models.Spec"
+                "replicas": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "tidbdata_volume": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -539,26 +583,13 @@
                 "name": {
                     "type": "string"
                 },
-                "pd": {
-                    "$ref": "#/definitions/models.Replication"
-                },
-                "tidb": {
-                    "$ref": "#/definitions/models.Replication"
-                },
-                "tikv": {
-                    "$ref": "#/definitions/models.Replication"
+                "replicas": {
+                    "$ref": "#/definitions/models.Replicas"
                 }
             }
         },
-        "models.Replication": {
-            "title": "Replication",
-            "type": "object",
-            "properties": {
-                "replicas": {
-                    "type": "integer",
-                    "format": "int64"
-                }
-            }
+        "models.Replicas": {
+            "type": "object"
         },
         "models.Schema": {
             "title": "Schema",
@@ -621,9 +652,6 @@
                 }
             }
         },
-        "models.Specifications": {
-            "type": "object"
-        },
         "models.Status": {
             "title": "Status",
             "type": "object",
@@ -637,6 +665,8 @@
                 "migrateState": {
                     "type": "string"
                 },
+                "outerAddresses": {},
+                "outerStatusAddresses": {},
                 "phase": {
                     "$ref": "#/definitions/models.Phase"
                 },
@@ -667,51 +697,55 @@
             }
         },
         "models.Tidb": {
-            "title": "Tidb",
+            "title": "Spec",
             "type": "object",
             "properties": {
-                "cell": {
+                "capatity": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "cpu": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "mem": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "replicas": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "tidbdata_volume": {
                     "type": "string"
                 },
-                "creationTimestamp": {
-                    "type": "string",
-                    "format": "string"
-                },
-                "outerAddresses": {},
-                "outerStatusAddresses": {},
-                "owner": {
-                    "$ref": "#/definitions/models.Owner"
-                },
-                "pd": {
-                    "$ref": "#/definitions/models.Pd"
-                },
-                "schemas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Schema"
-                    }
-                },
-                "spec": {
-                    "$ref": "#/definitions/models.Spec"
-                },
-                "status": {
-                    "$ref": "#/definitions/models.Status"
-                },
-                "tikv": {
-                    "$ref": "#/definitions/models.Tikv"
+                "version": {
+                    "type": "string"
                 }
             }
         },
         "models.Tikv": {
-            "title": "Tikv",
+            "title": "Spec",
             "type": "object",
             "properties": {
                 "availableReplicas": {
                     "type": "integer",
                     "format": "int64"
                 },
+                "capatity": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "cpu": {
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "cur": {
                     "type": "string"
+                },
+                "mem": {
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "member": {
                     "type": "integer",
@@ -721,11 +755,18 @@
                     "type": "integer",
                     "format": "int64"
                 },
-                "spec": {
-                    "$ref": "#/definitions/models.Spec"
+                "replicas": {
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/33928.Store"
+                    "$ref": "#/definitions/35348.Store"
+                },
+                "tidbdata_volume": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -748,21 +789,6 @@
                 "memory": {
                     "type": "integer",
                     "format": "int64"
-                }
-            }
-        },
-        "models.Units": {
-            "title": "Units",
-            "type": "object",
-            "properties": {
-                "pd": {
-                    "$ref": "#/definitions/models.Unit"
-                },
-                "tidb": {
-                    "$ref": "#/definitions/models.Unit"
-                },
-                "tikv": {
-                    "$ref": "#/definitions/models.Unit"
                 }
             }
         },
@@ -800,7 +826,7 @@
         },
         {
             "name": "users",
-            "description": "Operations about tidb\n"
+            "description": "Operations about all tidbs\n"
         }
     ]
 }

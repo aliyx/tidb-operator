@@ -29,3 +29,5 @@ import:
   version: ^0.2.2
 - package: github.com/Sirupsen/logrus
   version: ^1.0.0
+- package: gopkg.in/resty.v0
+  version: ^0.12.0

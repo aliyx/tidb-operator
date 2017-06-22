@@ -8,7 +8,7 @@ import (
 	"github.com/ffan/tidb-k8s/models"
 )
 
-// Operations about tidb
+// Operations about all tidbs
 type UserController struct {
 	beego.Controller
 }
@@ -36,6 +36,6 @@ func (uc *UserController) GetAll() {
 
 // Dbs db array
 type Dbs struct {
-	Total int           `json:"total"`
-	Tidbs []models.Tidb `json:"tidbs"`
+	Total int          `json:"total"`
+	Tidbs []*models.Db `json:"tidbs"`
 }

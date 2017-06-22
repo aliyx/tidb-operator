@@ -8,7 +8,7 @@ import (
 )
 
 func Test_UnmarshalMetadata(t *testing.T) {
-	m := &Metadata{}
+	m := &MetaSpec{}
 	if err := yaml.Unmarshal([]byte(initData), m); err != nil {
 		t.Errorf("unmarshal metadata error: %v", err)
 	}

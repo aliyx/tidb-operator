@@ -8,7 +8,6 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 
-	_ "github.com/ffan/tidb-k8s/pkg/storage/etcdstorage"
 	_ "github.com/ffan/tidb-k8s/routers"
 	_ "github.com/go-sql-driver/mysql"
 
@@ -31,7 +30,8 @@ func main() {
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	k8sutil.Init()
+	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
+	models.ParseConfig()
 	models.Init()
 
 	sc := make(chan os.Signal, 1)

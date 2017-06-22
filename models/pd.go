@@ -8,65 +8,14 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	"github.com/ffan/tidb-k8s/pkg/pdutil"
 	"github.com/ffan/tidb-k8s/pkg/retryutil"
 	"github.com/ghodss/yaml"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
-// Pd 元数据
-type Pd struct {
-	Spec Spec `json:"spec"`
-
-	InnerAddresses []string `json:"innerAddresses,omitempty"`
-	OuterAddresses []string `json:"outerAddresses,omitempty"`
-
-	Member int `json:"member"`
-	// key is pod name
-	Members map[string]Member `json:"members,omitempty"`
-
-	Db *Tidb `json:"-"`
-}
-
-// Member describe a pd or tikv pod
-type Member struct {
-	ID    int `json:"id,omitempty"`
-	State int `json:"state,omitempty"`
-}
-
-func (p *Pd) beforeSave() error {
-	if err := p.Spec.validate(); err != nil {
-		return err
-	}
-	md := getCachedMetadata()
-	max := md.Units.Pd.Max
-	if p.Spec.Replicas < 3 || p.Spec.Replicas > max || p.Spec.Replicas%2 == 0 {
-		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
-	}
-
-	// set volume
-
-	p.Spec.Volume = strings.Trim(md.K8s.Volume, " ")
-	if len(p.Spec.Volume) == 0 {
-		p.Spec.Volume = "emptyDir: {}"
-	} else {
-		p.Spec.Volume = fmt.Sprintf("hostPath: {path: %s}", p.Spec.Volume)
-	}
-	return nil
-}
-
-// GetPd  return a Pd
-func GetPd(cell string) (*Pd, error) {
-	db, err := GetTidb(cell)
-	if err != nil {
-		return nil, err
-	}
-	pd := db.Pd
-	pd.Db = db
-	return pd, nil
-}
-
 func (p *Pd) uninstall() (err error) {
-	e := NewEvent(p.Db.Cell, "pd", "uninstall")
+	e := NewEvent(p.Db.Metadata.Name, "pd", "uninstall")
 	defer func() {
 		p.Member = 0
 		p.InnerAddresses = nil
@@ -77,23 +26,24 @@ func (p *Pd) uninstall() (err error) {
 		}
 		e.Trace(err, "Uninstall pd pods")
 	}()
-	if err = k8sutil.DeletePodsBy(p.Db.Cell, "pd"); err != nil {
+	if err = k8sutil.DeletePodsBy(p.Db.Metadata.Name, "pd"); err != nil {
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Cell), fmt.Sprintf("pd-%s-srv", p.Db.Cell)); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Metadata.Name),
+		fmt.Sprintf("pd-%s-srv", p.Db.Metadata.Name)); err != nil {
 		return err
 	}
 	return err
 }
 
 func (p *Pd) install() (err error) {
-	e := NewEvent(p.Db.Cell, "pd", "install")
-	p.Db.Status.Phase = pdPending
+	e := NewEvent(p.Db.Metadata.Name, "pd", "install")
+	p.Db.Status.Phase = PhasePdPending
 	p.Db.update()
 	defer func() {
-		ph := pdStarted
+		ph := PhasePdStarted
 		if err != nil {
-			ph = pdStartFailed
+			ph = PhasePdStartFailed
 		}
 		p.Db.Status.Phase = ph
 		if uerr := p.Db.update(); uerr != nil {
@@ -158,19 +108,19 @@ func (p *Pd) createPod() (err error) {
 }
 
 func (p *Pd) waitForOk() (err error) {
-	logs.Info("waiting for run pd %s ok...", p.Db.Cell)
+	logs.Info("waiting for run pd %s ok...", p.Db.Metadata.Name)
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
-		if _, err = pdLeaderGet(p.OuterAddresses[0]); err != nil {
+		if _, err = pdutil.PdLeaderGet(p.OuterAddresses[0]); err != nil {
 			logs.Warn("get pd leader: %v", err)
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait pd %s available: %v", p.Db.Cell, err)
+		logs.Error("wait pd %s available: %v", p.Db.Metadata.Name, err)
 	} else {
-		logs.Info("pd %s ok", p.Db.Cell)
+		logs.Info("pd %s ok", p.Db.Metadata.Name)
 	}
 	return err
 }
@@ -178,7 +128,7 @@ func (p *Pd) waitForOk() (err error) {
 func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
-		"{{cell}}", p.Db.Cell,
+		"{{cell}}", p.Db.Metadata.Name,
 		"{{id}}", fmt.Sprintf("%03d", p.Member),
 		"{{replicas}}", fmt.Sprintf("%d", p.Spec.Replicas),
 		"{{cpu}}", fmt.Sprintf("%v", p.Spec.CPU),
@@ -193,6 +143,14 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		return nil, err
 	}
 	return j, nil
+}
+
+func isOkPd(cell string) bool {
+	if db, err := GetDb(cell); err != nil ||
+		db == nil || db.Status.Phase < PhasePdStarted || db.Status.Phase > PhaseTidbInited {
+		return false
+	}
+	return true
 }
 
 func (p *Pd) isNil() bool {

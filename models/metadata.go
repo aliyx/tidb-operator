@@ -1,11 +1,8 @@
 package models
 
 import (
-	"encoding/json"
-
 	yaml "gopkg.in/yaml.v2"
 
-	"errors"
 	"fmt"
 
 	"strings"
@@ -16,36 +13,67 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/k8sutil"
+	"github.com/ffan/tidb-k8s/pkg/spec"
 	"github.com/ffan/tidb-k8s/pkg/storage"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var initData = `
 versions:
-  - rc2
-  - latest
-basic:
-  pd:
-    cpu: 500
-    memory: 1024
-    max: 7
-  tikv:
-    cpu: 500
-    memory: 1024
-    capacity: 100
-    max: 10
-  tidb:
-    cpu: 500
-    memory: 1024
-    max: 10
+- rc2
+- latest
+pd:
+  cpu: 500
+  memory: 1024
+  max: 3
+tikv:
+  cpu: 500
+  memory: 1024
+  capacity: 100
+  max: 10
+tidb:
+  cpu: 500
+  memory: 1024
+  max: 10
 k8s:
   volume: ""
   proxys: ""
 approvalConditions:
   kvReplicas: 3
   dbReplicas: 1
+specifications:
+- name: "2核 4GB"
+  desc: ""
+  preferences:
+  - name: "普通"
+    replicas: 
+    - 3
+    - 3
+    - 1
+- name: "4核 8GB"
+  desc: ""
+  preferences:
+  - name: "普通"
+    desc: "连接数:100 IOPS:1000"
+    replicas: 
+    - 3
+    - 4
+    - 5
+  - name: "存储"
+    desc: "连接数:100 存储：200GB"
+    replicas: 
+    - 3
+    - 6
+    - 3
+  - name: "计算"
+    desc: "连接数:100 存储：100GB"
+    replicas: 
+    - 3
+    - 3
+    - 5
 `
 
-// Unit 共享单元
+// Unit container spec
 type Unit struct {
 	CPU      int `json:"cpu"`
 	Mem      int `json:"memory" yaml:"memory"`
@@ -53,14 +81,7 @@ type Unit struct {
 	Max      int `json:"max"`
 }
 
-// Units 包含tidb/tikv/pd三个模块的共享信息
-type Units struct {
-	Pd   Unit `json:"pd"`
-	Tikv Unit `json:"tikv"`
-	Tidb Unit `json:"tidb"`
-}
-
-// K8s kubernetes服务配置
+// K8s config
 type K8s struct {
 	Volume string `json:"volume"`
 	Proxys string `json:"proxys"`
@@ -73,13 +94,53 @@ type ApprovalConditions struct {
 	DbReplicas uint `json:"dbr" yaml:"dbReplicas"`
 }
 
-// Metadata tidb metadata
-type Metadata struct {
-	Versions       []string           `json:"versions"`
-	Units          Units              `json:"basic" yaml:"basic"`
-	Specifications []Specification    `json:"specifications"`
-	K8s            K8s                `json:"k8s"`
+// Replicas controller
+type Replicas []int
+
+func (r Replicas) getPd() int {
+	return r[0]
+}
+
+func (r Replicas) getTikv() int {
+	return r[1]
+}
+
+func (r Replicas) getTidb() int {
+	return r[2]
+}
+
+// Preference 数据库偏好
+type Preference struct {
+	Name     string   `json:"name"`
+	Desc     string   `json:"desc"`
+	Replicas Replicas `json:"replicas"`
+}
+
+// Specification 规格说明书，比如“1核2 GB ...”
+type Specification struct {
+	Name        string       `json:"name"`
+	Desc        string       `json:"desc"`
+	Preferences []Preference `json:"preferences" yaml:"preferences"`
+}
+
+// MetaSpec tidb metadata
+type MetaSpec struct {
+	Versions []string `json:"versions"`
+	Pd       Unit     `json:"pd"`
+	Tikv     Unit     `json:"tikv"`
+	Tidb     Unit     `json:"tidb"`
+	K8s      K8s      `json:"k8s"`
+
 	AC             ApprovalConditions `json:"ac" yaml:"approvalConditions"`
+	Specifications []*Specification   `json:"specifications"`
+}
+
+// Metadata resource
+type Metadata struct {
+	metav1.TypeMeta `json:",inline"`
+	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec *MetaSpec `json:"spec"`
 }
 
 const (
@@ -87,7 +148,7 @@ const (
 )
 
 var (
-	metaS storage.Storage
+	metaS *storage.Storage
 
 	count int32
 	md    *Metadata
@@ -95,7 +156,7 @@ var (
 
 // Init Metadata
 func metaInit() {
-	s, err := storage.NewDefaultStorage(tableMetadata, etcdAddress)
+	s, err := storage.NewStorage(getNamespace(), spec.TPRKindMetadata)
 	if err != nil {
 		panic(fmt.Errorf("Create storage metadata error: %v", err))
 	}
@@ -104,12 +165,14 @@ func metaInit() {
 	initMetadataIfNot()
 
 	go func() {
-		m, err := GetMetadata()
-		if err != nil {
-			logs.Critical("sync metadata error: %", err)
+		for {
+			m, err := GetMetadata()
+			if err != nil {
+				logs.Critical("sync metadata error: %", err)
+			}
+			md = m
+			time.Sleep(syncMetadataInterval)
 		}
-		md = m
-		time.Sleep(syncMetadataInterval)
 	}()
 }
 
@@ -117,24 +180,31 @@ func initMetadataIfNot() {
 	if !forceInitMd {
 		return
 	}
-	m := &Metadata{}
-	if err := yaml.Unmarshal([]byte(initData), m); err != nil {
+	ms := &MetaSpec{}
+	if err := yaml.Unmarshal([]byte(initData), ms); err != nil {
 		panic(fmt.Sprintf("unmarshal metadata error: %v", err))
 	}
 
 	// get proxys ip
 
-	sel := map[string]string{
+	ps, err := k8sutil.GetNodesExternalIP(map[string]string{
 		"node-role.proxy": "",
-	}
-	ps, err := k8sutil.GetNodesExternalIP(sel)
+	})
 	if err != nil {
 		panic(fmt.Sprintf("get proxys error: %v", err))
 	}
-	m.K8s.Proxys = strings.Join(ps, ",")
+	ms.K8s.Proxys = strings.Join(ps, ",")
 
-	logs.Info("%+v", m)
-	m.Update()
+	m := &Metadata{
+		Metadata: metav1.ObjectMeta{
+			Name: "metadata",
+		},
+		Spec: ms,
+	}
+	logs.Info("%+v", m.Spec)
+	if err = m.CreateOrUpdate(); err != nil {
+		panic(fmt.Sprintf("init metadata error: %v", err))
+	}
 	logs.Info("Init local metadata to storage")
 }
 
@@ -143,51 +213,31 @@ func NewMetadata() *Metadata {
 	return &Metadata{}
 }
 
-// Create 持久化metadata
-func (m *Metadata) Create() error {
-	if err := m.adjust(); err != nil {
+// CreateOrUpdate create if no exist, else update
+func (m *Metadata) CreateOrUpdate() (err error) {
+	if err = m.adjust(); err != nil {
 		return err
 	}
-	data, err := json.Marshal(m)
-	if err != nil {
-		return errors.New("marshal meta data err")
+	tmp := NewMetadata()
+	if err = metaS.Get(m.Metadata.Name, tmp); err == storage.ErrNoNode {
+		return metaS.Create(m)
 	}
-	metaS.Create("", data)
-	return nil
+	return metaS.Update(m.Metadata.Name, m)
 }
 
 func (m *Metadata) adjust() (err error) {
-	if m.Units.Pd.Max%2 == 0 {
-		m.Units.Pd.Max = m.Units.Pd.Max + 1
-	}
-	return nil
-}
-
-// Update update metadata
-func (m *Metadata) Update() error {
-	if err := m.adjust(); err != nil {
-		return err
-	}
-	data, err := json.Marshal(m)
-	if err != nil {
-		return errors.New("marshal meta data err")
-	}
-	metaS.Update("", data)
+	m.Spec.Pd.Max = 3
 	return nil
 }
 
 // GetMetadata get metadata
 func GetMetadata() (*Metadata, error) {
-	data, err := metaS.Get("")
+	m := NewMetadata()
+	err := metaS.Get("metadata", m)
 	if err != nil {
 		return nil, err
 	}
-	m := Metadata{}
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-
-	return &m, err
+	return m, nil
 }
 
 func getCachedMetadata() *Metadata {
@@ -201,7 +251,7 @@ func getNamespace() string {
 func getProxys() []string {
 	hosts := make([]string, 2)
 	m := getCachedMetadata()
-	ps := strings.Split(m.K8s.Proxys, ",")
+	ps := strings.Split(m.Spec.K8s.Proxys, ",")
 	if len(ps) < 3 {
 		return ps
 	}

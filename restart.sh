@@ -28,12 +28,10 @@ e=$1
 if [ -z "$e" ]; then
   echo -e "\033[33mCurrent environment: dev\033[0m"
   export RunMode=dev
-  export ETCD_ADDRESS=http://10.213.44.128:12379
   export K8S_ADDRESS=http://10.213.44.128:10218
 elif [ "$e" == "test" ]; then
   echo -e "\033[33mCurrent environment: test\033[0m"
   export RunMode=test
-  export ETCD_ADDRESS=http://10.213.131.54:12379
   export K8S_ADDRESS=http://10.213.131.54:10218
 elif [ "$e" == "prod" ]; then
   echo -e "\033[33mCurrent environment: prod\033[0m"

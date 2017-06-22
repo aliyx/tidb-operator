@@ -10,7 +10,6 @@ import (
 
 	"fmt"
 
-	"github.com/astaxie/beego"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -24,6 +23,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for gcp auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+const (
+	kubePublicNamespace = "kube-public"
 )
 
 var (
@@ -46,8 +49,8 @@ func init() {
 }
 
 // Init create tidb namespace
-func Init() {
-	masterHost = beego.AppConfig.String("k8sAddr")
+func Init(addr string) {
+	masterHost = addr
 	logs.Info("kubernetes master host is %s", masterHost)
 
 	kubecli = MustNewKubeClient()
