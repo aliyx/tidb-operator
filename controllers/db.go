@@ -24,7 +24,7 @@ type TidbController struct {
 // Post create a tidb
 // @Title CreateTidb
 // @Description create a tidb
-// @Param	body	body 	models.Tidb	true	"body for tidb content"
+// @Param	body	body 	models.Db	true	"body for tidb content"
 // @Success 200
 // @Failure 403 body is empty
 // @router / [post]
@@ -77,7 +77,7 @@ func (dc *TidbController) Delete() {
 // @Title Get
 // @Description get tidb by cell
 // @Param cell path string true "The cell for tidb name"
-// @Success 200 {object} models.Tidb
+// @Success 200 {object} models.Db
 // @Failure 404 :key not found
 // @router /:cell [get]
 func (dc *TidbController) Get() {
@@ -178,7 +178,7 @@ func (dc *TidbController) Migrate() {
 // @Title GetEvents
 // @Description get all events
 // @Param	cell	path	string	true	"The cell for tidb name"
-// @Success 200 {object} []models.Event
+// @Success 200 {object} models.Events
 // @router /:cell/events [get]
 func (dc *TidbController) GetEvents() {
 	cell := dc.GetString(":cell")

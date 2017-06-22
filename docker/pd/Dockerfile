@@ -4,8 +4,8 @@ MAINTAINER yangxin45
 
 RUN mkdir -p src/github.com/pingcap && \
     cd src/github.com/pingcap && \
-    curl -L https://github.com/pingcap/pd/archive/rc2.tar.gz | tar -xz && \
-    mv pd-rc2 pd && cd pd && \
+    curl -L https://github.com/pingcap/pd/archive/rc3.tar.gz | tar -xz && \
+    mv pd-rc3 pd && cd pd && \
     make && \
     cp -f ./bin/pd-server /go/bin/pd-server && \
     rm -rf ../pd

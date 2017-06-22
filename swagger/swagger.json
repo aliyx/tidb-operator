@@ -94,7 +94,7 @@
                         "description": "body for tidb content",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Tidb"
+                            "$ref": "#/definitions/models.Db"
                         }
                     }
                 ],
@@ -125,7 +125,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/models.Tidb"
+                            "$ref": "#/definitions/models.Db"
                         }
                     },
                     "404": {
@@ -177,10 +177,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.Event"
-                            }
+                            "$ref": "#/definitions/models.Events"
                         }
                     }
                 }
@@ -446,6 +443,21 @@
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "models.Events": {
+            "title": "Events",
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Event"
+                    }
+                },
+                "metadata": {
+                    "$ref": "#/definitions/metav1.ObjectMeta"
                 }
             }
         },
@@ -760,7 +772,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/35348.Store"
+                    "$ref": "#/definitions/35475.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"

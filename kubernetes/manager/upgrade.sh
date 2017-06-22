@@ -15,12 +15,10 @@ else
   exit 1
 fi
 
-version=""
-if [ -z "$2" ]; then
+version="$2"
+if [ -z "$version" ]; then
   echo "Please specify the version 'rc2','rc3'... "
   exit 1
 fi
-echo $c
-echo $version
-sed_script+="s,{{version}},${!var},g;"
-cat upgrade-daemonset.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+sed_script+="s,{{version}},${version},g;"
+cat upgrade-daemonset.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS $c -f -
