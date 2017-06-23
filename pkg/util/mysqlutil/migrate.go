@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	binDir  = fmt.Sprintf("%s/pkg/mysqlutil/bin/", servenv.Root())
+	binDir  = fmt.Sprintf("%s/pkg/util/mysqlutil/bin/", servenv.Root())
 	checker = binDir + "checker -L error -host %s -port %d -user %s -password %s %s"
 
 	errNoReplicationClientPri = errors.New("No replication client privilege or no super user")
