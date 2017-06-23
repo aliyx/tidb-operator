@@ -6,11 +6,15 @@ MAINTAINER yangxin45
 
 ADD config.toml /etc/tikv/config.toml
 
-RUN cd / && \
-    curl -L https://github.com/pingcap/tikv/archive/rc3.tar.gz | tar -xz && \
-    mv tikv-rc3 tikv && cd tikv && \
-    cargo build --release && \
-    cp -f target/release/tikv-server /tikv-server && \
-    cargo clean
+ADD https://github.com/pingcap/tikv/archive/rc3.tar.gz /tikv-rc3.tar.gz
+
+RUN tar xf tikv-rc3.tar.gz && \
+    cd tikv-rc3 && \
+    make release && \
+    cp -f bin/tikv-server /tikv-server && \
+    cd .. && \
+    rm -rf tikv-rc3.tar.gz tikv-rc3
+
+EXPOSE 20160
 
 CMD ["/tikv-server"]

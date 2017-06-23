@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/storage"
+	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
 	"github.com/ghodss/yaml"
 
-	tsql "github.com/ffan/tidb-k8s/pkg/mysqlutil"
+	tsql "github.com/ffan/tidb-k8s/pkg/util/mysqlutil"
 )
 
 // Phase tidb runing status

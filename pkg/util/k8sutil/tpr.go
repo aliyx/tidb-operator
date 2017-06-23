@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ffan/tidb-k8s/pkg/retryutil"
 	"github.com/ffan/tidb-k8s/pkg/spec"
+	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1beta1extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"

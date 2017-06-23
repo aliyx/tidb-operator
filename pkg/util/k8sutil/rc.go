@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/retryutil"
+	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

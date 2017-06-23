@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/k8sutil"
 	"github.com/ffan/tidb-k8s/pkg/spec"
+	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 )
@@ -67,7 +67,7 @@ func (s *Storage) List(prefix string, v interface{}) error {
 	return nil
 }
 
-// Create is part of the storage.Impl interface.
+// Create create a new resource.
 func (s *Storage) Create(v interface{}) error {
 	err := s.tprClient.Post().
 		Resource(s.kindPlural()).
@@ -80,7 +80,7 @@ func (s *Storage) Create(v interface{}) error {
 	return err
 }
 
-// Delete is part of the storage.Impl interface.
+// Delete delete a resource.
 func (s *Storage) Delete(key string) error {
 	err := s.tprClient.Delete().
 		Resource(s.kindPlural()).
@@ -93,7 +93,7 @@ func (s *Storage) Delete(key string) error {
 	return err
 }
 
-// DeleteAll is part of the storage.Impl interface.
+// DeleteAll delete all tpr.
 func (s *Storage) DeleteAll() error {
 	return s.tprClient.Delete().
 		Resource(s.kindPlural()).
@@ -101,7 +101,7 @@ func (s *Storage) DeleteAll() error {
 		Do().Error()
 }
 
-// Update is part of the storage.Impl interface.
+// Update update a tpr.
 func (s *Storage) Update(key string, v interface{}) error {
 	for {
 		r := spec.Resource{}
@@ -129,7 +129,7 @@ func (s *Storage) Update(key string, v interface{}) error {
 	}
 }
 
-// Get is part of the storage.Impl interface.
+// Get get a tpr.
 func (s *Storage) Get(key string, v interface{}) error {
 	b, err := s.tprClient.Get().
 		Resource(s.kindPlural()).
@@ -149,7 +149,7 @@ func (s *Storage) Get(key string, v interface{}) error {
 	return nil
 }
 
-// NewStorage return a new etcdstorage.Storage
+// NewStorage return a new storage.Storage
 func NewStorage(namespace, name string) (*Storage, error) {
 	cli, err := k8sutil.NewTPRClient(spec.TPRGroup, spec.TPRVersion)
 	if err != nil {
