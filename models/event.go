@@ -79,19 +79,29 @@ func (e *Event) Trace(err error, msg ...string) {
 }
 
 func (e *Event) save() error {
+	e.LastSeen = time.Now()
+
 	evtMu.Lock()
 	defer evtMu.Unlock()
 	es, err := GetEventsBy(e.Cell)
 	if err != nil {
-		return err
+		if err != storage.ErrNoNode {
+			return err
+		}
+		es = &Events{
+			Metadata: metav1.ObjectMeta{
+				Name: e.Cell,
+			},
+		}
 	}
-	e.LastSeen = time.Now()
 
 	es.Events = append(es.Events, *e)
-	if err := es.save(); err != nil {
-		return err
+	if es.Metadata.ResourceVersion == "" {
+		if err = es.save(); err != nil {
+			return err
+		}
 	}
-	return nil
+	return es.update()
 }
 
 func (es *Events) save() error {
@@ -101,18 +111,18 @@ func (es *Events) save() error {
 	return nil
 }
 
+func (es *Events) update() error {
+	if err := evtS.Update(es.Metadata.Name, es); err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetEventsBy get cell events
 func GetEventsBy(cell string) (*Events, error) {
-	es := &Events{
-		Metadata: metav1.ObjectMeta{
-			Name: cell,
-		},
-	}
+	es := &Events{}
 	if err := evtS.Get(cell, es); err != nil {
-		if err != storage.ErrNoNode {
-			return nil, err
-		}
-		return es, nil
+		return nil, err
 	}
 	return es, nil
 }

@@ -12,6 +12,7 @@ RUN tar xf tikv-rc3.tar.gz && \
     cd tikv-rc3 && \
     make release && \
     cp -f bin/tikv-server /tikv-server && \
+    cargo clean && \
     cd .. && \
     rm -rf tikv-rc3.tar.gz tikv-rc3
 

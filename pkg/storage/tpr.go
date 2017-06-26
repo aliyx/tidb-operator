@@ -52,8 +52,7 @@ func (s *Storage) kindPlural() string {
 }
 
 // List query all.
-// FIXME: prefix
-func (s *Storage) List(prefix string, v interface{}) error {
+func (s *Storage) List(v interface{}) error {
 	b, err := s.tprClient.Get().
 		RequestURI(s.listURI()).
 		// FieldsSelectorParam(fields.Set{"metadata.name": "test"}.AsSelector()).

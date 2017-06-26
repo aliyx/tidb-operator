@@ -2,21 +2,19 @@ package models
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
+	"github.com/astaxie/beego"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	k8sAddr = "http://10.213.44.128:10218"
-)
-
-// func TestMain(m *testing.M) {
-// 	k8sutil.Init(k8sAddr)
-// 	Init()
-// 	os.Exit(m.Run())
-// }
+func TestMain(m *testing.M) {
+	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
+	Init()
+	os.Exit(m.Run())
+}
 
 func TestDb_Save(t *testing.T) {
 	db := &Db{

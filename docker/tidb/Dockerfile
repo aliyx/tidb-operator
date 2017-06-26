@@ -1,13 +1,15 @@
-FROM golang:1.7
+FROM golang:1.8
 
 MAINTAINER yangxin45
 
 RUN mkdir -p src/github.com/pingcap && \
     cd src/github.com/pingcap && \
-    curl -sL https://github.com/pingcap/tidb/archive/rc3.tar.gz | tar -xz && \
+    curl -L https://github.com/pingcap/tidb/archive/rc3.tar.gz | tar -xz && \
     mv tidb-rc3 tidb && cd tidb && \
     make && \
     cp -f ./bin/tidb-server /tidb-server && \
     make clean
+
+EXPOSE 4000
 
 CMD ["/tidb-server"]

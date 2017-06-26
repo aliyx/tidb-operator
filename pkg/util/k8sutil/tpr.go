@@ -2,10 +2,12 @@ package k8sutil
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ffan/tidb-k8s/pkg/spec"
 	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
+	"gopkg.in/resty.v0"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1beta1extensions "k8s.io/client-go/pkg/apis/extensions/v1beta1"
@@ -44,4 +46,14 @@ func WaitEtcdTPRReady(restcli rest.Interface, interval, timeout time.Duration, u
 		}
 		return true, nil
 	})
+}
+
+func WatchTidbs(host, ns string, resourceVersion string) (*http.Response, error) {
+	resty.SetTimeout(3 * time.Second)
+	resp, err := resty.R().Get(fmt.Sprintf("%s/apis/%s/%s/namespaces/%s/tidbs?watch=true&resourceVersion=%s",
+		host, spec.TPRGroup, spec.TPRVersion, ns, resourceVersion))
+	if err != nil {
+		return nil, err
+	}
+	return resp.RawResponse, nil
 }

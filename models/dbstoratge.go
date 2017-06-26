@@ -206,6 +206,18 @@ func GetDb(cell string) (*Db, error) {
 	return db, nil
 }
 
+// GetAllDbs get a tidbList object
+func GetAllDbs() (*TidbList, error) {
+	list := &TidbList{}
+	if err := dbS.List(list); err != nil {
+		if err != storage.ErrNoNode {
+			return nil, err
+		}
+		return nil, nil
+	}
+	return list, nil
+}
+
 // GetDbs get specified user dbs
 func GetDbs(userID string) ([]Db, error) {
 	if len(userID) < 1 {
@@ -217,7 +229,7 @@ func GetDbs(userID string) ([]Db, error) {
 		userID = ""
 	}
 	list := &TidbList{}
-	if err := dbS.List(userID, list); err != nil {
+	if err := dbS.List(list); err != nil {
 		if err != storage.ErrNoNode {
 			return nil, err
 		}
