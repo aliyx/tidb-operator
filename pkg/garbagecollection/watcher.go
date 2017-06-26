@@ -1,305 +1,279 @@
-// package garbagecollection
+package garbagecollection
 
-// import (
-// 	"encoding/json"
-// 	"errors"
-// 	"fmt"
-// 	"io"
-// 	"net/http"
-// 	"sync"
-// 	"time"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"sync"
+	"time"
 
-// 	"github.com/coreos/etcd-operator/pkg/analytics"
-// 	"github.com/coreos/etcd-operator/pkg/cluster"
+	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-k8s/models"
+	"github.com/ffan/tidb-k8s/pkg/spec"
+	"github.com/ffan/tidb-k8s/pkg/util/constants"
+	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	kwatch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+)
 
-// 	"github.com/astaxie/beego/logs"
-// 	"github.com/ffan/tidb-k8s/models"
-// 	"github.com/ffan/tidb-k8s/pkg/spec"
-// 	"github.com/ffan/tidb-k8s/pkg/util/constants"
-// 	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
-// 	kwatch "k8s.io/apimachinery/pkg/watch"
-// 	"k8s.io/client-go/kubernetes"
-// )
+var (
+	supportedPVProvisioners = map[string]struct{}{
+		constants.PVProvisionerLocal: {},
+		constants.PVProvisionerNone:  {},
+	}
 
-// var (
-// 	supportedPVProvisioners = map[string]struct{}{
-// 		constants.PVProvisionerLocal: {},
-// 		constants.PVProvisionerNone:  {},
-// 	}
+	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
 
-// 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
+	initRetryWaitTime = 30 * time.Second
+)
 
-// 	initRetryWaitTime = 30 * time.Second
+type Event struct {
+	Type   kwatch.EventType
+	Object *models.Db
+}
 
-// 	MasterHost string
-// )
+type Watcher struct {
+	Config
 
-// type Event struct {
-// 	Type   kwatch.EventType
-// 	Object *models.Db
-// }
+	// TODO: combine the three cluster map.
+	tidbs map[string]*models.Db
+	// Kubernetes resource version of the clusters
+	tidbRVs   map[string]string
+	stopChMap map[string]chan struct{}
 
-// type Watcher struct {
-// 	Config
+	waitCluster sync.WaitGroup
+}
 
-// 	// TODO: combine the three cluster map.
-// 	tidbs map[string]*models.Db
-// 	// Kubernetes resource version of the clusters
-// 	tidbRVs   map[string]string
-// 	stopChMap map[string]chan struct{}
+type Config struct {
+	Namespace     string
+	PVProvisioner string
+	KubeCli       kubernetes.Interface
+}
 
-// 	waitCluster sync.WaitGroup
-// }
+func (c *Config) Validate() error {
+	if _, ok := supportedPVProvisioners[c.PVProvisioner]; !ok {
+		return fmt.Errorf(
+			"persistent volume provisioner %s is not supported: options = %v",
+			c.PVProvisioner, supportedPVProvisioners,
+		)
+	}
+	return nil
+}
 
-// type Config struct {
-// 	Namespace     string
-// 	PVProvisioner string
-// 	KubeCli       kubernetes.Interface
-// }
+func New(cfg Config) *Watcher {
+	return &Watcher{
+		Config:    cfg,
+		tidbs:     make(map[string]*models.Db),
+		tidbRVs:   make(map[string]string),
+		stopChMap: map[string]chan struct{}{},
+	}
+}
 
-// func (c *Config) Validate() error {
-// 	if _, ok := supportedPVProvisioners[c.PVProvisioner]; !ok {
-// 		return fmt.Errorf(
-// 			"persistent volume provisioner %s is not supported: options = %v",
-// 			c.PVProvisioner, supportedPVProvisioners,
-// 		)
-// 	}
-// 	return nil
-// }
+func (w *Watcher) Run() error {
+	var (
+		watchVersion string
+		err          error
+	)
 
-// func New(cfg Config) *Watcher {
-// 	return &Watcher{
-// 		Config:    cfg,
-// 		tidbs:     make(map[string]*models.Db),
-// 		tidbRVs:   make(map[string]string),
-// 		stopChMap: map[string]chan struct{}{},
-// 	}
-// }
+	for {
+		watchVersion, err = w.initResource()
+		if err == nil {
+			break
+		}
+		logs.Error("initialization failed: %v", err)
+		logs.Info("retry in %v...", initRetryWaitTime)
+		time.Sleep(initRetryWaitTime)
+		// todo: add max retry?
+	}
 
-// func (w *Watcher) Run() error {
-// 	var (
-// 		watchVersion string
-// 		err          error
-// 	)
+	logs.Info("starts running from watch version: %s", watchVersion)
 
-// 	for {
-// 		watchVersion, err = w.initResource()
-// 		if err == nil {
-// 			break
-// 		}
-// 		logs.Error("initialization failed: %v", err)
-// 		logs.Info("retry in %v...", initRetryWaitTime)
-// 		time.Sleep(initRetryWaitTime)
-// 		// todo: add max retry?
-// 	}
+	defer func() {
+		for _, stopC := range w.stopChMap {
+			close(stopC)
+		}
+		w.waitCluster.Wait()
+	}()
 
-// 	logs.Info("starts running from watch version: %s", watchVersion)
+	eventCh, errCh := w.watch(watchVersion)
 
-// 	defer func() {
-// 		for _, stopC := range w.stopChMap {
-// 			close(stopC)
-// 		}
-// 		w.waitCluster.Wait()
-// 	}()
+	go func() {
+		pt := newPanicTimer(time.Minute, "unexpected long blocking (> 1 Minute) when handling cluster event")
 
-// 	eventCh, errCh := w.watch(watchVersion)
+		for ev := range eventCh {
+			pt.start()
+			if err := w.handleTidbEvent(ev); err != nil {
+				logs.Warn("fail to handle event: %v", err)
+			}
+			pt.stop()
+		}
+	}()
+	return <-errCh
+}
 
-// 	go func() {
-// 		pt := newPanicTimer(time.Minute, "unexpected long blocking (> 1 Minute) when handling cluster event")
+func (w *Watcher) handleTidbEvent(event *Event) error {
+	tidb := event.Object
 
-// 		for ev := range eventCh {
-// 			pt.start()
-// 			if err := c.handleClusterEvent(ev); err != nil {
-// 				c.logger.Warningf("fail to handle event: %v", err)
-// 			}
-// 			pt.stop()
-// 		}
-// 	}()
-// 	return <-errCh
-// }
+	switch event.Type {
+	case kwatch.Added:
+		logs.Debug("add tidb: %+v", *tidb)
 
-// func (c *Controller) handleClusterEvent(event *Event) error {
-// 	clus := event.Object
+		w.stopChMap[tidb.Metadata.Name] = make(chan struct{})
+		w.tidbs[tidb.Metadata.Name] = tidb
+		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
+	case kwatch.Modified:
+		logs.Debug("update tidb: %+v", *tidb)
+		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
+			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
+		}
+		// w.tidbs[tidb.Metadata.Name].Update(clus)
+		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
 
-// 	if clus.Status.IsFailed() {
-// 		clustersFailed.Inc()
-// 		if event.Type == kwatch.Deleted {
-// 			delete(c.clusters, clus.Metadata.Name)
-// 			delete(c.clusterRVs, clus.Metadata.Name)
-// 			return nil
-// 		}
-// 		return fmt.Errorf("ignore failed cluster (%s). Please delete its TPR", clus.Metadata.Name)
-// 	}
+	case kwatch.Deleted:
+		logs.Debug("delete tidb: %+v", *tidb)
+		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
+			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
+		}
+		// w.tidbs[tidb.Metadata.Name].Delete()
+		delete(w.tidbs, tidb.Metadata.Name)
+		delete(w.tidbRVs, tidb.Metadata.Name)
+	}
+	return nil
+}
 
-// 	// TODO: add validation to spec update.
-// 	clus.Spec.Cleanup()
+func (w *Watcher) findAllTidbs() (string, error) {
+	logs.Info("finding existing tidbs...")
+	tidbList, err := models.GetAllDbs()
+	if err != nil {
+		return "", err
+	}
+	if tidbList == nil {
+		return "", nil
+	}
 
-// 	switch event.Type {
-// 	case kwatch.Added:
-// 		stopC := make(chan struct{})
-// 		nc := cluster.New(c.makeClusterConfig(), clus, stopC, &c.waitCluster)
+	for i := range tidbList.Items {
+		tidb := tidbList.Items[i]
+		w.stopChMap[tidb.Metadata.Name] = make(chan struct{})
+		w.tidbs[tidb.Metadata.Name] = &tidb
+		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
+	}
 
-// 		c.stopChMap[clus.Metadata.Name] = stopC
-// 		c.clusters[clus.Metadata.Name] = nc
-// 		c.clusterRVs[clus.Metadata.Name] = clus.Metadata.ResourceVersion
+	return tidbList.Metadata.ResourceVersion, nil
+}
 
-// 		analytics.ClusterCreated()
-// 		clustersCreated.Inc()
-// 		clustersTotal.Inc()
+func (w *Watcher) initResource() (string, error) {
+	var (
+		watchVersion = "0"
+		err          error
+	)
+	if err = w.createTPR(); err != nil {
+		return "", fmt.Errorf("fail to create TPR: %v", err)
+	}
+	watchVersion, err = w.findAllTidbs()
+	if err != nil {
+		return "", err
+	}
 
-// 	case kwatch.Modified:
-// 		if _, ok := c.clusters[clus.Metadata.Name]; !ok {
-// 			return fmt.Errorf("unsafe state. cluster was never created but we received event (%s)", event.Type)
-// 		}
-// 		c.clusters[clus.Metadata.Name].Update(clus)
-// 		c.clusterRVs[clus.Metadata.Name] = clus.Metadata.ResourceVersion
-// 		clustersModified.Inc()
+	if w.Config.PVProvisioner != constants.PVProvisionerNone {
 
-// 	case kwatch.Deleted:
-// 		if _, ok := c.clusters[clus.Metadata.Name]; !ok {
-// 			return fmt.Errorf("unsafe state. cluster was never created but we received event (%s)", event.Type)
-// 		}
-// 		c.clusters[clus.Metadata.Name].Delete()
-// 		delete(c.clusters, clus.Metadata.Name)
-// 		delete(c.clusterRVs, clus.Metadata.Name)
-// 		analytics.ClusterDeleted()
-// 		clustersDeleted.Inc()
-// 		clustersTotal.Dec()
-// 	}
-// 	return nil
-// }
+	}
+	return watchVersion, nil
+}
 
-// func (w *Watcher) findAllTidbs() (string, error) {
-// 	logs.Info("finding existing tidbs...")
-// 	tidbList, err := models.GetAllDbs()
-// 	if err != nil {
-// 		return "", err
-// 	}
+func (w *Watcher) createTPR() error {
+	if err := k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
+		return err
+	}
+	return nil
+}
 
-// 	for i := range tidbList.Items {
-// 		tidb := tidbList.Items[i]
+// watch creates a go routine, and watches the cluster.etcd kind resources from
+// the given watch version. It emits events on the resources through the returned
+// event chan. Errors will be reported through the returned error chan. The go routine
+// exits on any error.
+func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
+	eventCh := make(chan *Event)
+	// On unexpected error case, controller should exit
+	errCh := make(chan error, 1)
 
-// 		stopC := make(chan struct{})
-// 		w.stopChMap[tidb.Metadata.Name] = stopC
-// 		w.tidbs[tidb.Metadata.Name] = tidb
-// 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
-// 	}
+	go func() {
+		defer close(eventCh)
 
-// 	return tidbList.Metadata.ResourceVersion, nil
-// }
+		for {
+			resp, err := k8sutil.WatchTidbs(w.Config.Namespace, watchVersion)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
+				errCh <- errors.New("invalid status code: " + resp.Status)
+				return
+			}
 
-// func (w *Watcher) initResource() (string, error) {
-// 	watchVersion := "0"
-// 	err := w.createTPR()
-// 	if err != nil {
-// 		if k8sutil.IsKubernetesResourceAlreadyExistError(err) {
-// 			// TPR has been initialized before. We need to recover existing cluster.
-// 			watchVersion, err = w.findAllTidbs()
-// 			if err != nil {
-// 				return "", err
-// 			}
-// 		} else {
-// 			return "", fmt.Errorf("fail to create TPR: %v", err)
-// 		}
-// 	}
-// 	if w.Config.PVProvisioner != constants.PVProvisionerNone {
-// 	}
-// 	return watchVersion, nil
-// }
+			logs.Info("start watching at %v", watchVersion)
 
-// func (w *Watcher) createTPR() error {
-// 	if err := k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
-// 		return err
-// 	}
+			decoder := json.NewDecoder(resp.Body)
+			for {
+				ev, st, err := pollEvent(decoder)
+				if err != nil {
+					if err == io.EOF { // apiserver will close stream periodically
+						logs.Debug("apiserver closed stream")
+						break
+					}
 
-// 	return k8sutil.WaitEtcdTPRReady(w.kubeCli.CoreV1().RESTClient(), 3*time.Second, 30*time.Second, w.Namespace)
-// }
+					logs.Error("received invalid event from API server: %v", err)
+					errCh <- err
+					return
+				}
 
-// // watch creates a go routine, and watches the cluster.etcd kind resources from
-// // the given watch version. It emits events on the resources through the returned
-// // event chan. Errors will be reported through the returned error chan. The go routine
-// // exits on any error.
-// func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
-// 	eventCh := make(chan *Event)
-// 	// On unexpected error case, controller should exit
-// 	errCh := make(chan error, 1)
+				if st != nil {
+					resp.Body.Close()
 
-// 	go func() {
-// 		defer close(eventCh)
+					if st.Code == http.StatusGone {
+						// event history is outdated.
+						// if nothing has changed, we can go back to watch again.
+						tidbList, err := models.GetAllDbs()
+						if err == nil && !w.isTidbsCacheStale(tidbList.Items) {
+							watchVersion = tidbList.Metadata.ResourceVersion
+							break
+						}
 
-// 		for {
-// 			resp, err := k8sutil.WatchTidbs(MasterHost, w.Config.Namespace, watchVersion)
-// 			if err != nil {
-// 				errCh <- err
-// 				return
-// 			}
-// 			if resp.StatusCode != http.StatusOK {
-// 				resp.Body.Close()
-// 				errCh <- errors.New("invalid status code: " + resp.Status)
-// 				return
-// 			}
+						// if anything has changed (or error on relist), we have to rebuild the state.
+						// go to recovery path
+						errCh <- ErrVersionOutdated
+						return
+					}
 
-// 			logs.Info("start watching at %v", watchVersion)
+					logs.Critical("unexpected status response from API server: %v", st.Message)
+				}
 
-// 			decoder := json.NewDecoder(resp.Body)
-// 			for {
-// 				ev, st, err := pollEvent(decoder)
-// 				if err != nil {
-// 					if err == io.EOF { // apiserver will close stream periodically
-// 						c.logger.Debug("apiserver closed stream")
-// 						break
-// 					}
+				logs.Debug("tidb cluster event: %v %v", ev.Type, ev.Object)
 
-// 					logs.Error("received invalid event from API server: %v", err)
-// 					errCh <- err
-// 					return
-// 				}
+				watchVersion = ev.Object.Metadata.ResourceVersion
+				eventCh <- ev
+			}
 
-// 				if st != nil {
-// 					resp.Body.Close()
+			resp.Body.Close()
+		}
+	}()
 
-// 					if st.Code == http.StatusGone {
-// 						// event history is outdated.
-// 						// if nothing has changed, we can go back to watch again.
-// 						clusterList, err := k8sutil.GetClusterList(c.Config.KubeCli.CoreV1().RESTClient(), c.Config.Namespace)
-// 						if err == nil && !c.isClustersCacheStale(clusterList.Items) {
-// 							watchVersion = clusterList.Metadata.ResourceVersion
-// 							break
-// 						}
+	return eventCh, errCh
+}
 
-// 						// if anything has changed (or error on relist), we have to rebuild the state.
-// 						// go to recovery path
-// 						errCh <- ErrVersionOutdated
-// 						return
-// 					}
+func (w *Watcher) isTidbsCacheStale(currentTidbs []models.Db) bool {
+	if len(w.tidbRVs) != len(currentTidbs) {
+		return true
+	}
 
-// 					c.logger.Fatalf("unexpected status response from API server: %v", st.Message)
-// 				}
+	for _, ct := range currentTidbs {
+		rv, ok := w.tidbRVs[ct.Metadata.Name]
+		if !ok || rv != ct.Metadata.ResourceVersion {
+			return true
+		}
+	}
 
-// 				c.logger.Debugf("etcd cluster event: %v %v", ev.Type, ev.Object.Spec)
-
-// 				watchVersion = ev.Object.Metadata.ResourceVersion
-// 				eventCh <- ev
-// 			}
-
-// 			resp.Body.Close()
-// 		}
-// 	}()
-
-// 	return eventCh, errCh
-// }
-
-// func (c *Controller) isClustersCacheStale(currentClusters []spec.Cluster) bool {
-// 	if len(c.clusterRVs) != len(currentClusters) {
-// 		return true
-// 	}
-
-// 	for _, cc := range currentClusters {
-// 		rv, ok := c.clusterRVs[cc.Metadata.Name]
-// 		if !ok || rv != cc.Metadata.ResourceVersion {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
+	return false
+}

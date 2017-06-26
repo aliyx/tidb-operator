@@ -49,7 +49,9 @@ const (
 	PhaseTidbInitFailed
 	// PhaseTidbInited tidb aviliable
 	PhaseTidbInited
-	// PhaseTidbDeleting being uninstall tidb
+	// PhaseTidbUninstalling being uninstall tidb
+	PhaseTidbUninstalling
+	// PhaseTidbDeleting being delete tidb
 	PhaseTidbDeleting
 )
 
@@ -171,7 +173,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 		return err
 	}
 	db.Status.Available = false
-	db.Status.Phase = PhaseTidbDeleting
+	db.Status.Phase = PhaseTidbUninstalling
 	if err = db.update(); err != nil {
 		return err
 	}
@@ -182,7 +184,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 			stoped := 1
 			ph := PhaseUndefined
 			if started(cell) {
-				ph = PhaseTidbDeleting
+				ph = PhaseTidbUninstalling
 				stoped = 0
 				err = errors.New("async delete pods timeout")
 			}
@@ -409,7 +411,7 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 
 type clear func()
 
-// Delete tidb from k8s
+// Delete tidb
 func (db *Db) Delete(callbacks ...clear) (err error) {
 	if len(db.Metadata.Name) < 1 {
 		return nil

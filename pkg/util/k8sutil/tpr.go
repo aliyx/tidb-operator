@@ -48,10 +48,10 @@ func WaitEtcdTPRReady(restcli rest.Interface, interval, timeout time.Duration, u
 	})
 }
 
-func WatchTidbs(host, ns string, resourceVersion string) (*http.Response, error) {
+func WatchTidbs(ns string, resourceVersion string) (*http.Response, error) {
 	resty.SetTimeout(3 * time.Second)
 	resp, err := resty.R().Get(fmt.Sprintf("%s/apis/%s/%s/namespaces/%s/tidbs?watch=true&resourceVersion=%s",
-		host, spec.TPRGroup, spec.TPRVersion, ns, resourceVersion))
+		masterHost, spec.TPRGroup, spec.TPRVersion, ns, resourceVersion))
 	if err != nil {
 		return nil, err
 	}

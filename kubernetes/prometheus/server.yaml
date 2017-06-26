@@ -5,9 +5,10 @@ metadata:
   labels:
     name: prom-server
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 9090
+      nodePort: 12803
   selector:
     name: prom-server
 ---
