@@ -41,6 +41,7 @@ func dbInit() {
 // Save db
 func (db *Db) Save() error {
 	db.Metadata.Name = uniqueID(db.Owner.ID, db.Schema.Name)
+	db.Kind = spec.TPRKindTidb
 	if err := db.check(); err != nil {
 		return err
 	}

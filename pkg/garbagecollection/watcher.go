@@ -1,12 +1,8 @@
 package garbagecollection
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"sync"
 	"time"
 
 	"github.com/astaxie/beego/logs"
@@ -16,6 +12,7 @@ import (
 	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -42,14 +39,13 @@ type Watcher struct {
 	// Kubernetes resource version of the clusters
 	tidbRVs   map[string]string
 	stopChMap map[string]chan struct{}
-
-	waitCluster sync.WaitGroup
 }
 
 type Config struct {
 	Namespace     string
 	PVProvisioner string
 	KubeCli       kubernetes.Interface
+	tprclient     *rest.RESTClient
 }
 
 func (c *Config) Validate() error {
@@ -62,6 +58,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// New new a new watcher isntance
 func New(cfg Config) *Watcher {
 	return &Watcher{
 		Config:    cfg,
@@ -71,6 +68,7 @@ func New(cfg Config) *Watcher {
 	}
 }
 
+// Run run watcher, exit when an error occurs
 func (w *Watcher) Run() error {
 	var (
 		watchVersion string
@@ -94,7 +92,6 @@ func (w *Watcher) Run() error {
 		for _, stopC := range w.stopChMap {
 			close(stopC)
 		}
-		w.waitCluster.Wait()
 	}()
 
 	eventCh, errCh := w.watch(watchVersion)
@@ -177,7 +174,7 @@ func (w *Watcher) initResource() (string, error) {
 	}
 
 	if w.Config.PVProvisioner != constants.PVProvisionerNone {
-
+		// gc tikv
 	}
 	return watchVersion, nil
 }
@@ -195,68 +192,29 @@ func (w *Watcher) createTPR() error {
 // exits on any error.
 func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 	eventCh := make(chan *Event)
-	// On unexpected error case, controller should exit
+	// On unexpected error case, watcher should exit
 	errCh := make(chan error, 1)
 
 	go func() {
 		defer close(eventCh)
 
 		for {
-			resp, err := k8sutil.WatchTidbs(w.Config.Namespace, watchVersion)
+			resp, err := k8sutil.WatchTidbs(w.tprclient, w.Namespace, watchVersion)
 			if err != nil {
+				logs.Error("watch tidb: %v", err)
 				errCh <- err
 				return
 			}
-			if resp.StatusCode != http.StatusOK {
-				resp.Body.Close()
-				errCh <- errors.New("invalid status code: " + resp.Status)
-				return
-			}
-
 			logs.Info("start watching at %v", watchVersion)
-
-			decoder := json.NewDecoder(resp.Body)
 			for {
-				ev, st, err := pollEvent(decoder)
-				if err != nil {
-					if err == io.EOF { // apiserver will close stream periodically
-						logs.Debug("apiserver closed stream")
-						break
-					}
-
-					logs.Error("received invalid event from API server: %v", err)
-					errCh <- err
-					return
+				e, ok := <-resp.ResultChan()
+				if !ok {
+					break
 				}
+				logs.Debug("tidb cluster event: %v %v", e.Type, e.Object)
 
-				if st != nil {
-					resp.Body.Close()
-
-					if st.Code == http.StatusGone {
-						// event history is outdated.
-						// if nothing has changed, we can go back to watch again.
-						tidbList, err := models.GetAllDbs()
-						if err == nil && !w.isTidbsCacheStale(tidbList.Items) {
-							watchVersion = tidbList.Metadata.ResourceVersion
-							break
-						}
-
-						// if anything has changed (or error on relist), we have to rebuild the state.
-						// go to recovery path
-						errCh <- ErrVersionOutdated
-						return
-					}
-
-					logs.Critical("unexpected status response from API server: %v", st.Message)
-				}
-
-				logs.Debug("tidb cluster event: %v %v", ev.Type, ev.Object)
-
-				watchVersion = ev.Object.Metadata.ResourceVersion
-				eventCh <- ev
+				// eventCh <- ev
 			}
-
-			resp.Body.Close()
 		}
 	}()
 

@@ -2,12 +2,8 @@ package garbagecollection
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"time"
 
-	"github.com/ffan/tidb-k8s/models"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 )
 
@@ -16,35 +12,35 @@ type rawEvent struct {
 	Object json.RawMessage
 }
 
-func pollEvent(decoder *json.Decoder) (*Event, *metav1.Status, error) {
-	re := &rawEvent{}
-	err := decoder.Decode(re)
-	if err != nil {
-		if err == io.EOF {
-			return nil, nil, err
-		}
-		return nil, nil, fmt.Errorf("fail to decode raw event from apiserver (%v)", err)
-	}
+// func pollEvent(e *json.Decoder) (*Event, *metav1.Status, error) {
+// 	re := &rawEvent{}
+// 	err := decoder.Decode(re)
+// 	if err != nil {
+// 		if err == io.EOF {
+// 			return nil, nil, err
+// 		}
+// 		return nil, nil, fmt.Errorf("fail to decode raw event from apiserver (%v)", err)
+// 	}
 
-	if re.Type == kwatch.Error {
-		status := &metav1.Status{}
-		err = json.Unmarshal(re.Object, status)
-		if err != nil {
-			return nil, nil, fmt.Errorf("fail to decode (%s) into metav1.Status (%v)", re.Object, err)
-		}
-		return nil, status, nil
-	}
+// 	if re.Type == kwatch.Error {
+// 		status := &metav1.Status{}
+// 		err = json.Unmarshal(re.Object, status)
+// 		if err != nil {
+// 			return nil, nil, fmt.Errorf("fail to decode (%s) into metav1.Status (%v)", re.Object, err)
+// 		}
+// 		return nil, status, nil
+// 	}
 
-	ev := &Event{
-		Type:   re.Type,
-		Object: &models.Db{},
-	}
-	err = json.Unmarshal(re.Object, ev.Object)
-	if err != nil {
-		return nil, nil, fmt.Errorf("fail to unmarshal Cluster object from data (%s): %v", re.Object, err)
-	}
-	return ev, nil, nil
-}
+// 	ev := &Event{
+// 		Type:   re.Type,
+// 		Object: &models.Db{},
+// 	}
+// 	err = json.Unmarshal(re.Object, ev.Object)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("fail to unmarshal Cluster object from data (%s): %v", re.Object, err)
+// 	}
+// 	return ev, nil, nil
+// }
 
 // panicTimer panics when it reaches the given duration.
 type panicTimer struct {
