@@ -26,6 +26,8 @@ spec:
       labels:
         name: prom-gateway
     spec:
+      nodeSelector:
+        node-role.prometheus:
       terminationGracePeriodSeconds: 5
       containers:
       - name: prom-gateway

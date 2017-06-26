@@ -28,6 +28,8 @@ spec:
       labels:
         name: grafana
     spec:
+      nodeSelector:
+        node-role.prometheus:
       volumes:
       - name: grafana-data
         hostPath: {path: /var/lib/grafana}

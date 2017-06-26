@@ -5,10 +5,9 @@ metadata:
   labels:
     name: prom-server
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - port: 9090
-      nodePort: 12803
   selector:
     name: prom-server
 ---
@@ -27,6 +26,8 @@ spec:
       labels:
         name: prom-server
     spec:
+      nodeSelector:
+        node-role.prometheus:
       volumes:
       - name: prom-data
         hostPath: {path: /var/lib/prometheus}
@@ -34,9 +35,6 @@ spec:
       containers:
       - name: prom-server
         image: 10.209.224.13:10500/rds/prom-server:latest
-        env: 
-        # - name: TZ
-        #   value: "Asia/Shanghai"
         livenessProbe:
           httpGet:
             path: /status

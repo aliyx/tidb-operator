@@ -31,14 +31,16 @@ Execute on the specified slve node：
 ```bash
 # label proxy
 kubectl label node name node-role.proxy=
-kubectl taint nodes name node-role.proxy=:NoSchedule
+kubectl taint node name node-role.proxy=:PreferNoSchedule
 # label prometheus
-kubectl taint nodes name node-role.prometheus=:NoSchedule
+kubectl label node name node-role.prometheus=
+kubectl taint node name node-role.prometheus=:PreferNoSchedule
 
 #remove
 kubectl label node name node-role.proxy-
-kubectl taint nodes name node-role.proxy-
-kubectl taint nodes name node-role.prometheus-
+kubectl taint node name node-role.proxy-
+kubectl label node name node-role.prometheus-
+kubectl taint node name node-role.prometheus-
 ```
 
 ## Access
