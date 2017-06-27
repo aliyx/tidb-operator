@@ -3,6 +3,7 @@ package garbagecollection
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/astaxie/beego/logs"
@@ -11,7 +12,6 @@ import (
 	"github.com/ffan/tidb-k8s/pkg/util/constants"
 	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
 	kwatch "k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -21,33 +21,36 @@ var (
 		constants.PVProvisionerNone:  {},
 	}
 
+	// ErrVersionOutdated tidb TPR version outdated
 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
 
 	initRetryWaitTime = 30 * time.Second
 )
 
+// Event tidb TPR event
 type Event struct {
 	Type   kwatch.EventType
 	Object *models.Db
 }
 
+// Watcher watch tidb cluster changes, and make the appropriate deal
 type Watcher struct {
 	Config
 
-	// TODO: combine the three cluster map.
 	tidbs map[string]*models.Db
 	// Kubernetes resource version of the clusters
 	tidbRVs   map[string]string
 	stopChMap map[string]chan struct{}
 }
 
+// Config watch config
 type Config struct {
 	Namespace     string
 	PVProvisioner string
-	KubeCli       kubernetes.Interface
 	tprclient     *rest.RESTClient
 }
 
+// Validate validate config
 func (c *Config) Validate() error {
 	if _, ok := supportedPVProvisioners[c.PVProvisioner]; !ok {
 		return fmt.Errorf(
@@ -115,13 +118,11 @@ func (w *Watcher) handleTidbEvent(event *Event) error {
 
 	switch event.Type {
 	case kwatch.Added:
-		logs.Debug("add tidb: %+v", *tidb)
 
 		w.stopChMap[tidb.Metadata.Name] = make(chan struct{})
 		w.tidbs[tidb.Metadata.Name] = tidb
 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
 	case kwatch.Modified:
-		logs.Debug("update tidb: %+v", *tidb)
 		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
@@ -129,7 +130,6 @@ func (w *Watcher) handleTidbEvent(event *Event) error {
 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
 
 	case kwatch.Deleted:
-		logs.Debug("delete tidb: %+v", *tidb)
 		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
@@ -165,7 +165,7 @@ func (w *Watcher) initResource() (string, error) {
 		watchVersion = "0"
 		err          error
 	)
-	if err = w.createTPR(); err != nil {
+	if err = k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
 		return "", fmt.Errorf("fail to create TPR: %v", err)
 	}
 	watchVersion, err = w.findAllTidbs()
@@ -179,14 +179,7 @@ func (w *Watcher) initResource() (string, error) {
 	return watchVersion, nil
 }
 
-func (w *Watcher) createTPR() error {
-	if err := k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
-		return err
-	}
-	return nil
-}
-
-// watch creates a go routine, and watches the cluster.etcd kind resources from
+// watch creates a go routine, and watches the tidb kind resources from
 // the given watch version. It emits events on the resources through the returned
 // event chan. Errors will be reported through the returned error chan. The go routine
 // exits on any error.
@@ -208,20 +201,44 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 			logs.Info("start watching at %v", watchVersion)
 			for {
 				e, ok := <-resp.ResultChan()
+				// no more values to receive and the channel is closed
 				if !ok {
 					break
 				}
-				logs.Debug("tidb cluster event: %v %v", e.Type, e.Object)
+				logs.Debug("tidb event: %v %v", e.Type, e.Object)
+				ev, st := parse(e)
+				if st != nil {
+					resp.Stop()
 
-				// eventCh <- ev
+					if st.Code == http.StatusGone {
+						// event history is outdated.
+						// if nothing has changed, we can go back to watch again.
+						tidbList, err := models.GetAllDbs()
+						if err == nil && !w.isTidbsCacheUnstable(tidbList.Items) {
+							watchVersion = tidbList.Metadata.ResourceVersion
+							break
+						}
+
+						// if anything has changed (or error on relist), we have to rebuild the state.
+						// go to recovery path
+						errCh <- ErrVersionOutdated
+						return
+					}
+
+					logs.Critical("unexpected status response from API server: %v", st.Message)
+				}
+
+				watchVersion = ev.Object.Metadata.ResourceVersion
+				eventCh <- ev
 			}
+			errCh <- errors.New("test")
 		}
 	}()
 
 	return eventCh, errCh
 }
 
-func (w *Watcher) isTidbsCacheStale(currentTidbs []models.Db) bool {
+func (w *Watcher) isTidbsCacheUnstable(currentTidbs []models.Db) bool {
 	if len(w.tidbRVs) != len(currentTidbs) {
 		return true
 	}

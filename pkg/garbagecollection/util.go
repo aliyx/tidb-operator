@@ -1,46 +1,28 @@
 package garbagecollection
 
 import (
-	"encoding/json"
 	"time"
 
+	"github.com/ffan/tidb-k8s/models"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 )
 
-type rawEvent struct {
-	Type   kwatch.EventType
-	Object json.RawMessage
+func parse(e watch.Event) (*Event, *metav1.Status) {
+	if e.Type == kwatch.Error {
+		status := e.Object.(*metav1.Status)
+		return nil, status
+	}
+
+	db := e.Object.(*models.Db)
+	ev := &Event{
+		Type:   e.Type,
+		Object: db,
+	}
+	return ev, nil
 }
-
-// func pollEvent(e *json.Decoder) (*Event, *metav1.Status, error) {
-// 	re := &rawEvent{}
-// 	err := decoder.Decode(re)
-// 	if err != nil {
-// 		if err == io.EOF {
-// 			return nil, nil, err
-// 		}
-// 		return nil, nil, fmt.Errorf("fail to decode raw event from apiserver (%v)", err)
-// 	}
-
-// 	if re.Type == kwatch.Error {
-// 		status := &metav1.Status{}
-// 		err = json.Unmarshal(re.Object, status)
-// 		if err != nil {
-// 			return nil, nil, fmt.Errorf("fail to decode (%s) into metav1.Status (%v)", re.Object, err)
-// 		}
-// 		return nil, status, nil
-// 	}
-
-// 	ev := &Event{
-// 		Type:   re.Type,
-// 		Object: &models.Db{},
-// 	}
-// 	err = json.Unmarshal(re.Object, ev.Object)
-// 	if err != nil {
-// 		return nil, nil, fmt.Errorf("fail to unmarshal Cluster object from data (%s): %v", re.Object, err)
-// 	}
-// 	return ev, nil, nil
-// }
 
 // panicTimer panics when it reaches the given duration.
 type panicTimer struct {

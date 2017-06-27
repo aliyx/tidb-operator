@@ -196,6 +196,9 @@ func initMetadataIfNot() {
 	ms.K8s.Proxys = strings.Join(ps, ",")
 
 	m := &Metadata{
+		TypeMeta: metav1.TypeMeta{
+			Kind: spec.TPRKindMetadata,
+		},
 		Metadata: metav1.ObjectMeta{
 			Name: "metadata",
 		},

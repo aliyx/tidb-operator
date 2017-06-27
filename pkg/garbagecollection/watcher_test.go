@@ -21,11 +21,15 @@ func TestWatcher_Run(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	w := New(Config{
+	c := Config{
 		Namespace:     "default",
 		PVProvisioner: "local",
 		tprclient:     tpr,
-	})
+	}
+	if err = c.Validate(); err != nil {
+		t.Error(err)
+	}
+	w := New(c)
 	if err := w.Run(); err != nil {
 		t.Error(err)
 	}

@@ -6,11 +6,11 @@ import (
 
 const (
 	// TPRKindMetadata metadata
-	TPRKindMetadata = "metadata"
+	TPRKindMetadata = "Metadata"
 	// TPRKindTidb tidb
-	TPRKindTidb = "tidb"
+	TPRKindTidb = "Tidb"
 	// TPRKindEvent event type
-	TPRKindEvent = "event"
+	TPRKindEvent = "Event"
 	// TPRGroup all resources group
 	TPRGroup = "tidb.ffan.com"
 	// TPRVersion current version is beta

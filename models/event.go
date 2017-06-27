@@ -89,6 +89,9 @@ func (e *Event) save() error {
 			return err
 		}
 		es = &Events{
+			TypeMeta: metav1.TypeMeta{
+				Kind: spec.TPRKindEvent,
+			},
 			Metadata: metav1.ObjectMeta{
 				Name: e.Cell,
 			},
