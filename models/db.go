@@ -60,8 +60,8 @@ const (
 	migStartMigrateErr = "StartMigrationTaskError"
 
 	stopTidbTimeout                   = 60 // 60s
-	waitPodRuningTimeout              = 60 * time.Second
-	waitTidbComponentAvailableTimeout = 60 * time.Second
+	waitPodRuningTimeout              = 180 * time.Second
+	waitTidbComponentAvailableTimeout = 180 * time.Second
 
 	scaling      = 1 << 8
 	tikvScaleErr = 1

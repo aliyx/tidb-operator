@@ -21,6 +21,7 @@ import (
 var initData = `
 versions:
 - rc2
+- rc3
 - latest
 pd:
   cpu: 500
