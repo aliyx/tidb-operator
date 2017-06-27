@@ -44,7 +44,7 @@ func (db *Db) Save() error {
 	db.Metadata.Name = uniqueID(db.Owner.ID, db.Schema.Name)
 	db.TypeMeta = metav1.TypeMeta{
 		Kind:       spec.TPRKindTidb,
-		APIVersion: spec.TPRVersion,
+		APIVersion: spec.APIVersion,
 	}
 	if err := db.check(); err != nil {
 		return err

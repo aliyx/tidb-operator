@@ -199,7 +199,7 @@ func initMetadataIfNot() {
 	m := &Metadata{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       spec.TPRKindMetadata,
-			APIVersion: spec.TPRVersion,
+			APIVersion: spec.APIVersion,
 		},
 		Metadata: metav1.ObjectMeta{
 			Name: "metadata",

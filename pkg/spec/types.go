@@ -17,6 +17,8 @@ const (
 	TPRVersion = "v1beta1"
 	// TPRDescription a trp desc
 	TPRDescription = "Manage tidb cluster"
+	// APIVersion tpr api version
+	APIVersion = TPRGroup + "/" + TPRVersion
 )
 
 // Resource tpr
