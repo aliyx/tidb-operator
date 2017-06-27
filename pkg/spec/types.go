@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	// TPRKindMetadata metadata
+	// TPRKindMetadata metadata TPR schema
 	TPRKindMetadata = "Metadata"
-	// TPRKindTidb tidb
+	// TPRKindTidb tidb TPR schema
 	TPRKindTidb = "Tidb"
-	// TPRKindEvent event type
+	// TPRKindEvent event TPR schema
 	TPRKindEvent = "Event"
 	// TPRGroup all resources group
 	TPRGroup = "tidb.ffan.com"

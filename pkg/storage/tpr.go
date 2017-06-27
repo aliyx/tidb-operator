@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"errors"
 
@@ -159,7 +160,7 @@ func NewStorage(namespace, name string) (*Storage, error) {
 	}
 	return &Storage{
 		Namespace: namespace,
-		Name:      name,
+		Name:      strings.ToLower(name),
 		tprClient: cli,
 	}, nil
 }

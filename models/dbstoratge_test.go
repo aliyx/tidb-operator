@@ -69,27 +69,12 @@ func TestGetDb(t *testing.T) {
 }
 
 func TestGetDbs(t *testing.T) {
-	type args struct {
-		userID string
+	dbs, err := GetDbs("admin")
+	if err != nil {
+		t.Error(err)
 	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []*Db
-		wantErr bool
-	}{
-	// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetDbs(tt.args.userID)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetDbs() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetDbs() = %v, want %v", got, tt.want)
-			}
-		})
+	fmt.Println(len(dbs))
+	for _, db := range dbs {
+		fmt.Printf("%+v", db)
 	}
 }
