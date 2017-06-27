@@ -228,6 +228,11 @@ func (m *Metadata) CreateOrUpdate() (err error) {
 	return metaS.Update(m.Metadata.Name, m)
 }
 
+// Update update metadata
+func (m *Metadata) Update() (err error) {
+	return metaS.Update(m.Metadata.Name, m)
+}
+
 func (m *Metadata) adjust() (err error) {
 	m.Spec.Pd.Max = 3
 	return nil

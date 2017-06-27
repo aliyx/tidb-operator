@@ -46,10 +46,11 @@ func (mc *MetadataController) PutAll() {
 	if err := json.Unmarshal(mc.Ctx.Input.RequestBody, md); err != nil {
 		mc.CustomAbort(400, fmt.Sprintf("Parse body for metadata error: %v", err))
 	}
-	if err := md.CreateOrUpdate(); err != nil {
-		logs.Error("Cannt update all meatadata: %v", err)
-		mc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt update all meatadata: %v", err))
-	}
+	errHandler(
+		mc.Controller,
+		md.Update(),
+		fmt.Sprintf("update all meatadata"),
+	)
 }
 
 // Get 获取metadata子元素
