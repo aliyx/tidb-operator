@@ -351,6 +351,9 @@
         }
     },
     "definitions": {
+        ".EventType": {
+            "type": "object"
+        },
         ".Mutex": {
             "type": "object"
         },
@@ -373,6 +376,18 @@
                 "total": {
                     "type": "integer",
                     "format": "int64"
+                }
+            }
+        },
+        "garbagecollection.Event": {
+            "title": "Event",
+            "type": "object",
+            "properties": {
+                "Object": {
+                    "$ref": "#/definitions/models.Db"
+                },
+                "Type": {
+                    "$ref": "#/definitions/kwatch.EventType"
                 }
             }
         },
@@ -414,35 +429,6 @@
                 },
                 "tikv": {
                     "$ref": "#/definitions/models.Tikv"
-                }
-            }
-        },
-        "models.Event": {
-            "title": "Event",
-            "type": "object",
-            "properties": {
-                "cell": {
-                    "type": "string"
-                },
-                "first": {
-                    "type": "string",
-                    "format": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "last": {
-                    "type": "string",
-                    "format": "string"
-                },
-                "msg": {
-                    "type": "string"
-                },
-                "sc": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
                 }
             }
         },
@@ -772,7 +758,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/35475.Store"
+                    "$ref": "#/definitions/54488.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"

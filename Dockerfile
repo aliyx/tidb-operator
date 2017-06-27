@@ -2,15 +2,15 @@ FROM golang:1.8
 
 MAINTAINER yangxin45
 
-ENV TIDB_K8S $GOPATH/src/github.com/ffan/tidb-k8s
-RUN mkdir -p $TIDB_K8S
+ENV TIDB $GOPATH/src/github.com/ffan/tidb-operator
+RUN mkdir -p $TIDB
 
-ADD . $TIDB_K8S
+ADD . $TIDB
 
 # Compile the binary and statically link
-RUN cd $TIDB_K8S && CGO_ENABLED=0 go build -ldflags '-d -w -s'
+RUN cd $TIDB && CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
-ENV PATH $TIDB_K8S:$PATH
-WORKDIR $TIDB_K8S
+ENV PATH $TIDB:$PATH
+WORKDIR $TIDB
 
-CMD ["tidb-k8s"]
+CMD ["tidb-operator"]

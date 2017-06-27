@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/pkg/spec"
-	"github.com/ffan/tidb-k8s/pkg/util/constants"
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/util/constants"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 )

@@ -1,4 +1,4 @@
-package: github.com/ffan/tidb-k8s
+package: github.com/ffan/tidb-operator
 import:
 - package: github.com/astaxie/beego
   version: v1.8.3

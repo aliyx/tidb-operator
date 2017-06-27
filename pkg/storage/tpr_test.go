@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

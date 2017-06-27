@@ -2,14 +2,14 @@
 
 # set -x
 
-if [ -f "/tmp/tidb-k8s.pid" ]
+if [ -f "/tmp/tidb-operator.pid" ]
 then
-  pid=$(cat /tmp/tidb-k8s.pid)
+  pid=$(cat /tmp/tidb-operator.pid)
   if [ ! -z "$pid" ]; then
     kill -9 $pid
-    echo "stop old tidb-k8s server..."
+    echo "stop old tidb-operator server..."
   fi
-  rm /tmp/tidb-k8s.pid
+  rm /tmp/tidb-operator.pid
 fi
 
 function fail() {
@@ -43,8 +43,8 @@ fi
 
 top=$(pwd)
 # top sanity check
-if [[ "$top" == "${top/\/src\/github.com\/ffan\/tidb-k8s/}" ]]; then
-  fail "top($top) does not contain src/github.com/ffan/tidb-k8s"
+if [[ "$top" == "${top/\/src\/github.com\/ffan\/tidb-operator/}" ]]; then
+  fail "top($top) does not contain src/github.com/ffan/tidb-operator"
 fi
 
 go version 2>&1 >/dev/null || fail "Go is not installed or is not on \$PATH"
@@ -53,9 +53,9 @@ set -e
 
 CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
-if ! [ -f tidb-k8s ]; then
+if ! [ -f tidb-operator ]; then
   fail "build failed"
 fi
 
 # start
-./tidb-k8s & echo $! > /tmp/tidb-k8s.pid
+./tidb-operator & echo $! > /tmp/tidb-operator.pid

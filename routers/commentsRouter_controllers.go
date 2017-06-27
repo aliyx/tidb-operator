@@ -7,7 +7,7 @@ import (
 
 func init() {
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"],
 		beego.ControllerComments{
 			Method: "GetAll",
 			Router: `/`,
@@ -15,7 +15,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"],
 		beego.ControllerComments{
 			Method: "PutAll",
 			Router: `/`,
@@ -23,7 +23,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:MetadataController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:MetadataController"],
 		beego.ControllerComments{
 			Method: "Get",
 			Router: `/:key`,
@@ -31,7 +31,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Post",
 			Router: `/`,
@@ -39,7 +39,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Delete",
 			Router: `/:cell`,
@@ -47,7 +47,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Get",
 			Router: `/:cell`,
@@ -55,7 +55,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "CheckResources",
 			Router: `/:user/limit`,
@@ -63,7 +63,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Patch",
 			Router: `/:cell/scale`,
@@ -71,7 +71,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Migrate",
 			Router: `/:cell/migrate`,
@@ -79,7 +79,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "GetEvents",
 			Router: `/:cell/events`,
@@ -87,7 +87,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:TidbController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:TidbController"],
 		beego.ControllerComments{
 			Method: "Status",
 			Router: `/:cell/status`,
@@ -95,7 +95,7 @@ func init() {
 			MethodParams: param.Make(),
 			Params: nil})
 
-	beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-k8s/controllers:UserController"],
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:UserController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/controllers:UserController"],
 		beego.ControllerComments{
 			Method: "GetAll",
 			Router: `/:user/tidbs`,

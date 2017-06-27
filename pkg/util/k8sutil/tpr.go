@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/spec"
-	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"

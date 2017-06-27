@@ -16,16 +16,16 @@ k8s=${K8sAddr:-$ip}
 env=${RunMode:-'dev'}
 
 echo "****************************"
-echo "*Creating tidb-k8s namespace: $NS"
+echo "*Creating tidb-operator namespace: $NS"
 echo "*  Etcd address: $etcd"
 echo "*  Run mode: $env"
 echo "****************************"
 
-# Create the tidb-k8s service and deployment.
+# Create the tidb-operator service and deployment.
 sed_script=""
 for var in etcd k8s version registry env; do
   sed_script+="s,{{$var}},${!var},g;"
 done
-echo "Creating tidb-k8s service/deployment..."
+echo "Creating tidb-operator service/deployment..."
 cat tk-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 

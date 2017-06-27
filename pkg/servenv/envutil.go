@@ -7,12 +7,12 @@ import (
 	"runtime"
 )
 
-// Root 返回当前项目的root目录
+// Root returns the root directory of the current project
 func Root() string {
-	return fmt.Sprintf("%s/src/github.com/ffan/tidb-k8s", GOPATH())
+	return fmt.Sprintf("%s/src/github.com/ffan/tidb-operator", GOPATH())
 }
 
-// GOPATH 获取当前的GOPATH
+// GOPATH gets the current GOPATH
 func GOPATH() string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {

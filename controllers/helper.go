@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/pkg/storage"
+	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/pkg/storage"
 )
 
 func err2httpStatuscode(err error) (code int) {

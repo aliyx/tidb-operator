@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/astaxie/beego"
-	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/pkg/spec"
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 )
 
 func TestMain(m *testing.M) {

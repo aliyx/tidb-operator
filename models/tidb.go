@@ -7,12 +7,12 @@ import (
 
 	"github.com/astaxie/beego/logs"
 
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
-	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
 	"sync"
 
-	"github.com/ffan/tidb-k8s/pkg/util/httputil"
+	"github.com/ffan/tidb-operator/pkg/util/httputil"
 	"github.com/ghodss/yaml"
 )
 

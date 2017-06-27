@@ -7,8 +7,8 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/servenv"
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/pkg/servenv"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 )
 
 var (
@@ -24,7 +24,7 @@ func Init() {
 
 	defer func() {
 		if err := recover(); err != nil {
-			logs.Critical("Init tidb-k8s error: %v", err)
+			logs.Critical("Init tidb-operator error: %v", err)
 			os.Exit(1)
 		}
 	}()

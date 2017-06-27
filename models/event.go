@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/spec"
-	"github.com/ffan/tidb-k8s/pkg/storage"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/storage"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

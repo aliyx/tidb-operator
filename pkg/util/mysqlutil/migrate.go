@@ -9,7 +9,7 @@ import (
 	"errors"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/servenv"
+	"github.com/ffan/tidb-operator/pkg/servenv"
 )
 
 var (

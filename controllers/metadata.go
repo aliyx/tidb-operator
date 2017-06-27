@@ -7,7 +7,7 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models"
+	"github.com/ffan/tidb-operator/models"
 )
 
 // Operations about metadata

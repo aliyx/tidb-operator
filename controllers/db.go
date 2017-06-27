@@ -7,8 +7,8 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/models"
-	"github.com/ffan/tidb-k8s/pkg/util/mysqlutil"
+	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
 
 var (

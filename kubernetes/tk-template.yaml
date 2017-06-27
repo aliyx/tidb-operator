@@ -2,31 +2,31 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    app: tidb-k8s
-  name: tidb-k8s
+    app: tidb-operator
+  name: tidb-operator
   namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: tidb-k8s
+  name: tidb-operator
   labels:
-    app: tidb-k8s
+    app: tidb-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: tidb-k8s
+  name: tidb-operator
   namespace: kube-system
 ---
 kind: Service
 apiVersion: v1
 metadata:
   labels:
-    app: tidb-k8s
-  name: tidb-k8s
+    app: tidb-operator
+  name: tidb-operator
   namespace: kube-system
 spec:
   type: NodePort
@@ -35,25 +35,25 @@ spec:
     targetPort: 10228
     nodePort: 12808
   selector:
-    app: tidb-k8s
+    app: tidb-operator
 ---
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   labels:
-    app: tidb-k8s
-  name: tidb-k8s
+    app: tidb-operator
+  name: tidb-operator
   namespace: kube-system
 spec:
   replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: tidb-k8s
+      app: tidb-operator
   template:
     metadata:
       labels:
-        app: tidb-k8s
+        app: tidb-operator
     spec:
       volumes:
       - name: zone
@@ -67,13 +67,13 @@ spec:
           export K8sAddr={{k8s}}
           export HTTPAddr=${POD_IP}
           export ForceInitMd=false
-          tidb-k8s
-        image: {{registry}}/tidb-k8s:{{version}}
+          tidb-operator
+        image: {{registry}}/tidb-operator:{{version}}
         imagePullPolicy: Always
         volumeMounts:
           - name: zone
             mountPath: /etc/localtime
-        name: tidb-k8s
+        name: tidb-operator
         resources:
           requests:
             cpu: 250m

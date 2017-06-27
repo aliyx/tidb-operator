@@ -17,7 +17,7 @@ y.output
 # vendor/*/
 
 lastupdate.tmp
-tidb-k8s
+tidb-operator
 
 # ./mysql/bin
 # ./mysql/conf

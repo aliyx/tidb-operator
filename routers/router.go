@@ -1,7 +1,7 @@
 package routers
 
 import (
-	"github.com/ffan/tidb-k8s/controllers"
+	"github.com/ffan/tidb-operator/controllers"
 
 	"github.com/astaxie/beego"
 )

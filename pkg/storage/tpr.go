@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/spec"
-	"github.com/ffan/tidb-k8s/pkg/util/k8sutil"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 )

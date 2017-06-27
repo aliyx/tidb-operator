@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-k8s/pkg/util/httputil"
+	"github.com/ffan/tidb-operator/pkg/util/httputil"
 	"github.com/tidwall/gjson"
 )
 

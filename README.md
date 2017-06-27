@@ -1,6 +1,6 @@
-# Tidb-k8s
+# tidb-operator
 
-Tidb-k8s manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic scale, all operations web.
+tidb-operator manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, support online dynamic scale, all operations web.
 
 ## Build images
 
