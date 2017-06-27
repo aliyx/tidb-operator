@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"strings"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-k8s/pkg/spec"
 	"github.com/ffan/tidb-k8s/pkg/util/retryutil"
@@ -18,7 +20,7 @@ import (
 func CreateTPR(name string) error {
 	tpr := &v1beta1extensions.ThirdPartyResource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", name, spec.TPRGroup),
+			Name: fmt.Sprintf("%s.%s", strings.ToLower(name), spec.TPRGroup),
 		},
 		Versions: []v1beta1extensions.APIVersion{
 			{Name: spec.TPRVersion},
