@@ -10,6 +10,7 @@ import (
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -41,7 +42,10 @@ func dbInit() {
 // Save db
 func (db *Db) Save() error {
 	db.Metadata.Name = uniqueID(db.Owner.ID, db.Schema.Name)
-	db.Kind = spec.TPRKindTidb
+	db.TypeMeta = metav1.TypeMeta{
+		Kind:       spec.TPRKindTidb,
+		APIVersion: spec.TPRVersion,
+	}
 	if err := db.check(); err != nil {
 		return err
 	}
