@@ -37,6 +37,14 @@ func TestDb_Save(t *testing.T) {
 				Version:  "latest",
 				Replicas: 3,
 			},
+			Stores: map[string]*Store{
+				"tikv-test-001": &Store{
+					Node: "localhost.localdomain",
+				},
+				"tikv-test-002": &Store{
+					Node: "localhost.localdomain",
+				},
+			},
 		},
 		Tidb: &Tidb{
 			Spec: Spec{
@@ -48,7 +56,6 @@ func TestDb_Save(t *testing.T) {
 	if err := db.Save(); err != nil {
 		t.Error(err)
 	}
-	fmt.Printf("%+v", *db)
 }
 
 func TestGetDb(t *testing.T) {

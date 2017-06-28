@@ -1,9 +1,12 @@
 package garbagecollection
 
 import (
+	"os"
 	"time"
 
+	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/pkg/util/prometheusutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -50,4 +53,81 @@ func (pt *panicTimer) stop() {
 		pt.t.Stop()
 		pt.t = nil
 	}
+}
+
+func gc(o, n *models.Db, pv PVProvisioner) (err error) {
+	// if err = gcPd(o, n); err != nil {
+	// 	return err
+	// }
+	if err = gcTikv(o, n, pv); err != nil {
+		return err
+	}
+	if err = gcTidb(o, n); err != nil {
+		return err
+	}
+	return nil
+}
+
+func gcPd(o, n *models.Db) error {
+	if n != nil {
+		return nil
+	}
+	if err := prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
+		return err
+	}
+	return nil
+}
+
+func gcTikv(o, n *models.Db, pv PVProvisioner) error {
+	if o == nil || o.Tikv == nil || len(o.Tikv.Stores) == 0 {
+		return nil
+	}
+
+	// get deleted tikv
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	deleted := make(map[string]*models.Store)
+	if n == nil || n.Tikv == nil || len(n.Tikv.Stores) == 0 {
+		deleted = o.Tikv.Stores
+	} else {
+		newSs := n.Tikv.Stores
+		for id, oldS := range o.Tikv.Stores {
+			_, ok := newSs[id]
+			if !ok {
+				deleted[id] = oldS
+			}
+		}
+	}
+
+	// recycle
+
+	for id, s := range deleted {
+		logs.Debug("%s %s", hostname, id)
+		if s.Node == hostname {
+			logs.Info("recycling tikv: %s", id)
+			if err = pv.Recycling(id); err != nil {
+				return err
+			}
+		}
+	}
+
+	if n == nil {
+		if err = prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func gcTidb(o, n *models.Db) error {
+	if n != nil {
+		return nil
+	}
+	if err := prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
+		return err
+	}
+	return nil
 }

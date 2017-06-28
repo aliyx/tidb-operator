@@ -50,7 +50,7 @@ func (dc *TidbController) Post() {
 	dc.ServeJSON()
 }
 
-// Delete 删除tidb
+// Delete delete tidb
 // @Title Delete tidb
 // @Description delete the tidb from user
 // @Param	cell	path 	string	true "The cell you want to delete"
@@ -62,12 +62,10 @@ func (dc *TidbController) Delete() {
 	if len(cell) < 1 {
 		dc.CustomAbort(403, "tidb name is nil")
 	}
-	db := models.NewDb()
-	db.Metadata.Name = cell
 	errHandler(
 		dc.Controller,
-		db.Delete(),
-		fmt.Sprintf("Delete tidb %s", db.Metadata.Name),
+		models.Delete(cell),
+		fmt.Sprintf("delete tidb %s", cell),
 	)
 	dc.Data["json"] = 1
 	dc.ServeJSON()

@@ -15,21 +15,19 @@ import (
 )
 
 func (p *Pd) uninstall() (err error) {
-	e := NewEvent(p.Db.Metadata.Name, "pd", "uninstall")
 	defer func() {
 		p.Member = 0
 		p.InnerAddresses = nil
 		p.OuterAddresses = nil
-		p.Db.update()
-		if uerr := p.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
+		if err == nil {
+			err = p.Db.update()
 		}
-		e.Trace(err, "Uninstall pd pods")
 	}()
 	if err = k8sutil.DeletePodsBy(p.Db.Metadata.Name, "pd"); err != nil {
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("pd-%s", p.Db.Metadata.Name),
+	if err = k8sutil.DelSrvs(
+		fmt.Sprintf("pd-%s", p.Db.Metadata.Name),
 		fmt.Sprintf("pd-%s-srv", p.Db.Metadata.Name)); err != nil {
 		return err
 	}

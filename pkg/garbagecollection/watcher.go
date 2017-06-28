@@ -11,21 +11,45 @@ import (
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 )
 
 var (
 	supportedPVProvisioners = map[string]struct{}{
-		constants.PVProvisionerLocal: {},
-		constants.PVProvisionerNone:  {},
+		constants.PVProvisionerHostpath: {},
+		constants.PVProvisionerNone:     {},
 	}
+	pvProvisioner PVProvisioner
 
 	// ErrVersionOutdated tidb TPR version outdated
 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
 
 	initRetryWaitTime = 30 * time.Second
+
+	// registry type db to schema for codec
+
+	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	// AddToScheme add user scheme to codec
+	AddToScheme = schemeBuilder.AddToScheme
 )
+
+// addKnownTypes adds the set of types defined in this package to the supplied scheme.
+func addKnownTypes(scheme *runtime.Scheme) error {
+	gvk := schema.GroupVersionKind{
+		Group:   spec.TPRGroup,
+		Version: spec.TPRVersion,
+		Kind:    "Tidb",
+	}
+	scheme.AddKnownTypeWithName(gvk,
+		&models.Db{},
+	)
+	metav1.AddToGroupVersion(scheme, spec.SchemeGroupVersion)
+	return nil
+}
 
 // Event tidb TPR event
 type Event struct {
@@ -39,15 +63,14 @@ type Watcher struct {
 
 	tidbs map[string]*models.Db
 	// Kubernetes resource version of the clusters
-	tidbRVs   map[string]string
-	stopChMap map[string]chan struct{}
+	tidbRVs map[string]string
 }
 
 // Config watch config
 type Config struct {
 	Namespace     string
 	PVProvisioner string
-	tprclient     *rest.RESTClient
+	Tprclient     *rest.RESTClient
 }
 
 // Validate validate config
@@ -61,13 +84,12 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// New new a new watcher isntance
-func New(cfg Config) *Watcher {
+// NewWatcher new a new watcher isntance
+func NewWatcher(cfg Config) *Watcher {
 	return &Watcher{
-		Config:    cfg,
-		tidbs:     make(map[string]*models.Db),
-		tidbRVs:   make(map[string]string),
-		stopChMap: map[string]chan struct{}{},
+		Config:  cfg,
+		tidbs:   make(map[string]*models.Db),
+		tidbRVs: make(map[string]string),
 	}
 }
 
@@ -91,12 +113,6 @@ func (w *Watcher) Run() error {
 
 	logs.Info("starts running from watch version: %s", watchVersion)
 
-	defer func() {
-		for _, stopC := range w.stopChMap {
-			close(stopC)
-		}
-	}()
-
 	eventCh, errCh := w.watch(watchVersion)
 
 	go func() {
@@ -113,31 +129,33 @@ func (w *Watcher) Run() error {
 	return <-errCh
 }
 
-func (w *Watcher) handleTidbEvent(event *Event) error {
+func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 	tidb := event.Object
 
 	switch event.Type {
 	case kwatch.Added:
-
-		w.stopChMap[tidb.Metadata.Name] = make(chan struct{})
 		w.tidbs[tidb.Metadata.Name] = tidb
 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
 	case kwatch.Modified:
 		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		// w.tidbs[tidb.Metadata.Name].Update(clus)
+		if err = gc(w.tidbs[tidb.Metadata.Name], tidb, pvProvisioner); err != nil {
+			return err
+		}
+		w.tidbs[tidb.Metadata.Name] = tidb
 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
-
 	case kwatch.Deleted:
 		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		// w.tidbs[tidb.Metadata.Name].Delete()
+		if err = gc(w.tidbs[tidb.Metadata.Name], nil, pvProvisioner); err != nil {
+			return err
+		}
 		delete(w.tidbs, tidb.Metadata.Name)
 		delete(w.tidbRVs, tidb.Metadata.Name)
 	}
-	return nil
+	return err
 }
 
 func (w *Watcher) findAllTidbs() (string, error) {
@@ -152,7 +170,6 @@ func (w *Watcher) findAllTidbs() (string, error) {
 
 	for i := range tidbList.Items {
 		tidb := tidbList.Items[i]
-		w.stopChMap[tidb.Metadata.Name] = make(chan struct{})
 		w.tidbs[tidb.Metadata.Name] = &tidb
 		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
 	}
@@ -173,8 +190,19 @@ func (w *Watcher) initResource() (string, error) {
 		return "", err
 	}
 
-	if w.Config.PVProvisioner != constants.PVProvisionerNone {
-		// gc tikv
+	switch w.PVProvisioner {
+	case constants.PVProvisionerNone:
+		logs.Info("current pv provisioner is pod.")
+		pvProvisioner = &NilPVProvisioner{}
+	case constants.PVProvisionerHostpath:
+		md, err := models.GetMetadata()
+		if err != nil {
+			return "", err
+		}
+		logs.Info("current pv provisioner is hostpath, path: %s", md.Spec.K8s.Volume)
+		pvProvisioner = &HostPathPVProvisioner{
+			Dir: md.Spec.K8s.Volume,
+		}
 	}
 	return watchVersion, nil
 }
@@ -192,7 +220,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 		defer close(eventCh)
 
 		for {
-			resp, err := k8sutil.WatchTidbs(w.tprclient, w.Namespace, watchVersion)
+			resp, err := k8sutil.WatchTidbs(w.Tprclient, w.Namespace, watchVersion)
 			if err != nil {
 				logs.Error("watch tidb: %v", err)
 				errCh <- err

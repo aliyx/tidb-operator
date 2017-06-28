@@ -51,8 +51,6 @@ const (
 	PhaseTidbInited
 	// PhaseTidbUninstalling being uninstall tidb
 	PhaseTidbUninstalling
-	// PhaseTidbDeleting being delete tidb
-	PhaseTidbDeleting
 )
 
 const (
@@ -120,8 +118,11 @@ func (db *Db) initSchema() (err error) {
 }
 
 // Install tidb
-func Install(cell string, ch chan int) (err error) {
-	var db *Db
+func Install(cell string, ch chan int) error {
+	var (
+		err error
+		db  *Db
+	)
 	if db, err = GetDb(cell); err != nil {
 		logs.Error("get db %s err: %v", cell, err)
 		return err
@@ -136,35 +137,39 @@ func Install(cell string, ch chan int) (err error) {
 			ch <- 0
 		}()
 		if err = db.Pd.install(); err != nil {
-			logs.Error("Install pd %s on k8s err: %v", cell, err)
+			logs.Error("install pd %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.Tikv.install(); err != nil {
-			logs.Error("Install tikv %s on k8s err: %v", cell, err)
+			logs.Error("install tikv %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.Tidb.install(); err != nil {
-			logs.Error("Install tidb %s on k8s err: %v", cell, err)
+			logs.Error("install tidb %s on k8s err: %v", cell, err)
 			return
 		}
 		if err = db.initSchema(); err != nil {
-			logs.Error("Init tidb %s privileges err: %v", cell, err)
+			logs.Error("init tidb %s privileges err: %v", cell, err)
 			return
 		}
 	}()
 	return nil
 }
 
-// Uninstall tidb
-func Uninstall(cell string, ch chan int) (err error) {
+// Uninstall tidb from kubernetes
+func Uninstall(cell string, ch chan int) error {
+	var (
+		err error
+		db  *Db
+	)
 	defer func() {
 		if err != nil {
 			if ch != nil {
+				// fail
 				ch <- 0
 			}
 		}
 	}()
-	var db *Db
 	if db, err = GetDb(cell); err != nil {
 		return err
 	}
@@ -177,7 +182,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 	if err = db.update(); err != nil {
 		return err
 	}
-	// waiting for all pods deleted from k8s
+	// aync waiting for all pods deleted from k8s
 	go func() {
 		e := NewEvent(cell, "db", "uninstall")
 		defer func() {
@@ -192,7 +197,7 @@ func Uninstall(cell string, ch chan int) (err error) {
 			if uerr := db.update(); err != nil {
 				logs.Error("update db error: %", uerr)
 			}
-			e.Trace(err, "Uninstall db all pods/rc/service on k8s")
+			e.Trace(err, "Uninstall tidb all pods/rc/service components on k8s")
 			if ch != nil {
 				ch <- stoped
 			}
@@ -412,36 +417,37 @@ func NeedLimitResources(ID string, kvr, dbr uint) bool {
 type clear func()
 
 // Delete tidb
-func (db *Db) Delete(callbacks ...clear) (err error) {
-	if len(db.Metadata.Name) < 1 {
-		return nil
+func Delete(cell string) error {
+	if len(cell) < 1 {
+		return errors.New("cell is nil")
+	}
+	var (
+		err error
+		db  *Db
+	)
+	if db, err = GetDb(cell); err != nil {
+		return err
 	}
 	ch := make(chan int, 1)
-	if err = Uninstall(db.Metadata.Name, ch); err != nil && err != errNoInstalled {
+	if err = Uninstall(cell, ch); err != nil && err != errNoInstalled {
 		return err
 	}
-	if err = delEventsBy(db.Metadata.Name); err != nil {
-		return err
-	}
+
+	// async wait
 	go func() {
-		db.Status.Phase = PhaseTidbDeleting
-		db.update()
-		// wait end
-		<-ch
-		for {
-			if !started(db.Metadata.Name) {
-				if err := db.delete(); err != nil && err != storage.ErrNoNode {
-					logs.Error("delete tidb error: %v", err)
-					return
-				}
-				if len(callbacks) > 0 {
-					for _, call := range callbacks {
-						call()
-					}
-				}
-				return
-			}
-			time.Sleep(time.Second)
+		// wait uninstalled
+		stoped := <-ch
+		if stoped == 0 {
+			// fail to uninstall tidb, so quit
+			return
+		}
+		if err := db.delete(); err != nil && err != storage.ErrNoNode {
+			logs.Error("delete tidb error: %v", err)
+			return
+		}
+		if err = delEventsBy(db.Metadata.Name); err != nil {
+			logs.Error("delete event error: %v", err)
+			return
 		}
 	}()
 	return nil

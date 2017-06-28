@@ -108,16 +108,14 @@ func (td *Tidb) waitForOk() (err error) {
 }
 
 func (td *Tidb) uninstall() (err error) {
-	e := NewEvent(td.Db.Metadata.Name, "tidb", "uninstall")
 	defer func() {
 		td.Db.Status.MigrateState = ""
 		td.Db.Status.ScaleState = 0
 		td.Db.Status.OuterAddresses = nil
 		td.Db.Status.OuterStatusAddresses = nil
-		if uerr := td.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
+		if err != nil {
+			err = td.Db.update()
 		}
-		e.Trace(err, "Uninstall tidb replicationControllers")
 	}()
 	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", td.Db.Metadata.Name)); err != nil {
 		return err

@@ -115,6 +115,28 @@ func NewTPRClient(group, version string) (*rest.RESTClient, error) {
 	return restcli, nil
 }
 
+// NewTPRClientWithCodecFactory new tpr client with cf
+func NewTPRClientWithCodecFactory(group, version string, cf serializer.CodecFactory) (*rest.RESTClient, error) {
+	config, err := ClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	config.GroupVersion = &schema.GroupVersion{
+		Group:   group,
+		Version: version,
+	}
+	config.APIPath = "/apis"
+	config.ContentType = runtime.ContentTypeJSON
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: cf}
+
+	restcli, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return restcli, nil
+}
+
 // IsKubernetesResourceAlreadyExistError whether it is resource error
 func IsKubernetesResourceAlreadyExistError(err error) bool {
 	return apierrors.IsAlreadyExists(err)
@@ -124,20 +146,6 @@ func IsKubernetesResourceAlreadyExistError(err error) bool {
 func IsKubernetesResourceNotFoundError(err error) bool {
 	return apierrors.IsNotFound(err)
 }
-
-// ClusterListOpt We are using internal api types for cluster related.
-// func ClusterListOpt(clusterName string) metav1.ListOptions {
-// 	return metav1.ListOptions{
-// 		LabelSelector: labels.SelectorFromSet(LabelsForCluster(clusterName)).String(),
-// 	}
-// }
-
-// func LabelsForCluster(clusterName string) map[string]string {
-// 	return map[string]string{
-// 		"etcd_cluster": clusterName,
-// 		"app":          "etcd",
-// 	}
-// }
 
 // CreatePatch creata a patch
 func CreatePatch(o, n, datastruct interface{}) ([]byte, error) {

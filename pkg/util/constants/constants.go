@@ -1,6 +1,6 @@
 package constants
 
 const (
-	PVProvisionerLocal = "local"
-	PVProvisionerNone  = "none"
+	PVProvisionerHostpath = "hostpah"
+	PVProvisionerNone     = "none"
 )

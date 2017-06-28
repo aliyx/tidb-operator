@@ -2,6 +2,7 @@ package spec
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -26,3 +27,11 @@ type Resource struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 }
+
+var (
+	// SchemeGroupVersion all tpr schema group
+	SchemeGroupVersion = schema.GroupVersion{
+		Group:   TPRGroup,
+		Version: TPRVersion,
+	}
+)

@@ -55,8 +55,6 @@ func (db *Db) Save() error {
 	if pods, err := k8sutil.ListPodNames(db.Metadata.Name, ""); err != nil || len(pods) > 1 {
 		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.Metadata.Name, err)
 	}
-	logs.Debug("db: %+v", db)
-
 	if err := dbS.Create(db); err != nil {
 		return err
 	}
@@ -64,6 +62,15 @@ func (db *Db) Save() error {
 }
 
 func (db *Db) check() (err error) {
+	if db.Pd == nil {
+		return errors.New("pd is nil")
+	}
+	if db.Tikv == nil {
+		return errors.New("tikv is nil")
+	}
+	if db.Tidb == nil {
+		return errors.New("tidb is nil")
+	}
 	if err = db.Schema.check(); err != nil {
 		return err
 	}

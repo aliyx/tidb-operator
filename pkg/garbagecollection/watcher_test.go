@@ -4,6 +4,9 @@ import (
 	"os"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+
 	"github.com/astaxie/beego"
 	"github.com/ffan/tidb-operator/models"
 	"github.com/ffan/tidb-operator/pkg/spec"
@@ -17,7 +20,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestWatcher_Run(t *testing.T) {
-	tpr, err := k8sutil.NewTPRClient(spec.TPRGroup, spec.TPRVersion)
+	scheme := runtime.NewScheme()
+	codecs := serializer.NewCodecFactory(scheme)
+	addToScheme(scheme)
+	tpr, err := k8sutil.NewTPRClientWithCodecFactory(spec.TPRGroup, spec.TPRVersion, codecs)
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,7 +35,7 @@ func TestWatcher_Run(t *testing.T) {
 	if err = c.Validate(); err != nil {
 		t.Error(err)
 	}
-	w := New(c)
+	w := NewWatcher(c)
 	if err := w.Run(); err != nil {
 		t.Error(err)
 	}

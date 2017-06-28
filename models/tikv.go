@@ -138,19 +138,17 @@ func (tk *Tikv) waitForOk() (err error) {
 
 func (tk *Tikv) uninstall() (err error) {
 	cell := tk.Db.Metadata.Name
-	e := NewEvent(cell, "tikv", "uninstall")
 	defer func() {
 		tk.Stores = nil
 		tk.Member = 0
 		tk.cur = ""
 		tk.AvailableReplicas = 0
 		tk.ReadyReplicas = 0
-		if uerr := tk.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
+		if err == nil {
+			err = tk.Db.update()
 		}
-		e.Trace(err, fmt.Sprintf("Uninstall tikv %d pods", tk.Spec.Replicas))
 	}()
-	if err := k8sutil.DeletePodsBy(cell, "tikv"); err != nil {
+	if err = k8sutil.DeletePodsBy(cell, "tikv"); err != nil {
 		return err
 	}
 	return err
