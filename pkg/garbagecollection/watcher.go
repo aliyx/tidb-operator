@@ -24,6 +24,8 @@ var (
 		constants.PVProvisionerNone:     {},
 	}
 	pvProvisioner PVProvisioner
+	// NodeName pod's nodeName
+	NodeName string
 
 	// ErrVersionOutdated tidb TPR version outdated
 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")

@@ -1,7 +1,6 @@
 package garbagecollection
 
 import (
-	"os"
 	"time"
 
 	"github.com/astaxie/beego/logs"
@@ -56,9 +55,9 @@ func (pt *panicTimer) stop() {
 }
 
 func gc(o, n *models.Db, pv PVProvisioner) (err error) {
-	// if err = gcPd(o, n); err != nil {
-	// 	return err
-	// }
+	if err = gcPd(o, n); err != nil {
+		return err
+	}
 	if err = gcTikv(o, n, pv); err != nil {
 		return err
 	}
@@ -78,17 +77,13 @@ func gcPd(o, n *models.Db) error {
 	return nil
 }
 
-func gcTikv(o, n *models.Db, pv PVProvisioner) error {
+func gcTikv(o, n *models.Db, pv PVProvisioner) (err error) {
 	if o == nil || o.Tikv == nil || len(o.Tikv.Stores) == 0 {
 		return nil
 	}
 
 	// get deleted tikv
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
 	deleted := make(map[string]*models.Store)
 	if n == nil || n.Tikv == nil || len(n.Tikv.Stores) == 0 {
 		deleted = o.Tikv.Stores
@@ -105,8 +100,7 @@ func gcTikv(o, n *models.Db, pv PVProvisioner) error {
 	// recycle
 
 	for id, s := range deleted {
-		logs.Debug("%s %s", hostname, id)
-		if s.Node == hostname {
+		if s.Node == NodeName {
 			logs.Info("recycling tikv: %s", id)
 			if err = pv.Recycling(id); err != nil {
 				return err

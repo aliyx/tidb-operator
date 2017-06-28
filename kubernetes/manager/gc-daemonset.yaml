@@ -36,6 +36,7 @@ spec:
       - name: datadir
         hostPath:
           path: /tmp
+      serviceAccountName: tidb-gc
       containers:
         - name: tidb-gc
           image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
@@ -59,4 +60,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.template.spec.nodeName
       restartPolicy: Always

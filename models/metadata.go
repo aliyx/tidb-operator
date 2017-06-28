@@ -37,7 +37,7 @@ tidb:
   memory: 1024
   max: 10
 k8s:
-  volume: ""
+  volume: "/tmp"
   proxys: ""
 approvalConditions:
   kvReplicas: 3
@@ -172,6 +172,9 @@ func metaInit() {
 				logs.Critical("sync metadata error: %", err)
 			}
 			md = m
+			if md.Spec.K8s.Volume == "" || md.Spec.K8s.Volume == "/tmp" {
+				logs.Warn("Please specify PV hostpath")
+			}
 			time.Sleep(syncMetadataInterval)
 		}
 	}()

@@ -58,6 +58,7 @@ spec:
       volumes:
       - name: zone
         hostPath: {path: /etc/localtime}
+      serviceAccountName: tidb-operator
       containers:
       - command:
         - bash

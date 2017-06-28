@@ -16,13 +16,14 @@ import (
 func TestMain(m *testing.M) {
 	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
 	models.Init()
+	NodeName, _ = os.Hostname()
 	os.Exit(m.Run())
 }
 
 func TestWatcher_Run(t *testing.T) {
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
-	addToScheme(scheme)
+	AddToScheme(scheme)
 	tpr, err := k8sutil.NewTPRClientWithCodecFactory(spec.TPRGroup, spec.TPRVersion, codecs)
 	if err != nil {
 		t.Error(err)
@@ -30,7 +31,7 @@ func TestWatcher_Run(t *testing.T) {
 	c := Config{
 		Namespace:     "default",
 		PVProvisioner: "local",
-		tprclient:     tpr,
+		Tprclient:     tpr,
 	}
 	if err = c.Validate(); err != nil {
 		t.Error(err)

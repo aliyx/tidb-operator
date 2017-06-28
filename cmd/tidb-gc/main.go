@@ -22,6 +22,18 @@ func main() {
 
 	beego.AppConfig.Set("k8sAddr", os.Getenv("K8S_ADDRESS"))
 
+	// get node name
+	var err error
+	node := os.Getenv("NODE_NAME")
+	if node == "" {
+		// for test
+		node, err = os.Hostname()
+		if err != nil {
+			panic(fmt.Sprintf("get nodeName: %v", err))
+		}
+	}
+	garbagecollection.NodeName = node
+
 	models.Init()
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
@@ -58,7 +70,7 @@ func main() {
 		}
 	}()
 
-	if err := w.Run(); err != nil {
+	if err = w.Run(); err != nil {
 		panic(fmt.Sprintf("run garbage collection watcher: %v", err))
 	}
 }
