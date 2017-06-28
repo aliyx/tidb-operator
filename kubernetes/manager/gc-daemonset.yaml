@@ -1,0 +1,35 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: tidb-gc
+spec:
+  template:
+    metadata:
+      labels:
+        name: tidb-gc
+    spec:
+      volumes:
+         name: datadir
+        {{tidbdata_volume}}
+      containers:
+        - name: pd
+          image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
+          imagePullPolicy: Always
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          command:
+            - bash
+            - "-c"
+            - |
+              tidb-gc
+           volumeMounts:
+          - name: datadir
+            mountPath: /data
+          env: 
+          - name: TZ
+            value: "Asia/Shanghai"
+          - name: MY_NAMESPACE
+            value: "default"
+      restartPolicy: Always

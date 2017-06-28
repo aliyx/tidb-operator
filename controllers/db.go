@@ -111,13 +111,13 @@ func (dc *TidbController) CheckResources() {
 	if err := json.Unmarshal(b, ac); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	limit := models.NeedLimitResources(user, ac.KvReplicas, ac.DbReplicas)
+	limit := models.Limit(user, ac.KvReplicas, ac.DbReplicas)
 	dc.Data["json"] = limit
 	dc.ServeJSON()
 }
 
-// Patch 对指定的tidb进行扩容/缩容
-// @Title ScaleTidbs
+// Patch scale the specified tidb
+// @Title ScaleTidb
 // @Description scale tidb
 // @Param	cell	path	string	true	"The cell for pd name"
 // @Param	body	body 	patch	true	"The body data type is {dbReplica: int, kvReplica: int} for scale content"

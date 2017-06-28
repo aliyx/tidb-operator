@@ -391,8 +391,8 @@ func Scale(cell string, kvReplica, dbReplica int) (err error) {
 	return nil
 }
 
-// NeedLimitResources whether the user creates tidb for approval
-func NeedLimitResources(ID string, kvr, dbr uint) bool {
+// Limit whether the user creates tidb for approval
+func Limit(ID string, kvr, dbr uint) bool {
 	if len(ID) < 1 {
 		return true
 	}

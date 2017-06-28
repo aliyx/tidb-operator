@@ -18,6 +18,7 @@ y.output
 
 lastupdate.tmp
 tidb-operator
+cmd/tidb-gc/tidb-gc
 
 # ./mysql/bin
 # ./mysql/conf
