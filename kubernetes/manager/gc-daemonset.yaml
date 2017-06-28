@@ -1,7 +1,31 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tidb-gc
+  namespace: {{namespace}}
+  labels:
+    app: tidb-gc
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: tidb-gc
+  labels:
+    app: tidb-gc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: tidb-gc
+  namespace: {{namespace}}
+---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: tidb-gc
+  namespace: {{namespace}}
 spec:
   template:
     metadata:
@@ -11,9 +35,9 @@ spec:
       volumes:
       - name: datadir
         hostPath:
-          path: /
+          path: /tmp
       containers:
-        - name: pd
+        - name: tidb-gc
           image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
           imagePullPolicy: Always
           resources:
@@ -27,10 +51,12 @@ spec:
               tidb-gc
           volumeMounts:
           - name: datadir
-            mountPath: /
+            mountPath: /tmp
           env: 
           - name: TZ
             value: "Asia/Shanghai"
           - name: MY_NAMESPACE
-            value: "default"
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
       restartPolicy: Always
