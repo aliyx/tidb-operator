@@ -9,8 +9,9 @@ spec:
         name: tidb-gc
     spec:
       volumes:
-         name: datadir
-        {{tidbdata_volume}}
+      - name: datadir
+        hostPath:
+          path: /
       containers:
         - name: pd
           image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
@@ -24,9 +25,9 @@ spec:
             - "-c"
             - |
               tidb-gc
-           volumeMounts:
+          volumeMounts:
           - name: datadir
-            mountPath: /data
+            mountPath: /
           env: 
           - name: TZ
             value: "Asia/Shanghai"
