@@ -1,23 +1,12 @@
-/interpreter/interpreter
-/interpreter/test
-/parser/parser.go
-/tidb-server/tidb-server
-coverage.out
-.idea/
-*.iml
-*.swp
-*.log
-tags
-temp_parser_file
-y.output
-
 .vscode/
 
 # Go vendored libs
 # vendor/*/
 
 lastupdate.tmp
+
+# binary file
 tidb-operator
 cmd/tidb-gc/tidb-gc
 
-./swagger
+swagger
