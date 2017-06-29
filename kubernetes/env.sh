@@ -9,7 +9,7 @@ KUBECTL=${KUBECTL:-kubectl}
 # Kubernetes api address for $KUBECTL 
 # The default value is 127.0.0.1:8080
 # When the Kubernetes api server is not local, We can easily access the api by edit KUBERNETES_API_SERVER's value
-KUBERNETES_API_SERVER=${KUBERNETES_API_SERVER:-'127.0.0.1:10218'}
+KUBERNETES_API_SERVER=${KUBERNETES_API_SERVER:-'127.0.0.1:8080'}
 
 # Kubernetes namespace for tidb and components.
 NS=${NS:-'default'}
@@ -23,7 +23,7 @@ KUBECTL_OPTIONS="--namespace=$NS --server=$KUBERNETES_API_SERVER"
 # CELLS should be a comma separated list of cells
 CELL=${CELL:-'test'}
 
-DATA_VOLUME=${DATA_VOLUME:-'/tmp'}
+DATA_VOLUME=${DATA_VOLUME:-'/data'}
 
 # image version
 VERSION=${VERSION:-'latest'}

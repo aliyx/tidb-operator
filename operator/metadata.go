@@ -37,7 +37,7 @@ tidb:
   memory: 1024
   max: 10
 k8s:
-  volume: "/tmp"
+  volume: "/data"
   proxys: ""
 approvalConditions:
   kvReplicas: 3
