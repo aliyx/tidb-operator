@@ -26,13 +26,18 @@ Note: Due to GFW reasons, some installation packages and images can not be obtai
 
 Access kubernetes dashboard: {masterid}:10281
 
-## Startup
+### Startup tidb-gc on kubernetes
 
-### Startup tidb-operator on local
+```bash
+./kubernetes/manager/gc-up.sh # run this shell on kubernetes master
+```
+
+## Startup tidb-operator
+
+### Local
 
 ```bash
 bee run -downdoc=true # beego
-./restart.sh
 ```
 
 or
@@ -41,12 +46,12 @@ or
 ./restart.sh
 ```
 
-### Startup tidb-operator on kubernetes
+Access endpoint: 127.0.0.1:12808/swagger
+
+### Kubernetes
 
 Please set your environment variable in `tk-up.sh`.
 
 ```bash
 ./kubernetes/tk-up.sh # run this shell on kubernetes master
 ```
-
-Access endpoint: 127.0.0.1:12808/swagger
