@@ -2,14 +2,12 @@ package garbagecollection
 
 import (
 	"testing"
-
-	"github.com/ffan/tidb-operator/models"
 )
 
 func Test_gc(t *testing.T) {
 	type args struct {
-		o  *models.Db
-		n  *models.Db
+		o  *operator.Db
+		n  *operator.Db
 		pv PVProvisioner
 	}
 	hostpath := &HostPathPVProvisioner{"/tmp"}
@@ -20,22 +18,22 @@ func Test_gc(t *testing.T) {
 	}{
 		{name: "decrease",
 			args: args{
-				o: &models.Db{
-					Tikv: &models.Tikv{
-						Stores: map[string]*models.Store{
-							"tikv-md-test-001": &models.Store{
+				o: &operator.Db{
+					Tikv: &operator.Tikv{
+						Stores: map[string]*operator.Store{
+							"tikv-md-test-001": &operator.Store{
 								Node: "localhost.localdomain",
 							},
-							"tikv-md-test-002": &models.Store{
+							"tikv-md-test-002": &operator.Store{
 								Node: "localhost.localdomain",
 							},
 						},
 					},
 				},
-				n: &models.Db{
-					Tikv: &models.Tikv{
-						Stores: map[string]*models.Store{
-							"tikv-md-test-001": &models.Store{
+				n: &operator.Db{
+					Tikv: &operator.Tikv{
+						Stores: map[string]*operator.Store{
+							"tikv-md-test-001": &operator.Store{
 								Node: "localhost.localdomain",
 							},
 						},
@@ -46,22 +44,22 @@ func Test_gc(t *testing.T) {
 		},
 		{name: "increase",
 			args: args{
-				o: &models.Db{
-					Tikv: &models.Tikv{
-						Stores: map[string]*models.Store{
-							"tikv-mi-test-001": &models.Store{
+				o: &operator.Db{
+					Tikv: &operator.Tikv{
+						Stores: map[string]*operator.Store{
+							"tikv-mi-test-001": &operator.Store{
 								Node: "localhost.localdomain",
 							},
 						},
 					},
 				},
-				n: &models.Db{
-					Tikv: &models.Tikv{
-						Stores: map[string]*models.Store{
-							"tikv-mi-test-001": &models.Store{
+				n: &operator.Db{
+					Tikv: &operator.Tikv{
+						Stores: map[string]*operator.Store{
+							"tikv-mi-test-001": &operator.Store{
 								Node: "localhost.localdomain",
 							},
-							"tikv-mi-test-002": &models.Store{
+							"tikv-mi-test-002": &operator.Store{
 								Node: "localhost.localdomain",
 							},
 						},
@@ -72,17 +70,17 @@ func Test_gc(t *testing.T) {
 		},
 		{name: "delete",
 			args: args{
-				o: &models.Db{
-					Tikv: &models.Tikv{
-						Stores: map[string]*models.Store{
-							"tikv-d-test-001": &models.Store{
+				o: &operator.Db{
+					Tikv: &operator.Tikv{
+						Stores: map[string]*operator.Store{
+							"tikv-d-test-001": &operator.Store{
 								Node: "localhost.localdomain",
 							},
 						},
 					},
 				},
-				n: &models.Db{
-					Tikv: &models.Tikv{},
+				n: &operator.Db{
+					Tikv: &operator.Tikv{},
 				},
 				pv: hostpath,
 			},

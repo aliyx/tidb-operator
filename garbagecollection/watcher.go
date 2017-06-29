@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/models"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -47,7 +46,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		Kind:    "Tidb",
 	}
 	scheme.AddKnownTypeWithName(gvk,
-		&models.Db{},
+		&operator.Db{},
 	)
 	metav1.AddToGroupVersion(scheme, spec.SchemeGroupVersion)
 	return nil
@@ -56,14 +55,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 // Event tidb TPR event
 type Event struct {
 	Type   kwatch.EventType
-	Object *models.Db
+	Object *operator.Db
 }
 
 // Watcher watch tidb cluster changes, and make the appropriate deal
 type Watcher struct {
 	Config
 
-	tidbs map[string]*models.Db
+	tidbs map[string]*operator.Db
 	// Kubernetes resource version of the clusters
 	tidbRVs map[string]string
 }
@@ -90,7 +89,7 @@ func (c *Config) Validate() error {
 func NewWatcher(cfg Config) *Watcher {
 	return &Watcher{
 		Config:  cfg,
-		tidbs:   make(map[string]*models.Db),
+		tidbs:   make(map[string]*operator.Db),
 		tidbRVs: make(map[string]string),
 	}
 }
@@ -162,7 +161,7 @@ func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 
 func (w *Watcher) findAllTidbs() (string, error) {
 	logs.Info("finding existing tidbs...")
-	tidbList, err := models.GetAllDbs()
+	tidbList, err := operator.GetAllDbs()
 	if err != nil {
 		return "", err
 	}
@@ -197,7 +196,7 @@ func (w *Watcher) initResource() (string, error) {
 		logs.Info("current pv provisioner is pod.")
 		pvProvisioner = &NilPVProvisioner{}
 	case constants.PVProvisionerHostpath:
-		md, err := models.GetMetadata()
+		md, err := operator.GetMetadata()
 		if err != nil {
 			return "", err
 		}
@@ -243,7 +242,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 					if st.Code == http.StatusGone {
 						// event history is outdated.
 						// if nothing has changed, we can go back to watch again.
-						tidbList, err := models.GetAllDbs()
+						tidbList, err := operator.GetAllDbs()
 						if err == nil && !w.isTidbsCacheUnstable(tidbList.Items) {
 							watchVersion = tidbList.Metadata.ResourceVersion
 							break
@@ -268,7 +267,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 	return eventCh, errCh
 }
 
-func (w *Watcher) isTidbsCacheUnstable(currentTidbs []models.Db) bool {
+func (w *Watcher) isTidbsCacheUnstable(currentTidbs []operator.Db) bool {
 	if len(w.tidbRVs) != len(currentTidbs) {
 		return true
 	}

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/models"
 	"github.com/ffan/tidb-operator/pkg/util/prometheusutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +17,7 @@ func parse(e watch.Event) (*Event, *metav1.Status) {
 		return nil, status
 	}
 
-	db := e.Object.(*models.Db)
+	db := e.Object.(*operator.Db)
 	ev := &Event{
 		Type:   e.Type,
 		Object: db,
@@ -54,7 +53,7 @@ func (pt *panicTimer) stop() {
 	}
 }
 
-func gc(o, n *models.Db, pv PVProvisioner) (err error) {
+func gc(o, n *operator.Db, pv PVProvisioner) (err error) {
 	if err = gcPd(o, n); err != nil {
 		return err
 	}
@@ -67,7 +66,7 @@ func gc(o, n *models.Db, pv PVProvisioner) (err error) {
 	return nil
 }
 
-func gcPd(o, n *models.Db) error {
+func gcPd(o, n *operator.Db) error {
 	if n != nil {
 		return nil
 	}
@@ -77,14 +76,14 @@ func gcPd(o, n *models.Db) error {
 	return nil
 }
 
-func gcTikv(o, n *models.Db, pv PVProvisioner) (err error) {
+func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 	if o == nil || o.Tikv == nil || len(o.Tikv.Stores) == 0 {
 		return nil
 	}
 
 	// get deleted tikv
 
-	deleted := make(map[string]*models.Store)
+	deleted := make(map[string]*operator.Store)
 	if n == nil || n.Tikv == nil || len(n.Tikv.Stores) == 0 {
 		deleted = o.Tikv.Stores
 	} else {
@@ -116,7 +115,7 @@ func gcTikv(o, n *models.Db, pv PVProvisioner) (err error) {
 	return nil
 }
 
-func gcTidb(o, n *models.Db) error {
+func gcTidb(o, n *operator.Db) error {
 	if n != nil {
 		return nil
 	}

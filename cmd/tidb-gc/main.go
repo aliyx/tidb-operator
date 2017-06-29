@@ -9,7 +9,6 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/garbagecollection"
-	"github.com/ffan/tidb-operator/models"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -34,7 +33,7 @@ func main() {
 	}
 	garbagecollection.NodeName = node
 
-	models.Init()
+	operator.Init()
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
 	garbagecollection.AddToScheme(scheme)

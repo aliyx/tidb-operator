@@ -7,13 +7,12 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/operator"
 
-	_ "github.com/ffan/tidb-operator/routers"
+	_ "github.com/ffan/tidb-operator/operator/routers"
 	_ "github.com/go-sql-driver/mysql"
 
 	"flag"
-
-	"github.com/ffan/tidb-operator/models"
 )
 
 func main() {
@@ -22,15 +21,15 @@ func main() {
 	switch beego.BConfig.RunMode {
 	case "dev":
 		beego.BConfig.WebConfig.DirectoryIndex = true
-		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
+		beego.BConfig.WebConfig.StaticDir["/swagger"] = "operator/swagger"
 	case "test":
 		beego.SetLevel(beego.LevelInformational)
 	case "pord":
 		beego.SetLevel(beego.LevelInformational)
 	}
 
-	models.ParseConfig()
-	models.Init()
+	operator.ParseConfig()
+	operator.Init()
 
 	go beego.Run()
 

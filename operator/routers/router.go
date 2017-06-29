@@ -1,9 +1,8 @@
 package routers
 
 import (
-	"github.com/ffan/tidb-operator/controllers"
-
 	"github.com/astaxie/beego"
+	"github.com/ffan/tidb-operator/operator/controllers"
 )
 
 func init() {

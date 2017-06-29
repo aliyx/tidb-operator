@@ -11,7 +11,7 @@ paths:
       responses:
         "200":
           schema:
-            $ref: '#/definitions/models.Metadata'
+            $ref: '#/definitions/operator.Metadata'
         "404":
           description: not find
         "500":
@@ -27,7 +27,7 @@ paths:
         description: body for metadata content
         required: true
         schema:
-          $ref: '#/definitions/models.Metadata'
+          $ref: '#/definitions/operator.Metadata'
       responses:
         "200": {}
         "400":
@@ -63,7 +63,7 @@ paths:
         description: body for tidb content
         required: true
         schema:
-          $ref: '#/definitions/models.Db'
+          $ref: '#/definitions/operator.Db'
       responses:
         "200": {}
         "403":
@@ -83,7 +83,7 @@ paths:
       responses:
         "200":
           schema:
-            $ref: '#/definitions/models.Db'
+            $ref: '#/definitions/operator.Db'
         "404":
           description: :key not found
     delete:
@@ -117,7 +117,7 @@ paths:
       responses:
         "200":
           schema:
-            $ref: '#/definitions/models.Events'
+            $ref: '#/definitions/operator.Events'
   /tidbs/{cell}/migrate:
     post:
       tags:
@@ -139,7 +139,7 @@ paths:
         description: Body for src mysql
         required: true
         schema:
-          $ref: '#/definitions/mysqlutil.Mysql'
+          $ref: '#/definitions/.Mysql'
       responses:
         "200": {}
         "403":
@@ -204,7 +204,7 @@ paths:
         description: body for resource content
         required: true
         schema:
-          $ref: '#/definitions/models.ApprovalConditions'
+          $ref: '#/definitions/operator.ApprovalConditions'
       responses:
         "200": {}
         "403":
@@ -230,9 +230,9 @@ paths:
         "404":
           description: :user not found
 definitions:
-  .EventType:
-    type: object
   .Mutex:
+    type: object
+  .Mysql:
     type: object
   .ObjectMeta:
     type: object
@@ -245,19 +245,11 @@ definitions:
       tidbs:
         type: array
         items:
-          $ref: '#/definitions/models.Db'
+          $ref: '#/definitions/operator.Db'
       total:
         type: integer
         format: int64
-  garbagecollection.Event:
-    title: Event
-    type: object
-    properties:
-      Object:
-        $ref: '#/definitions/models.Db'
-      Type:
-        $ref: '#/definitions/kwatch.EventType'
-  models.ApprovalConditions:
+  operator.ApprovalConditions:
     title: ApprovalConditions
     type: object
     properties:
@@ -267,35 +259,55 @@ definitions:
       kvr:
         type: integer
         format: int32
-  models.Db:
+  operator.Db:
     title: Db
     type: object
     properties:
       metadata:
         $ref: '#/definitions/metav1.ObjectMeta'
       owner:
-        $ref: '#/definitions/models.Owner'
+        $ref: '#/definitions/operator.Owner'
       pd:
-        $ref: '#/definitions/models.Pd'
+        $ref: '#/definitions/operator.Pd'
       schema:
-        $ref: '#/definitions/models.Schema'
+        $ref: '#/definitions/operator.Schema'
       status:
-        $ref: '#/definitions/models.Status'
+        $ref: '#/definitions/operator.Status'
       tidb:
-        $ref: '#/definitions/models.Tidb'
+        $ref: '#/definitions/operator.Tidb'
       tikv:
-        $ref: '#/definitions/models.Tikv'
-  models.Events:
+        $ref: '#/definitions/operator.Tikv'
+  operator.Event:
+    title: Event
+    type: object
+    properties:
+      cell:
+        type: string
+      first:
+        type: string
+        format: string
+      key:
+        type: string
+      last:
+        type: string
+        format: string
+      msg:
+        type: string
+      sc:
+        type: string
+      type:
+        type: string
+  operator.Events:
     title: Events
     type: object
     properties:
       events:
         type: array
         items:
-          $ref: '#/definitions/models.Event'
+          $ref: '#/definitions/operator.Event'
       metadata:
         $ref: '#/definitions/metav1.ObjectMeta'
-  models.K8s:
+  operator.K8s:
     title: K8s
     type: object
     properties:
@@ -303,7 +315,7 @@ definitions:
         type: string
       volume:
         type: string
-  models.Member:
+  operator.Member:
     title: Member
     type: object
     properties:
@@ -313,34 +325,34 @@ definitions:
       state:
         type: integer
         format: int64
-  models.MetaSpec:
+  operator.MetaSpec:
     title: MetaSpec
     type: object
     properties:
       ac:
-        $ref: '#/definitions/models.ApprovalConditions'
+        $ref: '#/definitions/operator.ApprovalConditions'
       k8s:
-        $ref: '#/definitions/models.K8s'
+        $ref: '#/definitions/operator.K8s'
       pd:
-        $ref: '#/definitions/models.Unit'
+        $ref: '#/definitions/operator.Unit'
       specifications:
         type: array
         items:
-          $ref: '#/definitions/models.Specification'
+          $ref: '#/definitions/operator.Specification'
       tidb:
-        $ref: '#/definitions/models.Unit'
+        $ref: '#/definitions/operator.Unit'
       tikv:
-        $ref: '#/definitions/models.Unit'
+        $ref: '#/definitions/operator.Unit'
       versions: {}
-  models.Metadata:
+  operator.Metadata:
     title: Metadata
     type: object
     properties:
       metadata:
         $ref: '#/definitions/metav1.ObjectMeta'
       spec:
-        $ref: '#/definitions/models.MetaSpec'
-  models.Owner:
+        $ref: '#/definitions/operator.MetaSpec'
+  operator.Owner:
     title: Owner
     type: object
     properties:
@@ -352,7 +364,7 @@ definitions:
         type: string
       userName:
         type: string
-  models.Pd:
+  operator.Pd:
     title: Spec
     type: object
     properties:
@@ -370,7 +382,7 @@ definitions:
         type: integer
         format: int64
       members:
-        $ref: '#/definitions/models.Member'
+        $ref: '#/definitions/operator.Member'
       outerAddresses: {}
       replicas:
         type: integer
@@ -379,9 +391,9 @@ definitions:
         type: string
       version:
         type: string
-  models.Phase:
+  operator.Phase:
     type: object
-  models.Preference:
+  operator.Preference:
     title: Preference
     type: object
     properties:
@@ -390,10 +402,10 @@ definitions:
       name:
         type: string
       replicas:
-        $ref: '#/definitions/models.Replicas'
-  models.Replicas:
+        $ref: '#/definitions/operator.Replicas'
+  operator.Replicas:
     type: object
-  models.Schema:
+  operator.Schema:
     title: Schema
     type: object
     properties:
@@ -403,7 +415,7 @@ definitions:
         type: string
       user:
         type: string
-  models.Spec:
+  operator.Spec:
     title: Spec
     type: object
     properties:
@@ -423,7 +435,7 @@ definitions:
         type: string
       version:
         type: string
-  models.Specification:
+  operator.Specification:
     title: Specification
     type: object
     properties:
@@ -434,8 +446,8 @@ definitions:
       preferences:
         type: array
         items:
-          $ref: '#/definitions/models.Preference'
-  models.Status:
+          $ref: '#/definitions/operator.Preference'
+  operator.Status:
     title: Status
     type: object
     properties:
@@ -448,11 +460,11 @@ definitions:
       outerAddresses: {}
       outerStatusAddresses: {}
       phase:
-        $ref: '#/definitions/models.Phase'
+        $ref: '#/definitions/operator.Phase'
       scaleState:
         type: integer
         format: int64
-  models.Store:
+  operator.Store:
     title: Store
     type: object
     properties:
@@ -466,7 +478,7 @@ definitions:
       state:
         type: integer
         format: int64
-  models.Tidb:
+  operator.Tidb:
     title: Spec
     type: object
     properties:
@@ -486,7 +498,7 @@ definitions:
         type: string
       version:
         type: string
-  models.Tikv:
+  operator.Tikv:
     title: Spec
     type: object
     properties:
@@ -514,12 +526,12 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/54727.Store'
+        $ref: '#/definitions/54755.Store'
       tidbdata_volume:
         type: string
       version:
         type: string
-  models.Unit:
+  operator.Unit:
     title: Unit
     type: object
     properties:
@@ -535,28 +547,13 @@ definitions:
       memory:
         type: integer
         format: int64
-  mysqlutil.Mysql:
-    title: Mysql
-    type: object
-    properties:
-      database:
-        type: string
-      ip:
-        type: string
-      password:
-        type: string
-      port:
-        type: integer
-        format: int64
-      user:
-        type: string
 tags:
 - name: metadata
   description: |
-    Operations about metadata
+    MetadataController operations about metadata
 - name: tidbs
   description: |
-    Operations about tidb
+    TidbController operations about tidb
 - name: users
   description: |
-    Operations about all tidbs
+    UserController operations about all tidbs

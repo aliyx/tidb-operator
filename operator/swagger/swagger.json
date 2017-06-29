@@ -15,7 +15,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/models.Metadata"
+                            "$ref": "#/definitions/operator.Metadata"
                         }
                     },
                     "404": {
@@ -39,7 +39,7 @@
                         "description": "body for metadata content",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Metadata"
+                            "$ref": "#/definitions/operator.Metadata"
                         }
                     }
                 ],
@@ -94,7 +94,7 @@
                         "description": "body for tidb content",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Db"
+                            "$ref": "#/definitions/operator.Db"
                         }
                     }
                 ],
@@ -125,7 +125,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/models.Db"
+                            "$ref": "#/definitions/operator.Db"
                         }
                     },
                     "404": {
@@ -177,7 +177,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/models.Events"
+                            "$ref": "#/definitions/operator.Events"
                         }
                     }
                 }
@@ -210,7 +210,7 @@
                         "description": "Body for src mysql",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/mysqlutil.Mysql"
+                            "$ref": "#/definitions/.Mysql"
                         }
                     }
                 ],
@@ -306,7 +306,7 @@
                         "description": "body for resource content",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.ApprovalConditions"
+                            "$ref": "#/definitions/operator.ApprovalConditions"
                         }
                     }
                 ],
@@ -351,10 +351,10 @@
         }
     },
     "definitions": {
-        ".EventType": {
+        ".Mutex": {
             "type": "object"
         },
-        ".Mutex": {
+        ".Mysql": {
             "type": "object"
         },
         ".ObjectMeta": {
@@ -370,7 +370,7 @@
                 "tidbs": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Db"
+                        "$ref": "#/definitions/operator.Db"
                     }
                 },
                 "total": {
@@ -379,19 +379,7 @@
                 }
             }
         },
-        "garbagecollection.Event": {
-            "title": "Event",
-            "type": "object",
-            "properties": {
-                "Object": {
-                    "$ref": "#/definitions/models.Db"
-                },
-                "Type": {
-                    "$ref": "#/definitions/kwatch.EventType"
-                }
-            }
-        },
-        "models.ApprovalConditions": {
+        "operator.ApprovalConditions": {
             "title": "ApprovalConditions",
             "type": "object",
             "properties": {
@@ -405,7 +393,7 @@
                 }
             }
         },
-        "models.Db": {
+        "operator.Db": {
             "title": "Db",
             "type": "object",
             "properties": {
@@ -413,33 +401,62 @@
                     "$ref": "#/definitions/metav1.ObjectMeta"
                 },
                 "owner": {
-                    "$ref": "#/definitions/models.Owner"
+                    "$ref": "#/definitions/operator.Owner"
                 },
                 "pd": {
-                    "$ref": "#/definitions/models.Pd"
+                    "$ref": "#/definitions/operator.Pd"
                 },
                 "schema": {
-                    "$ref": "#/definitions/models.Schema"
+                    "$ref": "#/definitions/operator.Schema"
                 },
                 "status": {
-                    "$ref": "#/definitions/models.Status"
+                    "$ref": "#/definitions/operator.Status"
                 },
                 "tidb": {
-                    "$ref": "#/definitions/models.Tidb"
+                    "$ref": "#/definitions/operator.Tidb"
                 },
                 "tikv": {
-                    "$ref": "#/definitions/models.Tikv"
+                    "$ref": "#/definitions/operator.Tikv"
                 }
             }
         },
-        "models.Events": {
+        "operator.Event": {
+            "title": "Event",
+            "type": "object",
+            "properties": {
+                "cell": {
+                    "type": "string"
+                },
+                "first": {
+                    "type": "string",
+                    "format": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "last": {
+                    "type": "string",
+                    "format": "string"
+                },
+                "msg": {
+                    "type": "string"
+                },
+                "sc": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "operator.Events": {
             "title": "Events",
             "type": "object",
             "properties": {
                 "events": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Event"
+                        "$ref": "#/definitions/operator.Event"
                     }
                 },
                 "metadata": {
@@ -447,7 +464,7 @@
                 }
             }
         },
-        "models.K8s": {
+        "operator.K8s": {
             "title": "K8s",
             "type": "object",
             "properties": {
@@ -459,7 +476,7 @@
                 }
             }
         },
-        "models.Member": {
+        "operator.Member": {
             "title": "Member",
             "type": "object",
             "properties": {
@@ -473,35 +490,35 @@
                 }
             }
         },
-        "models.MetaSpec": {
+        "operator.MetaSpec": {
             "title": "MetaSpec",
             "type": "object",
             "properties": {
                 "ac": {
-                    "$ref": "#/definitions/models.ApprovalConditions"
+                    "$ref": "#/definitions/operator.ApprovalConditions"
                 },
                 "k8s": {
-                    "$ref": "#/definitions/models.K8s"
+                    "$ref": "#/definitions/operator.K8s"
                 },
                 "pd": {
-                    "$ref": "#/definitions/models.Unit"
+                    "$ref": "#/definitions/operator.Unit"
                 },
                 "specifications": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Specification"
+                        "$ref": "#/definitions/operator.Specification"
                     }
                 },
                 "tidb": {
-                    "$ref": "#/definitions/models.Unit"
+                    "$ref": "#/definitions/operator.Unit"
                 },
                 "tikv": {
-                    "$ref": "#/definitions/models.Unit"
+                    "$ref": "#/definitions/operator.Unit"
                 },
                 "versions": {}
             }
         },
-        "models.Metadata": {
+        "operator.Metadata": {
             "title": "Metadata",
             "type": "object",
             "properties": {
@@ -509,11 +526,11 @@
                     "$ref": "#/definitions/metav1.ObjectMeta"
                 },
                 "spec": {
-                    "$ref": "#/definitions/models.MetaSpec"
+                    "$ref": "#/definitions/operator.MetaSpec"
                 }
             }
         },
-        "models.Owner": {
+        "operator.Owner": {
             "title": "Owner",
             "type": "object",
             "properties": {
@@ -531,7 +548,7 @@
                 }
             }
         },
-        "models.Pd": {
+        "operator.Pd": {
             "title": "Spec",
             "type": "object",
             "properties": {
@@ -553,7 +570,7 @@
                     "format": "int64"
                 },
                 "members": {
-                    "$ref": "#/definitions/models.Member"
+                    "$ref": "#/definitions/operator.Member"
                 },
                 "outerAddresses": {},
                 "replicas": {
@@ -568,10 +585,10 @@
                 }
             }
         },
-        "models.Phase": {
+        "operator.Phase": {
             "type": "object"
         },
-        "models.Preference": {
+        "operator.Preference": {
             "title": "Preference",
             "type": "object",
             "properties": {
@@ -582,14 +599,14 @@
                     "type": "string"
                 },
                 "replicas": {
-                    "$ref": "#/definitions/models.Replicas"
+                    "$ref": "#/definitions/operator.Replicas"
                 }
             }
         },
-        "models.Replicas": {
+        "operator.Replicas": {
             "type": "object"
         },
-        "models.Schema": {
+        "operator.Schema": {
             "title": "Schema",
             "type": "object",
             "properties": {
@@ -604,7 +621,7 @@
                 }
             }
         },
-        "models.Spec": {
+        "operator.Spec": {
             "title": "Spec",
             "type": "object",
             "properties": {
@@ -632,7 +649,7 @@
                 }
             }
         },
-        "models.Specification": {
+        "operator.Specification": {
             "title": "Specification",
             "type": "object",
             "properties": {
@@ -645,12 +662,12 @@
                 "preferences": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.Preference"
+                        "$ref": "#/definitions/operator.Preference"
                     }
                 }
             }
         },
-        "models.Status": {
+        "operator.Status": {
             "title": "Status",
             "type": "object",
             "properties": {
@@ -666,7 +683,7 @@
                 "outerAddresses": {},
                 "outerStatusAddresses": {},
                 "phase": {
-                    "$ref": "#/definitions/models.Phase"
+                    "$ref": "#/definitions/operator.Phase"
                 },
                 "scaleState": {
                     "type": "integer",
@@ -674,7 +691,7 @@
                 }
             }
         },
-        "models.Store": {
+        "operator.Store": {
             "title": "Store",
             "type": "object",
             "properties": {
@@ -694,7 +711,7 @@
                 }
             }
         },
-        "models.Tidb": {
+        "operator.Tidb": {
             "title": "Spec",
             "type": "object",
             "properties": {
@@ -722,7 +739,7 @@
                 }
             }
         },
-        "models.Tikv": {
+        "operator.Tikv": {
             "title": "Spec",
             "type": "object",
             "properties": {
@@ -758,7 +775,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/54727.Store"
+                    "$ref": "#/definitions/54755.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"
@@ -768,7 +785,7 @@
                 }
             }
         },
-        "models.Unit": {
+        "operator.Unit": {
             "title": "Unit",
             "type": "object",
             "properties": {
@@ -789,42 +806,20 @@
                     "format": "int64"
                 }
             }
-        },
-        "mysqlutil.Mysql": {
-            "title": "Mysql",
-            "type": "object",
-            "properties": {
-                "database": {
-                    "type": "string"
-                },
-                "ip": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "user": {
-                    "type": "string"
-                }
-            }
         }
     },
     "tags": [
         {
             "name": "metadata",
-            "description": "Operations about metadata\n"
+            "description": "MetadataController operations about metadata\n"
         },
         {
             "name": "tidbs",
-            "description": "Operations about tidb\n"
+            "description": "TidbController operations about tidb\n"
         },
         {
             "name": "users",
-            "description": "Operations about all tidbs\n"
+            "description": "UserController operations about all tidbs\n"
         }
     ]
 }

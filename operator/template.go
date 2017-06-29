@@ -1,4 +1,4 @@
-package models
+package operator
 
 import "github.com/tidwall/gjson"
 import "fmt"

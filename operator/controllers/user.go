@@ -5,10 +5,10 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/operator"
 )
 
-// Operations about all tidbs
+// UserController operations about all tidbs
 type UserController struct {
 	beego.Controller
 }
@@ -25,7 +25,7 @@ func (uc *UserController) GetAll() {
 	if len(user) < 1 {
 		uc.CustomAbort(403, "user id is nil")
 	}
-	dbs, err := models.GetDbs(user)
+	dbs, err := operator.GetDbs(user)
 	if err != nil {
 		logs.Error("Cannt get %s tidbs: %v", user, err)
 		uc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get %s tidbs: %v", user, err))
@@ -36,6 +36,6 @@ func (uc *UserController) GetAll() {
 
 // Dbs db array
 type Dbs struct {
-	Total int         `json:"total"`
-	Tidbs []models.Db `json:"tidbs"`
+	Total int           `json:"total"`
+	Tidbs []operator.Db `json:"tidbs"`
 }

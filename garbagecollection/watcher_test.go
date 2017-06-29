@@ -8,14 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/astaxie/beego"
-	"github.com/ffan/tidb-operator/models"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 )
 
 func TestMain(m *testing.M) {
 	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
-	models.Init()
+	operator.Init()
 	NodeName, _ = os.Hostname()
 	os.Exit(m.Run())
 }

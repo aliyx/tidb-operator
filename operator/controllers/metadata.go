@@ -7,10 +7,10 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/operator"
 )
 
-// Operations about metadata
+// MetadataController operations about metadata
 type MetadataController struct {
 	beego.Controller
 }
@@ -18,12 +18,12 @@ type MetadataController struct {
 // GetAll 获取完整的metadata
 // @Title GetAll
 // @Description get all metatada
-// @Success 200 {object} models.Metadata
+// @Success 200 {object} operator.Metadata
 // @Failure 404 not find
 // @Failure 500 etcd error
 // @router / [get]
 func (mc *MetadataController) GetAll() {
-	md, err := models.GetMetadata()
+	md, err := operator.GetMetadata()
 	if err != nil {
 		logs.Error("Cannt get all meatadata: %v", err)
 		mc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%v", err))
@@ -36,13 +36,13 @@ func (mc *MetadataController) GetAll() {
 // PutAll 更新metadata
 // @Title Update
 // @Description update the metadata
-// @Param	body	body	models.Metadata	true	"body for metadata content"
+// @Param	body	body	operator.Metadata	true	"body for metadata content"
 // @Success 200
 // @Failure 400 bad request
 // @Failure 500 cannt store metadata
 // @router / [put]
 func (mc *MetadataController) PutAll() {
-	md := models.NewMetadata()
+	md := operator.NewMetadata()
 	if err := json.Unmarshal(mc.Ctx.Input.RequestBody, md); err != nil {
 		mc.CustomAbort(400, fmt.Sprintf("Parse body for metadata error: %v", err))
 	}
@@ -62,7 +62,7 @@ func (mc *MetadataController) PutAll() {
 // @router /:key [get]
 func (mc *MetadataController) Get() {
 	key := mc.GetString(":key")
-	md, err := models.GetMetadata()
+	md, err := operator.GetMetadata()
 	if err != nil {
 		logs.Error("Cannt get meatadata: %v", err)
 		mc.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("Cannt get meatadata: %v", err))

@@ -7,7 +7,7 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/models"
+	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
 
@@ -16,7 +16,7 @@ var (
 	statAPI = "%s:%d/tidb/api/v1/tidbs/%s/status"
 )
 
-// Operations about tidb
+// TidbController operations about tidb
 type TidbController struct {
 	beego.Controller
 }
@@ -24,12 +24,12 @@ type TidbController struct {
 // Post create a tidb
 // @Title CreateTidb
 // @Description create a tidb
-// @Param	body	body 	models.Db	true	"body for tidb content"
+// @Param	body	body 	operator.Db	true	"body for tidb content"
 // @Success 200
 // @Failure 403 body is empty
 // @router / [post]
 func (dc *TidbController) Post() {
-	db := models.NewDb()
+	db := operator.NewDb()
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
 		dc.CustomAbort(403, "body is empty")
@@ -43,8 +43,8 @@ func (dc *TidbController) Post() {
 		fmt.Sprintf("Create tidb %s", db.Schema.Name),
 	)
 	// start is async
-	if db.Status.Phase == models.PhaseUndefined {
-		models.Install(db.Metadata.Name, nil)
+	if db.Status.Phase == operator.PhaseUndefined {
+		operator.Install(db.Metadata.Name, nil)
 	}
 	dc.Data["json"] = db.Metadata.Name
 	dc.ServeJSON()
@@ -64,7 +64,7 @@ func (dc *TidbController) Delete() {
 	}
 	errHandler(
 		dc.Controller,
-		models.Delete(cell),
+		operator.Delete(cell),
 		fmt.Sprintf("delete tidb %s", cell),
 	)
 	dc.Data["json"] = 1
@@ -75,12 +75,12 @@ func (dc *TidbController) Delete() {
 // @Title Get
 // @Description get tidb by cell
 // @Param cell path string true "The cell for tidb name"
-// @Success 200 {object} models.Db
+// @Success 200 {object} operator.Db
 // @Failure 404 :key not found
 // @router /:cell [get]
 func (dc *TidbController) Get() {
 	cell := dc.GetString(":cell")
-	db, err := models.GetDb(cell)
+	db, err := operator.GetDb(cell)
 	errHandler(
 		dc.Controller,
 		err,
@@ -94,7 +94,7 @@ func (dc *TidbController) Get() {
 // @Title CheckResources
 // @Description whether the user creates tidb for approval
 // @Param 	user 	path 	string 	true	"The user id"
-// @Param	body	body 	models.ApprovalConditions	true	"body for resource content"
+// @Param	body	body 	operator.ApprovalConditions	true	"body for resource content"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:user/limit [post]
@@ -103,7 +103,7 @@ func (dc *TidbController) CheckResources() {
 	if len(user) < 1 {
 		dc.CustomAbort(403, "user id is nil")
 	}
-	ac := &models.ApprovalConditions{}
+	ac := &operator.ApprovalConditions{}
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
 		dc.CustomAbort(403, "body is empty")
@@ -111,7 +111,7 @@ func (dc *TidbController) CheckResources() {
 	if err := json.Unmarshal(b, ac); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	limit := models.Limit(user, ac.KvReplicas, ac.DbReplicas)
+	limit := operator.Limit(user, ac.KvReplicas, ac.DbReplicas)
 	dc.Data["json"] = limit
 	dc.ServeJSON()
 }
@@ -132,7 +132,7 @@ func (dc *TidbController) Patch() {
 	}
 	errHandler(
 		dc.Controller,
-		models.Scale(cell, s.KvReplica, s.DbReplica),
+		operator.Scale(cell, s.KvReplica, s.DbReplica),
 		fmt.Sprintf("Scale tidb %s", cell),
 	)
 }
@@ -160,7 +160,7 @@ func (dc *TidbController) Migrate() {
 	if err := json.Unmarshal(b, src); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	db, err := models.GetDb(cell)
+	db, err := operator.GetDb(cell)
 	if err != nil {
 		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
 	}
@@ -176,14 +176,14 @@ func (dc *TidbController) Migrate() {
 // @Title GetEvents
 // @Description get all events
 // @Param	cell	path	string	true	"The cell for tidb name"
-// @Success 200 {object} models.Events
+// @Success 200 {object} operator.Events
 // @router /:cell/events [get]
 func (dc *TidbController) GetEvents() {
 	cell := dc.GetString(":cell")
 	if len(cell) < 1 {
 		dc.CustomAbort(403, "cell is nil")
 	}
-	es, err := models.GetEventsBy(cell)
+	es, err := operator.GetEventsBy(cell)
 	errHandler(
 		dc.Controller,
 		err,
@@ -208,7 +208,7 @@ func (dc *TidbController) Status() {
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
-	db, err := models.GetDb(cell)
+	db, err := operator.GetDb(cell)
 	errHandler(dc.Controller, err, fmt.Sprintf("Get tidb %s", cell))
 	logs.Debug("%s patch: %+v", cell, s)
 	switch s.Type {
@@ -218,7 +218,7 @@ func (dc *TidbController) Status() {
 	case "audit":
 		switch s.Status {
 		case "-2":
-			db.Status.Phase = models.PhaseRefuse
+			db.Status.Phase = operator.PhaseRefuse
 			db.Owner.Reason = s.Desc
 			db.Update()
 		}
@@ -227,19 +227,19 @@ func (dc *TidbController) Status() {
 		case "start":
 			errHandler(
 				dc.Controller,
-				models.Install(cell, nil),
+				operator.Install(cell, nil),
 				fmt.Sprintf("Start installing tidb %s", cell),
 			)
 		case "stop":
 			errHandler(
 				dc.Controller,
-				models.Uninstall(cell, nil),
+				operator.Uninstall(cell, nil),
 				fmt.Sprintf("Start uninstalling tidb %s", cell),
 			)
 		case "retart":
 			errHandler(
 				dc.Controller,
-				models.Reinstall(cell),
+				operator.Reinstall(cell),
 				fmt.Sprintf("Start reinstalling tidb %s", cell),
 			)
 		default:
