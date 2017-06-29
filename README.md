@@ -8,9 +8,14 @@ Build tidb docker images and push to private registry.
 
 * Please configure your development environment `./dev.env`.
 
-* Build docker iamges:
+* Build docker private images:
 
 ```bash
+./docker/tidb-gc/build.sh # build tidb-gc
+./docker/prom-server/build.sh # add prometheus config to image
+./docker/migration/build.sh # migrate mysql to tidb
+
+# build tidb
 ./docker/pd/build.sh
 ./docker/tikv/build.sh
 ./docker/tidb/build.sh
@@ -26,7 +31,7 @@ Note: Due to GFW reasons, some installation packages and images can not be obtai
 
 Access kubernetes dashboard: {masterid}:10281
 
-### Startup tidb-gc on kubernetes
+### Deploy tidb-gc on kubernetes
 
 ```bash
 ./kubernetes/manager/gc-up.sh # run this shell on kubernetes master
