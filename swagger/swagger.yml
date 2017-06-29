@@ -149,7 +149,7 @@ paths:
       tags:
       - tidbs
       description: scale tidb
-      operationId: TidbController.ScaleTidbs
+      operationId: TidbController.ScaleTidb
       parameters:
       - in: path
         name: cell
@@ -514,7 +514,7 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/54488.Store'
+        $ref: '#/definitions/54727.Store'
       tidbdata_volume:
         type: string
       version:

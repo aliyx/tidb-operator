@@ -8,8 +8,8 @@ import (
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/garbagecollection"
 	"github.com/ffan/tidb-operator/models"
-	"github.com/ffan/tidb-operator/pkg/garbagecollection"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"

@@ -228,7 +228,7 @@
                     "tidbs"
                 ],
                 "description": "scale tidb",
-                "operationId": "TidbController.ScaleTidbs",
+                "operationId": "TidbController.ScaleTidb",
                 "parameters": [
                     {
                         "in": "path",
@@ -758,7 +758,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/54488.Store"
+                    "$ref": "#/definitions/54727.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"
