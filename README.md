@@ -28,13 +28,20 @@ Access kubernetes dashboard: {masterid}:10281
 
 ## Startup
 
-### Startup tk on local
+### Startup tidb-operator on local
+
+```bash
+bee run -downdoc=true # beego
+./restart.sh
+```
+
+or
 
 ```bash
 ./restart.sh
 ```
 
-### Startup tk on kubernetes
+### Startup tidb-operator on kubernetes
 
 Please set your environment variable in `tk-up.sh`.
 
