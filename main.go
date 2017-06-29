@@ -13,21 +13,61 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"flag"
+	"strconv"
 )
 
-func main() {
+var (
+	logLevel       int
+	k8sAddress     string
+	httpaddr       string
+	httpport       int
+	enableDocs     bool
+	runmode        string
+	dockerRegistry string
+	forceInitMd    bool
+)
+
+func init() {
+	flag.StringVar(&httpaddr, "http-addr", "0.0.0.0", "The address on which the HTTP server will listen to.")
+	flag.IntVar(&httpport, "http-port", 12808, "The port on which the HTTP server will listen to.")
+	flag.BoolVar(&enableDocs, "enable-docs", false, "???")
+	flag.StringVar(&runmode, "runmode", "dev", "run mode, eg: dev test prod.")
+	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
+	flag.StringVar(&k8sAddress, "k8s-address", "http://10.213.44.128:10218", "Kubernetes api address, if deployed in kubernetes, do not need to set, eg: 'http://127.0.0.1:8080'")
+	flag.StringVar(&dockerRegistry, "docker-registry", "10.209.224.13:10500/ffan/rds", "private docker registry.")
+	flag.BoolVar(&forceInitMd, "init-md", false, "force init metadata.")
+
 	flag.Parse()
+
+	// set logs
+
 	logs.SetLogger("console")
+	logs.SetLogFuncCall(true)
+	logs.SetLevel(logLevel)
+
+	// set env
+
+	beego.BConfig.AppName = "tidb-operator"
+	beego.BConfig.WebConfig.EnableDocs = enableDocs
+	beego.BConfig.RunMode = runmode
+	beego.BConfig.Listen.HTTPAddr = httpaddr
+	beego.BConfig.Listen.HTTPPort = httpport
+	if len(k8sAddress) > 0 {
+		beego.AppConfig.Set("k8sAddr", k8sAddress)
+	}
+	if len(dockerRegistry) > 0 {
+		beego.AppConfig.Set("dockerRegistry", dockerRegistry)
+	}
+	beego.AppConfig.Set("forceInitMd", strconv.FormatBool(forceInitMd))
+
 	switch beego.BConfig.RunMode {
 	case "dev":
 		beego.BConfig.WebConfig.DirectoryIndex = true
 		beego.BConfig.WebConfig.StaticDir["/swagger"] = "operator/swagger"
-	case "test":
-		beego.SetLevel(beego.LevelInformational)
-	case "pord":
-		beego.SetLevel(beego.LevelInformational)
 	}
+}
 
+func main() {
 	operator.ParseConfig()
 	operator.Init()
 

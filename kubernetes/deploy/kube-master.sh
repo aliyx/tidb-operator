@@ -17,8 +17,8 @@ do
 done
 
 # set api-server
-echo 'export KUBERNETES_API_SERVER=127.0.0.1:10218' | sudo tee /etc/profile.d/tidb-operator.sh
-echo 'alias kubectl=kubectl --server=127.0.0.1:10218' | sudo tee -a /etc/profile.d/tidb-operator.sh
+echo "export KUBERNETES_API_SERVER=127.0.0.1:10218" | sudo tee /etc/profile.d/tidb-operator.sh
+echo "alias kubectl='kubectl --server=127.0.0.1:10218'" | sudo tee -a /etc/profile.d/tidb-operator.sh
 
 # see logs
 # journalctl -xeu kubelet

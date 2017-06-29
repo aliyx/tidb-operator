@@ -19,8 +19,9 @@ func DeleteMetricsByJob(job string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode() != 200 {
-		return fmt.Errorf("fail to delete metrics: %v", resp)
+	sc := resp.StatusCode()
+	if sc >= 200 && sc < 400 {
+		logs.Info("metrics %s deleted, statusCode: %d", job, sc)
 	}
-	return nil
+	return fmt.Errorf("fail to delete metrics, statusCode %d: %s", resp.StatusCode(), resp.String())
 }

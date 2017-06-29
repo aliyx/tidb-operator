@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -234,7 +235,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				if !ok {
 					break
 				}
-				logs.Debug("tidb event: %v %v", e.Type, e.Object)
+				logs.Debug("tidb cluster event: %v %#v", e.Type, e.Object)
 				ev, st := parse(e)
 				if st != nil {
 					resp.Stop()

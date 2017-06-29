@@ -14,9 +14,14 @@ import (
 var (
 	forceInitMd   bool
 	imageRegistry string
-	k8sAddr       string
 	onInitHooks   servenv.Hooks
 )
+
+// ParseConfig parse all config
+func ParseConfig() {
+	forceInitMd = beego.AppConfig.DefaultBool("forceInitMd", false)
+	imageRegistry = beego.AppConfig.String("dockerRegistry")
+}
 
 // Init init model
 func Init() {
@@ -33,14 +38,4 @@ func Init() {
 	onInitHooks.Add(dbInit)
 	onInitHooks.Add(eventInit)
 	onInitHooks.Fire()
-}
-
-// ParseConfig parse all config
-func ParseConfig() {
-	k8sAddr = beego.AppConfig.String("k8sAddr")
-	forceInitMd = beego.AppConfig.DefaultBool("forceInitMd", false)
-	imageRegistry = beego.AppConfig.String("dockerRegistry")
-	if imageRegistry == "" {
-		panic("cannt get images registry address")
-	}
 }

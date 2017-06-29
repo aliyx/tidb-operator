@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/util/prometheusutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,6 +98,8 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 	}
 
 	// recycle
+
+	logs.Info("recycled tikv: %+v", deleted)
 
 	for id, s := range deleted {
 		if s.Node == NodeName {

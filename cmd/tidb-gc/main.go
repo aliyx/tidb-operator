@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/garbagecollection"
+	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -16,11 +18,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
-func main() {
+var (
+	logLevel   int
+	k8sAddress string
+)
+
+func init() {
+	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
+	flag.StringVar(&k8sAddress, "k8s-address", "http://10.213.44.128:10218", "Kubernetes api address, if deployed in kubernetes, do not need to set.")
+	flag.Parse()
+
+	// set logs
+
 	logs.SetLogger("console")
+	logs.SetLogFuncCall(true)
+	logs.SetLevel(logs.LevelInfo)
 
-	beego.AppConfig.Set("k8sAddr", os.Getenv("K8S_ADDRESS"))
+	// set env
+	beego.AppConfig.Set("k8sAddr", k8sAddress)
+}
 
+func main() {
 	// get node name
 	var err error
 	node := os.Getenv("NODE_NAME")
