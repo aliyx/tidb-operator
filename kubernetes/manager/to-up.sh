@@ -5,27 +5,23 @@ set -e
 export NS="kube-system"
 
 script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/env.sh
-
-# local ip
-ip="http://$(/sbin/ifconfig eth0 | grep 'netmask ' | cut -d: -f2 | awk '{print $2}'):10218"
+source $script_root/../env.sh
 
 version=${VERSION}
 registry=${REGISTRY}
-k8s=${K8sAddr:-$ip}
-env=${RunMode:-'dev'}
+env=${runMode:-'dev'}
+initMd=${runMode:-'false'}
 
 echo "****************************"
 echo "*Creating tidb-operator namespace: $NS"
-echo "*  Etcd address: $etcd"
 echo "*  Run mode: $env"
 echo "****************************"
 
 # Create the tidb-operator service and deployment.
 sed_script=""
-for var in etcd k8s version registry env; do
+for var in initMd env version registry; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo "Creating tidb-operator service/deployment..."
-cat tk-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+cat to-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 

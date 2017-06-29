@@ -3,12 +3,12 @@
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../../dev.env
 
-VERSION="latest"
-
 set -e
 
+VERSION="latest"
+
 echo "****************************"
-echo "*Starting build ffan/rds/tidb-gc image..."
+echo "*Starting build tidb-gc image..."
 echo "*  Proxy: $DPROXY"
 echo "*  Image: $REGISTRY/ffan/rds/tidb-gc:$VERSION-base"
 echo "****************************" 

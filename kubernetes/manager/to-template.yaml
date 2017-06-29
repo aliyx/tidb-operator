@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  labels:
-    app: tidb-operator
   name: tidb-operator
   namespace: kube-system
+  labels:
+    app: tidb-operator
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -24,15 +24,15 @@ subjects:
 kind: Service
 apiVersion: v1
 metadata:
-  labels:
-    app: tidb-operator
   name: tidb-operator
   namespace: kube-system
+  labels:
+    app: tidb-operator
 spec:
   type: NodePort
   ports:
-  - port: 10228
-    targetPort: 10228
+  - port: 12808
+    targetPort: 12808
     nodePort: 12808
   selector:
     app: tidb-operator
@@ -55,37 +55,33 @@ spec:
       labels:
         app: tidb-operator
     spec:
-      volumes:
-      - name: zone
-        hostPath: {path: /etc/localtime}
       serviceAccountName: tidb-operator
       containers:
-      - command:
-        - bash
-        - "-c"
-        - |
-          export RunMode={{env}}
-          export K8sAddr={{k8s}}
-          export HTTPAddr=${POD_IP}
-          export ForceInitMd=false
-          tidb-operator
-        image: {{registry}}/tidb-operator:{{version}}
-        imagePullPolicy: Always
-        volumeMounts:
-          - name: zone
-            mountPath: /etc/localtime
-        name: tidb-operator
+      - name: tidb-operator
         resources:
-          requests:
+          limits:
             cpu: 250m
+            memory: "256Mi"
         ports:
         - containerPort: 10228
           protocol: TCP
-        env:
-        - name: POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
+        command:
+          - bash
+          - "-c"
+          - |
+            tidb-operator \
+              -runmode={{runMode}} \
+              -http-addr=${POD_IP} \
+              -init-md={{initMd}}
+        image: {{registry}}/tidb-operator:{{version}}
+        imagePullPolicy: Always
+      env:
+      - name: POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: TZ
+        value: "Asia/Shanghai"
       # Comment the following tolerations if Dashboard must not be deployed on master
       tolerations:
       - key: node-role.kubernetes.io/master
