@@ -25,7 +25,7 @@ var (
 
 func init() {
 	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
-	flag.StringVar(&k8sAddress, "k8s-address", "http://10.213.44.128:10218", "Kubernetes api address, if deployed in kubernetes, do not need to set.")
+	flag.StringVar(&k8sAddress, "k8s-address", "", "Kubernetes api address, if deployed in kubernetes, do not need to set.")
 	flag.Parse()
 
 	// set logs

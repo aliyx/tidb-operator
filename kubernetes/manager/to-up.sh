@@ -7,7 +7,8 @@ export NS="kube-system"
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../env.sh
 
-version=${VERSION}
+namespace=$NS
+version=latest
 registry=${REGISTRY}
 env=${runMode:-'dev'}
 initMd=${runMode:-'false'}
@@ -19,7 +20,7 @@ echo "****************************"
 
 # Create the tidb-operator service and deployment.
 sed_script=""
-for var in initMd env version registry; do
+for var in initMd env version registry namespace; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo "Creating tidb-operator service/deployment..."

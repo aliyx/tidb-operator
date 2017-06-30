@@ -38,30 +38,30 @@ spec:
           path: /data
       serviceAccountName: tidb-gc
       containers:
-        - name: tidb-gc
-          image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
-          imagePullPolicy: Always
-          resources:
-            limits:
-              memory: "128Mi"
-              cpu: "100m"
-          command:
-            - bash
-            - "-c"
-            - |
-              tidb-gc
-          volumeMounts:
-          - name: datadir
-            mountPath: /data
-          env: 
-          - name: TZ
-            value: "Asia/Shanghai"
-          - name: MY_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
+      - name: tidb-gc
+        image: 10.209.224.13:10500/ffan/rds/tidb-gc:{{version}}
+        imagePullPolicy: Always
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        command:
+          - bash
+          - "-c"
+          - |
+            tidb-gc
+        volumeMounts:
+        - name: datadir
+          mountPath: /data
+        env: 
+        - name: TZ
+          value: "Asia/Shanghai"
+        - name: MY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
       restartPolicy: Always
