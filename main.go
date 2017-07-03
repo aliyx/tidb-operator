@@ -41,7 +41,7 @@ func init() {
 
 	// set logs
 
-	logs.SetLogger("console")
+	logs.SetLogger(logs.AdapterConsole)
 	logs.SetLogFuncCall(true)
 	logs.SetLevel(logLevel)
 

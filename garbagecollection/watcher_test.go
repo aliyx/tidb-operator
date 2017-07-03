@@ -8,14 +8,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 )
 
 func TestMain(m *testing.M) {
+	logs.SetLogFuncCall(true)
 	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
 	operator.Init()
-	NodeName, _ = os.Hostname()
 	os.Exit(m.Run())
 }
 
@@ -27,7 +29,9 @@ func TestWatcher_Run(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	hostname, _ := os.Hostname()
 	c := Config{
+		HostName:      hostname,
 		Namespace:     "default",
 		PVProvisioner: "local",
 		Tprclient:     tpr,

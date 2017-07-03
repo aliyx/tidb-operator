@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"encoding/json"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/spec"
@@ -24,8 +26,6 @@ var (
 		constants.PVProvisionerNone:     {},
 	}
 	pvProvisioner PVProvisioner
-	// NodeName pod's nodeName
-	NodeName string
 
 	// ErrVersionOutdated tidb TPR version outdated
 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
@@ -70,6 +70,7 @@ type Watcher struct {
 
 // Config watch config
 type Config struct {
+	HostName      string
 	Namespace     string
 	PVProvisioner string
 	Tprclient     *rest.RESTClient
@@ -203,7 +204,8 @@ func (w *Watcher) initResource() (string, error) {
 		}
 		logs.Info("current pv provisioner is hostpath, path: %s", md.Spec.K8s.Volume)
 		pvProvisioner = &HostPathPVProvisioner{
-			Dir: md.Spec.K8s.Volume,
+			HostName: w.HostName,
+			Dir:      md.Spec.K8s.Volume,
 		}
 	}
 	return watchVersion, nil
@@ -235,7 +237,8 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				if !ok {
 					break
 				}
-				logs.Debug("tidb cluster event: %v %#v", e.Type, e.Object)
+				obj, _ := json.Marshal(e.Object)
+				logs.Debug("tidb cluster event: %v %s", e.Type, obj)
 				ev, st := parse(e)
 				if st != nil {
 					resp.Stop()

@@ -99,14 +99,11 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 
 	// recycle
 
-	logs.Info("recycled tikv: %+v", deleted)
+	logs.Info("all recycled tikvs: %#v", deleted)
 
-	for id, s := range deleted {
-		if s.Node == NodeName {
-			logs.Info("recycling tikv: %s", id)
-			if err = pv.Recycling(id); err != nil {
-				return err
-			}
+	for _, s := range deleted {
+		if err = pv.Recycling(s); err != nil {
+			return err
 		}
 	}
 

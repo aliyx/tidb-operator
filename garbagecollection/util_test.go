@@ -2,6 +2,8 @@ package garbagecollection
 
 import (
 	"testing"
+
+	"github.com/ffan/tidb-operator/operator"
 )
 
 func Test_gc(t *testing.T) {
@@ -10,7 +12,7 @@ func Test_gc(t *testing.T) {
 		n  *operator.Db
 		pv PVProvisioner
 	}
-	hostpath := &HostPathPVProvisioner{"/tmp"}
+	hostpath := &HostPathPVProvisioner{"localhost.localdomain", "/tmp"}
 	tests := []struct {
 		name    string
 		args    args
@@ -23,9 +25,11 @@ func Test_gc(t *testing.T) {
 						Stores: map[string]*operator.Store{
 							"tikv-md-test-001": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-md-test-001",
 							},
 							"tikv-md-test-002": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-md-test-002",
 							},
 						},
 					},
@@ -35,6 +39,7 @@ func Test_gc(t *testing.T) {
 						Stores: map[string]*operator.Store{
 							"tikv-md-test-001": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-md-test-001",
 							},
 						},
 					},
@@ -49,6 +54,7 @@ func Test_gc(t *testing.T) {
 						Stores: map[string]*operator.Store{
 							"tikv-mi-test-001": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-mi-test-001",
 							},
 						},
 					},
@@ -58,9 +64,11 @@ func Test_gc(t *testing.T) {
 						Stores: map[string]*operator.Store{
 							"tikv-mi-test-001": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-mi-test-001",
 							},
 							"tikv-mi-test-002": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-mi-test-002",
 							},
 						},
 					},
@@ -75,6 +83,7 @@ func Test_gc(t *testing.T) {
 						Stores: map[string]*operator.Store{
 							"tikv-d-test-001": &operator.Store{
 								Node: "localhost.localdomain",
+								Name: "tikv-d-test-001",
 							},
 						},
 					},

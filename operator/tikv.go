@@ -76,6 +76,7 @@ func (tk *Tikv) createPod() (err error) {
 		return err
 	}
 	s := tk.Stores[tk.cur]
+	s.Name = tk.cur
 	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
 	s.Node = pod.Spec.NodeName
 	return nil

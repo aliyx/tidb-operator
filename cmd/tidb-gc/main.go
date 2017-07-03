@@ -49,7 +49,6 @@ func main() {
 			panic(fmt.Sprintf("get nodeName: %v", err))
 		}
 	}
-	garbagecollection.NodeName = node
 
 	operator.Init()
 	scheme := runtime.NewScheme()
@@ -60,6 +59,7 @@ func main() {
 		panic(fmt.Sprintf("create a tpr client: %v", err))
 	}
 	c := garbagecollection.Config{
+		HostName:      node,
 		Namespace:     k8sutil.Namespace,
 		PVProvisioner: constants.PVProvisionerHostpath,
 		Tprclient:     tpr,

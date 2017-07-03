@@ -111,6 +111,7 @@ type Tikv struct {
 type Store struct {
 	// tikv info
 	ID      int    `json:"id,omitempty"`
+	Name    string `json:"name,omitempty"`
 	Address string `json:"address,omitempty"`
 	Node    string `json:"nodeName,omitempty"`
 	State   int    `json:"state,omitempty"`

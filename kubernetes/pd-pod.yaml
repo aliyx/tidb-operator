@@ -52,7 +52,6 @@ spec:
 
           # set prometheus
           sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
-          sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
 
           if [ -d $PD_DATA_DIR ]; then
             echo "Resuming with existing data dir:$PD_DATA_DIR"
