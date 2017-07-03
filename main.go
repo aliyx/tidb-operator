@@ -63,7 +63,7 @@ func init() {
 	switch beego.BConfig.RunMode {
 	case "dev":
 		beego.BConfig.WebConfig.DirectoryIndex = true
-		beego.BConfig.WebConfig.StaticDir["/swagger"] = "operator/swagger"
+		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
 	}
 }
 

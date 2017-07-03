@@ -3,7 +3,6 @@ package operator
 import "errors"
 
 var (
-	errNoInstalled    = errors.New("no installed")
 	errInvalidReplica = errors.New("invalid replica")
 
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.

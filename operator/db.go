@@ -129,24 +129,24 @@ func Uninstall(cell string, ch chan int) error {
 		err error
 		db  *Db
 	)
-	defer func() {
-		if err != nil {
-			if ch != nil {
-				// fail
-				ch <- 0
-			}
-		}
-	}()
 	if db, err = GetDb(cell); err != nil {
+		if ch != nil {
+			ch <- 0
+		}
 		return err
 	}
 	if db.Status.Phase <= PhaseUndefined {
-		err = errNoInstalled
-		return err
+		if ch != nil {
+			ch <- 1
+		}
+		return nil
 	}
 	db.Status.Available = false
 	db.Status.Phase = PhaseTidbUninstalling
 	if err = db.update(); err != nil {
+		if ch != nil {
+			ch <- 0
+		}
 		return err
 	}
 	// aync waiting for all pods deleted from k8s
@@ -396,7 +396,7 @@ func Delete(cell string) error {
 		return err
 	}
 	ch := make(chan int, 1)
-	if err = Uninstall(cell, ch); err != nil && err != errNoInstalled {
+	if err = Uninstall(cell, ch); err != nil {
 		return err
 	}
 

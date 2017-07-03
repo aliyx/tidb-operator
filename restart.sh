@@ -65,7 +65,6 @@ if ! [ -f tidb-operator ]; then
   fail "build failed"
 fi
 
-echo $k8sAddress
 # start
 
 ./tidb-operator \
