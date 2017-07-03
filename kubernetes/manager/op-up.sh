@@ -2,8 +2,6 @@
 
 set -e
 
-export NS="kube-system"
-
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../env.sh
 
@@ -24,5 +22,5 @@ for var in initMd env version registry namespace; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo "Creating tidb-operator service/deployment..."
-cat to-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+cat op-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 

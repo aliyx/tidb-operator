@@ -17,42 +17,6 @@ import (
 	tsql "github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
 
-// Phase tidb runing status
-type Phase int
-
-const (
-	// PhaseRefuse user apply create a tidb
-	PhaseRefuse Phase = iota - 2
-	// PhaseAuditing wait admin to auditing user apply
-	PhaseAuditing
-	// PhaseUndefined undefined
-	PhaseUndefined
-	// PhasePdPending pd pods is starting
-	PhasePdPending
-	// PhasePdStartFailed fail to start all pod pods
-	PhasePdStartFailed
-	// PhasePdStarted pd pods started
-	PhasePdStarted
-	// PhaseTikvPending tikv pods is starting
-	PhaseTikvPending
-	// PhaseTikvStartFailed fail to start all tikv pods
-	PhaseTikvStartFailed
-	// PhaseTikvStarted tikv pods started
-	PhaseTikvStarted
-	// PhaseTidbPending tidb pods is starting
-	PhaseTidbPending
-	// PhaseTidbStartFailed fail to start all tidb pods
-	PhaseTidbStartFailed
-	// PhaseTidbStarted tidb pods started
-	PhaseTidbStarted
-	// PhaseTidbInitFailed fail to init tidb schema and privilage
-	PhaseTidbInitFailed
-	// PhaseTidbInited tidb aviliable
-	PhaseTidbInited
-	// PhaseTidbUninstalling being uninstall tidb
-	PhaseTidbUninstalling
-)
-
 const (
 	migrating          = "Migrating"
 	migStartMigrateErr = "StartMigrationTaskError"
@@ -77,15 +41,12 @@ const (
 	Scaled
 )
 
-var (
-	errNoInstalled    = errors.New("no installed")
-	errInvalidReplica = errors.New("invalid replica")
-
-	// ErrRepeatOperation is returned by functions to specify the operation is executing.
-	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")
-)
-
+// create user specify schema and set database privileges
 func (db *Db) initSchema() (err error) {
+	if !db.Tidb.isOk() {
+		return fmt.Errorf(`tidb "%s" no started`, db.Metadata.Name)
+	}
+
 	e := NewEvent(db.Metadata.Name, "db", "init")
 	defer func() {
 		ph := PhaseTidbInited
@@ -95,13 +56,11 @@ func (db *Db) initSchema() (err error) {
 			db.Status.Available = true
 		}
 		db.Status.Phase = ph
-		err = db.update()
+		if uerr := db.update(); uerr != nil {
+			logs.Error("update db %v", uerr)
+		}
 		e.Trace(err, fmt.Sprintf("Create schema %s and set database privileges", db.Schema.Name))
 	}()
-	if !db.Tidb.isOk() {
-		err = fmt.Errorf(`tidb "%s" no started`, db.Metadata.Name)
-		return
-	}
 	var (
 		h string
 		p string
@@ -127,14 +86,22 @@ func Install(cell string, ch chan int) error {
 		logs.Error("get db %s err: %v", cell, err)
 		return err
 	}
-	if db.Status.Phase != PhaseUndefined && db.Status.Phase != PhaseAuditing {
+	if db.Status.Phase < PhaseUndefined {
+		return fmt.Errorf("db %s may be in the approval", cell)
+	}
+	if db.Status.Phase != PhaseUndefined {
 		return ErrRepeatOperation
 	}
+
 	go func() {
 		e := NewEvent(cell, "db", "install")
 		defer func() {
 			e.Trace(err, "Start installing tidb cluster on kubernete")
-			ch <- 0
+			if err != nil {
+				ch <- 0
+			} else {
+				ch <- 1
+			}
 		}()
 		if err = db.Pd.install(); err != nil {
 			logs.Error("install pd %s on k8s err: %v", cell, err)
@@ -149,7 +116,7 @@ func Install(cell string, ch chan int) error {
 			return
 		}
 		if err = db.initSchema(); err != nil {
-			logs.Error("init tidb %s privileges err: %v", cell, err)
+			logs.Error("init db %s privileges err: %v", cell, err)
 			return
 		}
 	}()

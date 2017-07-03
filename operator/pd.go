@@ -14,11 +14,39 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 )
 
+func (p *Pd) upgrade() (err error) {
+	if len(p.Members) < 1 {
+		return nil
+	}
+
+	e := NewEvent(p.Db.Metadata.Name, "pd", "upgrate")
+	defer func() {
+		ph := PhasePdStarted
+		if err != nil {
+			ph = PhasePdStartFailed
+		}
+		p.Db.Status.Phase = ph
+		if uerr := p.Db.update(); uerr != nil {
+			logs.Error("update tidb error: %v", uerr)
+		}
+		e.Trace(err, fmt.Sprintf("upgrate pd to version %s", p.Version))
+	}()
+
+	for _, mb := range p.Members {
+		err = upgradeOne(mb.Name, fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *Pd) uninstall() (err error) {
 	defer func() {
 		p.Member = 0
 		p.InnerAddresses = nil
 		p.OuterAddresses = nil
+		p.Members = nil
 		if err == nil {
 			err = p.Db.update()
 		}
@@ -59,10 +87,16 @@ func (p *Pd) install() (err error) {
 	}
 	for i := 0; i < p.Spec.Replicas; i++ {
 		p.Member++
-		if err = p.createPod(); err != nil {
+		err = p.createPod()
+		m := Member{
+			Name: fmt.Sprintf("pd-%s-%03d", p.Db.Metadata.Name, p.Member),
+		}
+		p.Members = append(p.Members, m)
+		if err != nil {
 			return err
 		}
 	}
+
 	// Waiting for pds available
 	if err = p.waitForOk(); err != nil {
 		return err

@@ -25,8 +25,11 @@ if [ -z "$ip" ]; then
 fi
 
 runMode="$runMode"
-k8sAddress="$runMode"
-initMd="$initMd"
+k8sAddress="$k8sAddress"
+initMd=$initMd
+if [ -z "$initMd" ]; then
+  initMd=false
+fi
 
 # set env
 e=$1
@@ -62,8 +65,11 @@ if ! [ -f tidb-operator ]; then
   fail "build failed"
 fi
 
+echo $k8sAddress
 # start
-./tidb-operator -runmode=$runMode \ 
-  -k8s-address=$k8sAddress \ 
-  -init-md=$initMd \
-  -http-addr=$ip & echo $! > /tmp/tidb-operator.pid
+
+./tidb-operator \
+-runmode=$runMode \
+-k8s-address=$k8sAddress \
+-init-md=$initMd \
+-http-addr=$ip & echo $! > /tmp/tidb-operator.pid

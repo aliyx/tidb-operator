@@ -9,11 +9,26 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 )
+
+var (
+	tidbVersionAnnotationKey = "tidb.version"
+)
+
+// GetTidbVersion get tidb image version
+func GetTidbVersion(pod *v1.Pod) string {
+	return pod.Annotations[tidbVersionAnnotationKey]
+}
+
+// SetTidbVersion set tidb image version
+func SetTidbVersion(pod *v1.Pod, version string) {
+	pod.Annotations[tidbVersionAnnotationKey] = version
+}
 
 // CreateAndWaitPodByJSON create and wait pod status 'running'
 func CreateAndWaitPodByJSON(j []byte, timeout time.Duration) (*v1.Pod, error) {
@@ -22,6 +37,15 @@ func CreateAndWaitPodByJSON(j []byte, timeout time.Duration) (*v1.Pod, error) {
 		return nil, err
 	}
 	return CreateAndWaitPod(pod, timeout)
+}
+
+// PatchPod path pod
+func PatchPod(name string, patchdata []byte) error {
+	_, err := kubecli.CoreV1().Pods(Namespace).Patch(name, types.StrategicMergePatchType, patchdata)
+	if err != nil {
+		return fmt.Errorf("fail to update the pod (%s): %v", name, err)
+	}
+	return nil
 }
 
 // CreateAndWaitPod create and wait pod status 'running'
@@ -34,7 +58,7 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 	interval := time.Second
 	var retPod *v1.Pod
 	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
-		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(pod.Name, meta_v1.GetOptions{})
+		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(pod.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -63,7 +87,7 @@ func ClonePod(p *v1.Pod) *v1.Pod {
 // DeletePods delete the specified names pod
 func DeletePods(podNames ...string) error {
 	for _, pName := range podNames {
-		if err := kubecli.CoreV1().Pods(Namespace).Delete(pName, meta_v1.NewDeleteOptions(0)); err != nil {
+		if err := kubecli.CoreV1().Pods(Namespace).Delete(pName, metav1.NewDeleteOptions(0)); err != nil {
 			return err
 		}
 		logs.Info(`Pod "%s" deleted`, pName)
@@ -73,13 +97,13 @@ func DeletePods(podNames ...string) error {
 
 // DeletePodsBy delete the specified cell pods
 func DeletePodsBy(cell, component string) error {
-	option := meta_v1.ListOptions{
+	option := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			"cell":      cell,
 			"component": component,
 		}).String(),
 	}
-	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(meta_v1.NewDeleteOptions(0), option); err != nil {
+	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
 	logs.Warn(`Pods cell:"%s" component:"%s" deleted`, cell, component)
@@ -88,7 +112,7 @@ func DeletePodsBy(cell, component string) error {
 
 // GetPodsByNamespace Gets the pods of the specified namespace
 func GetPodsByNamespace(ns string, ls map[string]string) ([]v1.Pod, error) {
-	opts := meta_v1.ListOptions{
+	opts := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(ls).String(),
 	}
 	list, err := kubecli.CoreV1().Pods(ns).List(opts)
@@ -96,6 +120,11 @@ func GetPodsByNamespace(ns string, ls map[string]string) ([]v1.Pod, error) {
 		return nil, err
 	}
 	return list.Items, nil
+}
+
+// GetPod Get the pods of the specified name
+func GetPod(name string) (*v1.Pod, error) {
+	return kubecli.CoreV1().Pods(Namespace).Get(name, metav1.GetOptions{})
 }
 
 // GetPods Gets the pods of the specified cell and component
@@ -107,7 +136,7 @@ func GetPods(cell, component string) ([]v1.Pod, error) {
 	if component != "" {
 		set["component"] = component
 	}
-	opts := meta_v1.ListOptions{
+	opts := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(set).String(),
 	}
 	list, err := kubecli.CoreV1().Pods(Namespace).List(opts)

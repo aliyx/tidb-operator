@@ -6,6 +6,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// StoreStatus tikv store status
+type StoreStatus int
+
+const (
+	storeOnline StoreStatus = iota
+	storeOffline
+)
+
 // TidbList is a list of tidb clusters.
 type TidbList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -75,6 +83,9 @@ type Status struct {
 	OuterStatusAddresses []string `json:"outerStatusAddresses,omitempty"`
 }
 
+// Phase tidb runing status
+type Phase int
+
 // Pd 元数据
 type Pd struct {
 	Spec `json:",inline"`
@@ -82,17 +93,16 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member int `json:"member"`
-	// key is pod name
-	Members map[string]Member `json:"members,omitempty"`
+	Member  int      `json:"member"`
+	Members []Member `json:"members,omitempty"`
 
 	Db *Db `json:"-"`
 }
 
 // Member describe a pd or tikv pod
 type Member struct {
-	ID    int `json:"id,omitempty"`
-	State int `json:"state,omitempty"`
+	Name  string `json:"name,omitempty"`
+	State int    `json:"state,omitempty"`
 }
 
 // Tikv 元数据存储模块
@@ -116,3 +126,36 @@ type Store struct {
 	Node    string `json:"nodeName,omitempty"`
 	State   int    `json:"state,omitempty"`
 }
+
+const (
+	// PhaseRefuse user apply create a tidb
+	PhaseRefuse Phase = iota - 2
+	// PhaseAuditing wait admin to auditing user apply
+	PhaseAuditing
+	// PhaseUndefined undefined
+	PhaseUndefined
+	// PhasePdPending pd pods is starting
+	PhasePdPending
+	// PhasePdStartFailed fail to start all pod pods
+	PhasePdStartFailed
+	// PhasePdStarted pd pods started
+	PhasePdStarted
+	// PhaseTikvPending tikv pods is starting
+	PhaseTikvPending
+	// PhaseTikvStartFailed fail to start all tikv pods
+	PhaseTikvStartFailed
+	// PhaseTikvStarted tikv pods started
+	PhaseTikvStarted
+	// PhaseTidbPending tidb pods is starting
+	PhaseTidbPending
+	// PhaseTidbStartFailed fail to start all tidb pods
+	PhaseTidbStartFailed
+	// PhaseTidbStarted tidb pods started
+	PhaseTidbStarted
+	// PhaseTidbInitFailed fail to init tidb schema and privilage
+	PhaseTidbInitFailed
+	// PhaseTidbInited tidb aviliable
+	PhaseTidbInited
+	// PhaseTidbUninstalling being uninstall tidb
+	PhaseTidbUninstalling
+)
