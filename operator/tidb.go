@@ -16,6 +16,51 @@ import (
 	"github.com/ghodss/yaml"
 )
 
+func (td *Tidb) upgrade() (err error) {
+	if td.Db.Status.Phase < PhaseTidbStarted {
+		return fmt.Errorf("the db %s tidb unavailable", td.Db.Metadata.Name)
+	}
+
+	var (
+		upgraded bool
+		count    int
+		pods     []string
+	)
+
+	e := NewEvent(td.Db.Metadata.Name, "tidb", "upgrate")
+	defer func() {
+		// have upgrade
+		if err != nil {
+			td.UpgradeState = upgradeFailed
+		} else if count > 0 {
+			td.UpgradeState = upgradeOk
+		}
+		if count > 0 || err != nil {
+			if uerr := td.Db.update(); uerr != nil {
+				logs.Error("update tidb error: %v", uerr)
+			}
+			e.Trace(err, fmt.Sprintf("upgrate tidb to version %s", td.Version))
+		}
+	}()
+
+	// get tidb pods name
+	pods, err = k8sutil.ListPodNames(td.Db.Metadata.Name, "tidb")
+	if err != nil {
+		return err
+	}
+	for _, podName := range pods {
+		upgraded, err = upgradeOne(podName, fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version), td.Version)
+		if err != nil {
+			return err
+		}
+		if upgraded {
+			count++
+			time.Sleep(reconcileInterval)
+		}
+	}
+	return nil
+}
+
 func (td *Tidb) install() (err error) {
 	e := NewEvent(td.Db.Metadata.Name, "tidb", "install")
 	td.Db.Status.Phase = PhaseTidbPending

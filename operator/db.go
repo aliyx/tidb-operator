@@ -262,6 +262,25 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	return db.startMigrateTask(my)
 }
 
+// Upgrade tidb version
+func (db *Db) Upgrade() {
+	go func() {
+		var err error
+		if err = db.Pd.upgrade(); err != nil {
+			logs.Error("failed to upgrade pd %v", err)
+			return
+		}
+		if err = db.Tikv.upgrade(); err != nil {
+			logs.Error("failed to upgrade tikv %v", err)
+			return
+		}
+		if err = db.Tidb.upgrade(); err != nil {
+			logs.Error("failed to upgrade tidb %v", err)
+			return
+		}
+	}()
+}
+
 // UpdateMigrateStat update tidb migrate stat
 func (db *Db) UpdateMigrateStat(s, desc string) (err error) {
 	var e *Event

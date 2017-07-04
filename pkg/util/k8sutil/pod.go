@@ -3,6 +3,7 @@ package k8sutil
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"time"
 
@@ -27,6 +28,9 @@ func GetTidbVersion(pod *v1.Pod) string {
 
 // SetTidbVersion set tidb image version
 func SetTidbVersion(pod *v1.Pod, version string) {
+	if len(pod.Annotations) < 1 {
+		pod.Annotations = make(map[string]string)
+	}
 	pod.Annotations[tidbVersionAnnotationKey] = version
 }
 
@@ -36,7 +40,14 @@ func CreateAndWaitPodByJSON(j []byte, timeout time.Duration) (*v1.Pod, error) {
 	if err := json.Unmarshal(j, pod); err != nil {
 		return nil, err
 	}
+	SetTidbVersion(pod, GetImageVersion(pod.Spec.Containers[0].Image))
 	return CreateAndWaitPod(pod, timeout)
+}
+
+// GetImageVersion get version in image
+func GetImageVersion(image string) string {
+	sp := strings.Split(image, ":")
+	return sp[len(sp)-1]
 }
 
 // PatchPod path pod

@@ -14,6 +14,11 @@ const (
 	storeOffline
 )
 
+const (
+	upgradeFailed = "False"
+	upgradeOk     = "True"
+)
+
 // TidbList is a list of tidb clusters.
 type TidbList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -41,7 +46,8 @@ type Db struct {
 
 // Tidb tidb module
 type Tidb struct {
-	Spec `json:",inline"`
+	Spec         `json:",inline"`
+	UpgradeState string `json:"upgradeState,omitempty"`
 
 	Db *Db `json:"-"`
 }
@@ -77,7 +83,7 @@ type Status struct {
 	Phase        Phase  `json:"phase"`
 	MigrateState string `json:"migrateState"`
 	ScaleState   int    `json:"scaleState"`
-	Desc         string `json:"desc,omitempty"`
+	Message      string `json:"message,omitempty"`
 
 	OuterAddresses       []string `json:"outerAddresses,omitempty"`
 	OuterStatusAddresses []string `json:"outerStatusAddresses,omitempty"`
@@ -93,8 +99,9 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member  int      `json:"member"`
-	Members []Member `json:"members,omitempty"`
+	Member       int       `json:"member"`
+	Members      []*Member `json:"members,omitempty"`
+	UpgradeState string    `json:"upgradeState,omitempty"`
 
 	Db *Db `json:"-"`
 }
@@ -112,6 +119,7 @@ type Tikv struct {
 	ReadyReplicas     int               `json:"readyReplicas"`
 	AvailableReplicas int               `json:"availableReplicas"`
 	Stores            map[string]*Store `json:"stores,omitempty"`
+	UpgradeState      string            `json:"upgradeState,omitempty"`
 
 	cur string
 	Db  *Db `json:"-"`

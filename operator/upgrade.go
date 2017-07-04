@@ -3,32 +3,41 @@ package operator
 import (
 	"fmt"
 
-	"strings"
-
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
-func upgradeOne(name, image string) error {
+func upgradeOne(name, image, version string) (bool, error) {
 	pod, err := k8sutil.GetPod(name)
 	if err != nil {
-		return err
+		return false, err
 	}
+
+	if !needUpgrade(pod, version) {
+		logs.Warn("the current version is already '%s', no need to upgrade", version)
+		return false, nil
+	}
+
+	oldversion := k8sutil.GetTidbVersion(pod)
 	oldpod := k8sutil.ClonePod(pod)
 
-	sp := strings.Split(image, ":")
-	logs.Info("upgrading the %v from %s to %s", name, k8sutil.GetTidbVersion(pod), sp[len(sp)-1])
+	logs.Info("upgrading the %v from %s to %s", name, oldversion, version)
 	pod.Spec.Containers[0].Image = image
+	k8sutil.SetTidbVersion(pod, version)
 
 	patchdata, err := k8sutil.CreatePatch(oldpod, pod, v1.Pod{})
 	if err != nil {
-		return fmt.Errorf("error creating patch: %v", err)
+		return false, fmt.Errorf("error creating patch: %v", err)
 	}
 
 	if err = k8sutil.PatchPod(name, patchdata); err != nil {
-		return err
+		return false, err
 	}
-	logs.Info("finished upgrading the %v", name)
-	return nil
+	logs.Info("finished upgrading the pod %v", name)
+	return true, nil
+}
+
+func needUpgrade(pod *v1.Pod, version string) bool {
+	return k8sutil.GetImageVersion(pod.Spec.Containers[0].Image) != version
 }

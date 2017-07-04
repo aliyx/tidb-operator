@@ -71,25 +71,6 @@ func (dc *TidbController) Delete() {
 	dc.ServeJSON()
 }
 
-// Get 获取tidb数据
-// @Title Get
-// @Description get tidb by cell
-// @Param cell path string true "The cell for tidb name"
-// @Success 200 {object} operator.Db
-// @Failure 404 :key not found
-// @router /:cell [get]
-func (dc *TidbController) Get() {
-	cell := dc.GetString(":cell")
-	db, err := operator.GetDb(cell)
-	errHandler(
-		dc.Controller,
-		err,
-		fmt.Sprintf("Cannt get tidb %s", cell),
-	)
-	dc.Data["json"] = db
-	dc.ServeJSON()
-}
-
 // CheckResources Check the user's request for resources
 // @Title CheckResources
 // @Description whether the user creates tidb for approval
@@ -116,15 +97,15 @@ func (dc *TidbController) CheckResources() {
 	dc.ServeJSON()
 }
 
-// Patch scale tidb
-// @Title ScaleTidb
-// @Description scale tidb
+// Scale scale tikv/tidb
+// @Title Scale tikv/tidb
+// @Description Scale tikv/tidb replicas
 // @Param	cell	path	string	true	"The cell for pd name"
 // @Param	body	body 	controllers.ScaleReq	true	"body for patch content"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/scale [patch]
-func (dc *TidbController) Patch() {
+func (dc *TidbController) Scale() {
 	cell := dc.GetString(":cell")
 	s := ScaleReq{}
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
@@ -135,6 +116,31 @@ func (dc *TidbController) Patch() {
 		operator.Scale(cell, s.KvReplica, s.DbReplica),
 		fmt.Sprintf("Scale tidb %s", cell),
 	)
+}
+
+// Upgrade upgrade tidb image version
+// @Title Upgrade version
+// @Description  Upgrade pd/tikv/tidb image version
+// @Param	cell	path	string	true	"The cell for db name"
+// @Param	body	body 	operator.Spec	true	"body for patch content"
+// @Success 200
+// @Failure 403 body is empty
+// @router /:cell/upgrade [patch]
+func (dc *TidbController) Upgrade() {
+	cell := dc.GetString(":cell")
+	s := operator.Spec{}
+	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
+		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
+	}
+	db, err := operator.GetDb(cell)
+	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
+
+	if s.Version != "" {
+		db.Pd.Version = s.Version
+		db.Tikv.Version = s.Version
+		db.Tidb.Version = s.Version
+		db.Upgrade()
+	}
 }
 
 // Migrate data to tidb
@@ -170,27 +176,6 @@ func (dc *TidbController) Migrate() {
 		db.Migrate(*src, api, sync == "true"),
 		fmt.Sprintf(`Migrate mysql "%s" to tidb `, cell),
 	)
-}
-
-// GetEvents get events
-// @Title GetEvents
-// @Description get all events
-// @Param	cell	path	string	true	"The cell for tidb name"
-// @Success 200 {object} operator.Events
-// @router /:cell/events [get]
-func (dc *TidbController) GetEvents() {
-	cell := dc.GetString(":cell")
-	if len(cell) < 1 {
-		dc.CustomAbort(403, "cell is nil")
-	}
-	es, err := operator.GetEventsBy(cell)
-	errHandler(
-		dc.Controller,
-		err,
-		fmt.Sprintf("get %s events", cell),
-	)
-	dc.Data["json"] = es
-	dc.ServeJSON()
 }
 
 // Status patch tidb status
@@ -248,6 +233,46 @@ func (dc *TidbController) Status() {
 	default:
 		dc.CustomAbort(403, "unsupport operation")
 	}
+}
+
+// Get a tidb
+// @Title Get a tidb
+// @Description get tidb by cell
+// @Param	cell	path	string	true	"The cell for tidb name"
+// @Success 200 {object} operator.Db
+// @Failure 404 :key not found
+// @router /:cell [get]
+func (dc *TidbController) Get() {
+	cell := dc.GetString(":cell")
+	db, err := operator.GetDb(cell)
+	errHandler(
+		dc.Controller,
+		err,
+		fmt.Sprintf("Cannt get tidb %s", cell),
+	)
+	dc.Data["json"] = db
+	dc.ServeJSON()
+}
+
+// GetEvents get events
+// @Title Get all events
+// @Description get all events
+// @Param	cell	path	string	true	"The cell for tidb name"
+// @Success 200 {object} operator.Events
+// @router /:cell/events [get]
+func (dc *TidbController) GetEvents() {
+	cell := dc.GetString(":cell")
+	if len(cell) < 1 {
+		dc.CustomAbort(403, "cell is nil")
+	}
+	es, err := operator.GetEventsBy(cell)
+	errHandler(
+		dc.Controller,
+		err,
+		fmt.Sprintf("get %s events", cell),
+	)
+	dc.Data["json"] = es
+	dc.ServeJSON()
 }
 
 func errHandler(c beego.Controller, err error, msg string) {

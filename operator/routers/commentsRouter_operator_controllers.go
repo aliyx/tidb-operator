@@ -49,14 +49,6 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "Get",
-			Router: `/:cell`,
-			AllowHTTPMethods: []string{"get"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
-		beego.ControllerComments{
 			Method: "CheckResources",
 			Router: `/:user/limit`,
 			AllowHTTPMethods: []string{"post"},
@@ -65,8 +57,16 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "Patch",
+			Method: "Scale",
 			Router: `/:cell/scale`,
+			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
+		beego.ControllerComments{
+			Method: "Upgrade",
+			Router: `/:cell/upgrade`,
 			AllowHTTPMethods: []string{"patch"},
 			MethodParams: param.Make(),
 			Params: nil})
@@ -81,17 +81,25 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "GetEvents",
-			Router: `/:cell/events`,
+			Method: "Status",
+			Router: `/:cell/status`,
+			AllowHTTPMethods: []string{"patch"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
+		beego.ControllerComments{
+			Method: "Get",
+			Router: `/:cell`,
 			AllowHTTPMethods: []string{"get"},
 			MethodParams: param.Make(),
 			Params: nil})
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "Status",
-			Router: `/:cell/status`,
-			AllowHTTPMethods: []string{"patch"},
+			Method: "GetEvents",
+			Router: `/:cell/events`,
+			AllowHTTPMethods: []string{"get"},
 			MethodParams: param.Make(),
 			Params: nil})
 

@@ -27,6 +27,48 @@ var (
 	errMultipleStoresOneAddress = errors.New("multiple stores one address")
 )
 
+func (tk *Tikv) upgrade() (err error) {
+	if len(tk.Stores) < 1 {
+		return nil
+	}
+	if tk.Db.Status.Phase < PhaseTikvStarted {
+		return fmt.Errorf("the db %s tikv unavailable", tk.Db.Metadata.Name)
+	}
+
+	var (
+		upgraded bool
+		count    int
+	)
+
+	e := NewEvent(tk.Db.Metadata.Name, "tikv", "upgrate")
+	defer func() {
+		// have upgrade
+		if err != nil {
+			tk.UpgradeState = upgradeFailed
+		} else if count > 0 {
+			tk.UpgradeState = upgradeOk
+		}
+		if count > 0 || err != nil {
+			if uerr := tk.Db.update(); uerr != nil {
+				logs.Error("update tidb error: %v", uerr)
+			}
+			e.Trace(err, fmt.Sprintf("upgrate tikv to version %s", tk.Version))
+		}
+	}()
+
+	for _, st := range tk.Stores {
+		upgraded, err = upgradeOne(st.Name, fmt.Sprintf("%s/tikv:%s", imageRegistry, tk.Version), tk.Version)
+		if err != nil {
+			return err
+		}
+		if upgraded {
+			count++
+			time.Sleep(reconcileInterval)
+		}
+	}
+	return nil
+}
+
 func (tk *Tikv) install() (err error) {
 	e := NewEvent(tk.Db.Metadata.Name, "tikv", "install")
 	tk.Db.Status.Phase = PhaseTikvPending

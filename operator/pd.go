@@ -18,24 +18,39 @@ func (p *Pd) upgrade() (err error) {
 	if len(p.Members) < 1 {
 		return nil
 	}
+	if p.Db.Status.Phase < PhasePdStarted {
+		return fmt.Errorf("the tidb %s pd unavailable", p.Db.Metadata.Name)
+	}
+
+	var (
+		upgraded bool
+		count    int
+	)
 
 	e := NewEvent(p.Db.Metadata.Name, "pd", "upgrate")
 	defer func() {
-		ph := PhasePdStarted
+		// have upgrade
 		if err != nil {
-			ph = PhasePdStartFailed
+			p.UpgradeState = upgradeFailed
+		} else if count > 0 {
+			p.UpgradeState = upgradeOk
 		}
-		p.Db.Status.Phase = ph
-		if uerr := p.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
+		if count > 0 || err != nil {
+			if uerr := p.Db.update(); uerr != nil {
+				logs.Error("update tidb error: %v", uerr)
+			}
+			e.Trace(err, fmt.Sprintf("upgrate pd to version %s", p.Version))
 		}
-		e.Trace(err, fmt.Sprintf("upgrate pd to version %s", p.Version))
 	}()
 
 	for _, mb := range p.Members {
-		err = upgradeOne(mb.Name, fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version))
+		upgraded, err = upgradeOne(mb.Name, fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version), p.Version)
 		if err != nil {
 			return err
+		}
+		if upgraded {
+			count++
+			time.Sleep(reconcileInterval)
 		}
 	}
 	return nil
@@ -88,7 +103,7 @@ func (p *Pd) install() (err error) {
 	for i := 0; i < p.Spec.Replicas; i++ {
 		p.Member++
 		err = p.createPod()
-		m := Member{
+		m := &Member{
 			Name: fmt.Sprintf("pd-%s-%03d", p.Db.Metadata.Name, p.Member),
 		}
 		p.Members = append(p.Members, m)

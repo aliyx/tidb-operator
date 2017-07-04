@@ -78,7 +78,7 @@ paths:
       tags:
       - tidbs
       description: get tidb by cell
-      operationId: TidbController.Get
+      operationId: TidbController.Get a tidb
       parameters:
       - in: path
         name: cell
@@ -112,7 +112,7 @@ paths:
       tags:
       - tidbs
       description: get all events
-      operationId: TidbController.GetEvents
+      operationId: TidbController.Get all events
       parameters:
       - in: path
         name: cell
@@ -153,8 +153,8 @@ paths:
     patch:
       tags:
       - tidbs
-      description: scale tidb
-      operationId: TidbController.ScaleTidb
+      description: Scale tikv/tidb replicas
+      operationId: TidbController.Scale tikv/tidb
       parameters:
       - in: path
         name: cell
@@ -195,6 +195,28 @@ paths:
           description: body is empty
         "403":
           description: unsupport operation
+  /tidbs/{cell}/upgrade:
+    patch:
+      tags:
+      - tidbs
+      description: Upgrade pd/tikv/tidb image version
+      operationId: TidbController.Upgrade version
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for db name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: body for patch content
+        required: true
+        schema:
+          $ref: '#/definitions/operator.Spec'
+      responses:
+        "200": {}
+        "403":
+          description: body is empty
   /tidbs/{user}/limit:
     post:
       tags:
@@ -418,6 +440,8 @@ definitions:
         format: int64
       tidbdata_volume:
         type: string
+      upgradeState:
+        type: string
       version:
         type: string
   operator.Phase:
@@ -510,6 +534,8 @@ definitions:
         format: int64
       tidbdata_volume:
         type: string
+      upgradeState:
+        type: string
       version:
         type: string
   operator.Tikv:
@@ -540,8 +566,10 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/54261.Store'
+        $ref: '#/definitions/56501.Store'
       tidbdata_volume:
+        type: string
+      upgradeState:
         type: string
       version:
         type: string
