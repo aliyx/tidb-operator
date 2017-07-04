@@ -21,21 +21,21 @@ type TidbController struct {
 	beego.Controller
 }
 
-// Post create a tidb
+// Post create a tidb instance, and asynchronously install if the Phase is PhaseUndefined.
 // @Title CreateTidb
 // @Description create a tidb
-// @Param	body	body 	operator.Db	true	"body for tidb content"
+// @Param	body	body	operator.Db	true	"body for tidb content"
 // @Success 200
 // @Failure 403 body is empty
 // @router / [post]
 func (dc *TidbController) Post() {
-	db := operator.NewDb()
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
 		dc.CustomAbort(403, "body is empty")
 	}
+	db := operator.NewDb()
 	if err := json.Unmarshal(b, db); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
+		dc.CustomAbort(400, fmt.Sprintf("parse body %v", err))
 	}
 	errHandler(
 		dc.Controller,
@@ -50,9 +50,9 @@ func (dc *TidbController) Post() {
 	dc.ServeJSON()
 }
 
-// Delete delete tidb
-// @Title Delete tidb
-// @Description delete the tidb from user
+// Delete delete a tidb install
+// @Title DeleteTidb
+// @Description delete the tidb instance
 // @Param	cell	path 	string	true "The cell you want to delete"
 // @Success 200 {string} delete success!
 // @Failure 403 cell is empty
@@ -116,17 +116,17 @@ func (dc *TidbController) CheckResources() {
 	dc.ServeJSON()
 }
 
-// Patch scale the specified tidb
+// Patch scale tidb
 // @Title ScaleTidb
 // @Description scale tidb
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	patch	true	"The body data type is {dbReplica: int, kvReplica: int} for scale content"
+// @Param	body	body 	controllers.ScaleReq	true	"body for patch content"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/scale [patch]
 func (dc *TidbController) Patch() {
 	cell := dc.GetString(":cell")
-	s := scale{}
+	s := ScaleReq{}
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
@@ -197,14 +197,14 @@ func (dc *TidbController) GetEvents() {
 // @Title status
 // @Description patch tidb status
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	status	true	"The body data type is {'type': string, status': string}"
+// @Param	body	body	controllers.Status	true	"Patch tidb status"
 // @Success 200
 // @Failure 400 body is empty
 // @Failure 403 unsupport operation
 // @router /:cell/status [patch]
 func (dc *TidbController) Status() {
 	cell := dc.GetString(":cell")
-	s := status{}
+	s := Status{}
 	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
 	}
@@ -259,13 +259,15 @@ func errHandler(c beego.Controller, err error, msg string) {
 	c.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%s error: %v", msg, err))
 }
 
-type status struct {
+// Status patch tidb status
+type Status struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
 	Desc   string `json:"desc"`
 }
 
-type scale struct {
+// ScaleReq tidb scale request
+type ScaleReq struct {
 	DbReplica int `json:"dbReplica"`
 	KvReplica int `json:"kvReplica"`
 }

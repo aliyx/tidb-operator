@@ -48,6 +48,8 @@ func init() {
 	// set env
 
 	beego.BConfig.AppName = "tidb-operator"
+	// can't get body data,if no set
+	beego.BConfig.CopyRequestBody = true
 	beego.BConfig.WebConfig.EnableDocs = enableDocs
 	beego.BConfig.RunMode = runmode
 	beego.BConfig.Listen.HTTPAddr = httpaddr

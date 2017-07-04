@@ -1,3 +1,7 @@
+// @APIVersion 1.0.0
+// @Title tidb API
+// @Description Tidb-operator creates/configures/manages tidb clusters atop Kubernetes.
+// @Contact yangxin45@wanda.cn
 package routers
 
 import (

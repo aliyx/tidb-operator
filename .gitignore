@@ -9,4 +9,13 @@ lastupdate.tmp
 tidb-operator
 cmd/tidb-gc/tidb-gc
 
-swagger
+# generate swagger file
+operator/swagger
+
+# swagger lib
+swagger/css
+swagger/fonts
+swagger/images
+swagger/lang
+swagger/lib
+swagger/swagger-ui*

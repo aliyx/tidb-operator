@@ -1,7 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "title": "tidb API",
+        "description": "Tidb-operator creates/configures/manages tidb clusters atop Kubernetes.",
+        "version": "1.0.0",
+        "contact": {
+            "email": "yangxin45@wanda.cn"
+        }
     },
     "basePath": "/tidb/api/v1",
     "paths": {
@@ -137,8 +142,8 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "delete the tidb from user",
-                "operationId": "TidbController.Delete tidb",
+                "description": "delete the tidb instance",
+                "operationId": "TidbController.DeleteTidb",
                 "parameters": [
                     {
                         "in": "path",
@@ -240,8 +245,11 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The body data type is {dbReplica: int, kvReplica: int} for scale content",
-                        "required": true
+                        "description": "body for patch content",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.ScaleReq"
+                        }
                     }
                 ],
                 "responses": {
@@ -270,8 +278,11 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The body data type is {'type': string, status': string}",
-                        "required": true
+                        "description": "Patch tidb status",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Status"
+                        }
                     }
                 ],
                 "responses": {
@@ -379,6 +390,35 @@
                 }
             }
         },
+        "controllers.ScaleReq": {
+            "title": "ScaleReq",
+            "type": "object",
+            "properties": {
+                "dbReplica": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "kvReplica": {
+                    "type": "integer",
+                    "format": "int64"
+                }
+            }
+        },
+        "controllers.Status": {
+            "title": "Status",
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "operator.ApprovalConditions": {
             "title": "ApprovalConditions",
             "type": "object",
@@ -480,9 +520,8 @@
             "title": "Member",
             "type": "object",
             "properties": {
-                "id": {
-                    "type": "integer",
-                    "format": "int64"
+                "name": {
+                    "type": "string"
                 },
                 "state": {
                     "type": "integer",
@@ -570,7 +609,10 @@
                     "format": "int64"
                 },
                 "members": {
-                    "$ref": "#/definitions/operator.Member"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/operator.Member"
+                    }
                 },
                 "outerAddresses": {},
                 "replicas": {
@@ -667,30 +709,6 @@
                 }
             }
         },
-        "operator.Status": {
-            "title": "Status",
-            "type": "object",
-            "properties": {
-                "available": {
-                    "type": "boolean"
-                },
-                "desc": {
-                    "type": "string"
-                },
-                "migrateState": {
-                    "type": "string"
-                },
-                "outerAddresses": {},
-                "outerStatusAddresses": {},
-                "phase": {
-                    "$ref": "#/definitions/operator.Phase"
-                },
-                "scaleState": {
-                    "type": "integer",
-                    "format": "int64"
-                }
-            }
-        },
         "operator.Store": {
             "title": "Store",
             "type": "object",
@@ -701,6 +719,9 @@
                 "id": {
                     "type": "integer",
                     "format": "int64"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "nodeName": {
                     "type": "string"
@@ -775,7 +796,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/54755.Store"
+                    "$ref": "#/definitions/54261.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"
