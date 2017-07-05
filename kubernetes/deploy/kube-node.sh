@@ -2,6 +2,8 @@
 
 set -e
 
+echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
+
 master=$1
 if [ -z "$master" ]; then
   echo "Please specify master ip: ./kube-node.sh ip"

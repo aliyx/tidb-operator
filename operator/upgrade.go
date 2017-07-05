@@ -15,7 +15,6 @@ func upgradeOne(name, image, version string) (bool, error) {
 	}
 
 	if !needUpgrade(pod, version) {
-		logs.Warn("the current version is already '%s', no need to upgrade", version)
 		return false, nil
 	}
 

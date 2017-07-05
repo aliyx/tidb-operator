@@ -32,6 +32,7 @@ fi
   fi
 )
 
+# clear
 kubeadm reset
 # Delete all containers
 docker rm -f $(docker ps -a -q)
@@ -42,29 +43,21 @@ echo "Remove all images if exist...ok"
 # Erase old k8s
 rpm -e kubectl kubelet kubeadm kubernetes-cni
 yum remove -y kubectl kubelet kubeadm kubernetes-cni
-# Remove old docker
+
+# Remove old version docker
 yum remove -y ebtables docker docker-common container-selinux docker-selinux docker-engine socat
 echo "Cleaning old...ok"
 
-# Install
-# check docker version
-# yum list|grep docker
-# The company network is not set in repo       
-# sudo cat > /etc/yum.repos.d/docker.repo <<-EOF
-# [dockerrepo]
-# name=Docker Repository
-# baseurl=https://yum.dockerproject.org/repo/main/centos/7
-# enabled=1
-# gpgcheck=1
-# gpgkey=https://yum.dockerproject.org/gpg
-# EOF
-#sudo yum update -y && yum upgrade -y
+# Upgrade
+# sudo yum update -y && yum upgrade -y
 echo "Update centos...ok"
 
 # Disabling SELinux by running setenforce 0 is required in order to allow containers to access the host filesystem
 setenforce 0
 
 # Docker v1.12 is recommended
+# Display details about a docker
+yum info docker-engine.x86_64 
 yum install -y ebtables docker-engine-1.12.6 ntpdate
 echo "Inatall docker v1.12.6...ok"
 

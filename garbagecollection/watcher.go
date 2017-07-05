@@ -113,6 +113,9 @@ func (w *Watcher) Run() error {
 		time.Sleep(initRetryWaitTime)
 		// todo: add max retry?
 	}
+	if err = w.clean(); err != nil {
+		return err
+	}
 
 	logs.Info("starts running from watch version: %s", watchVersion)
 
@@ -209,6 +212,17 @@ func (w *Watcher) initResource() (string, error) {
 		}
 	}
 	return watchVersion, nil
+}
+
+// clean unrecycled resource
+func (w *Watcher) clean() error {
+	var all []*operator.Store
+	for _, db := range w.tidbs {
+		for _, s := range db.Tikv.Stores {
+			all = append(all, s)
+		}
+	}
+	return pvProvisioner.Clean(all)
 }
 
 // watch creates a go routine, and watches the tidb kind resources from
