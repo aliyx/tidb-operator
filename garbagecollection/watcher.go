@@ -135,6 +135,16 @@ func (w *Watcher) Run() error {
 	return <-errCh
 }
 
+func (w *Watcher) gc()  {
+	for _, db := range w.tidbs {
+		for _, s := range db.Tikv.Stores {
+			if s.State == operator.StoreOffline {
+				
+			}
+		}
+	}
+}
+
 func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 	tidb := event.Object
 

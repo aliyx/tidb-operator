@@ -30,7 +30,7 @@ var (
 func init() {
 	flag.StringVar(&httpaddr, "http-addr", "0.0.0.0", "The address on which the HTTP server will listen to.")
 	flag.IntVar(&httpport, "http-port", 12808, "The port on which the HTTP server will listen to.")
-	flag.BoolVar(&enableDocs, "enable-docs", false, "???")
+	flag.BoolVar(&enableDocs, "enable-docs", false, "Enable show swagger.")
 	flag.StringVar(&runmode, "runmode", "dev", "run mode, eg: dev test prod.")
 	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
 	flag.StringVar(&k8sAddress, "k8s-address", os.Getenv("K8S_ADDRESS"), "Kubernetes api address, if deployed in kubernetes, do not need to set, eg: 'http://127.0.0.1:8080'")

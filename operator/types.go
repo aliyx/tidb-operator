@@ -10,8 +10,9 @@ import (
 type StoreStatus int
 
 const (
-	storeOnline StoreStatus = iota
-	storeOffline
+	StoreOnline StoreStatus = iota
+	StoreOffline
+	StoreTombstone
 )
 
 const (
@@ -128,11 +129,11 @@ type Tikv struct {
 // Store tikv在tidb集群中的状态
 type Store struct {
 	// tikv info
-	ID      int    `json:"id,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Address string `json:"address,omitempty"`
-	Node    string `json:"nodeName,omitempty"`
-	State   int    `json:"state,omitempty"`
+	ID      int         `json:"id,omitempty"`
+	Name    string      `json:"name,omitempty"`
+	Address string      `json:"address,omitempty"`
+	Node    string      `json:"nodeName,omitempty"`
+	State   StoreStatus `json:"state,omitempty"`
 }
 
 const (

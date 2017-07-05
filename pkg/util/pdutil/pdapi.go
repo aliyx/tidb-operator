@@ -15,12 +15,21 @@ const (
 
 	pdAPIV1StoresGet     = "http://%s/pd/api/v1/stores"
 	pdAPIV1StoreIDDelete = "http://%s/pd/api/v1/store/%d"
+	pdAPIV1StoreIDGet    = "http://%s/pd/api/v1/store/%d"
 	pdAPIV1LeaderGet     = "http://%s/pd/api/v1/leader"
 	pdAPIV1MembersGet    = "http://%s/pd/api/v1/members"
 )
 
 func PdStoresGet(host string) (string, error) {
 	bs, err := httputil.Get(fmt.Sprintf(pdAPIV1StoresGet, host), pdReqTimeout)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
+}
+
+func PdStoreIDGet(host string, ID int) (string, error) {
+	bs, err := httputil.Get(fmt.Sprintf(pdAPIV1StoreIDGet, host, ID), pdReqTimeout)
 	if err != nil {
 		return "", err
 	}

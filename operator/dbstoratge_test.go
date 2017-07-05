@@ -41,12 +41,14 @@ func TestDb_Save(t *testing.T) {
 			},
 			Stores: map[string]*Store{
 				"tikv-test-001": &Store{
-					Node: "localhost.localdomain",
-					Name: "tikv-test-001",
+					Node:  "localhost.localdomain",
+					Name:  "tikv-test-001",
+					State: StoreOffline,
 				},
 				"tikv-test-002": &Store{
-					Node: "localhost.localdomain",
-					Name: "tikv-test-002",
+					Node:  "localhost.localdomain",
+					Name:  "tikv-test-002",
+					State: StoreOnline,
 				},
 			},
 		},

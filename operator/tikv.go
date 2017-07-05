@@ -11,6 +11,8 @@ import (
 
 	"errors"
 
+	"sort"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/pdutil"
@@ -168,7 +170,7 @@ func (tk *Tikv) waitForOk() (err error) {
 			return false, errMultipleStoresOneAddress
 		}
 		s.ID = int(ret.Array()[0].Int())
-		s.State = 0
+		s.State = StoreOnline
 		return true, nil
 	})
 	if err != nil {
@@ -177,6 +179,18 @@ func (tk *Tikv) waitForOk() (err error) {
 		logs.Info("tikv %s ok", tk.cur)
 	}
 	return err
+}
+
+func (tk *Tikv) IsBuried(s *Store) (bool, error) {
+	j, err := pdutil.PdStoreIDGet(tk.Db.Pd.OuterAddresses[0], s.ID)
+	if err != nil {
+		return false, err
+	}
+	ret := gjson.Get(j, "store.state")
+	if ret.Type == gjson.Null {
+		return false, fmt.Errorf("cannt get store[%s] state", s.Name)
+	}
+	return StoreStatus(ret.Int()) == StoreTombstone, nil
 }
 
 func (tk *Tikv) uninstall() (err error) {
@@ -230,8 +244,32 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 	}()
 }
 
-func (tk *Tikv) decrease(replicas int) error {
-	return fmt.Errorf("current unsupport for reducing the number of tikvs src:%d desc:%d", tk.Spec.Replicas, replicas)
+func (tk *Tikv) decrease(replicas int) (err error) {
+	if (tk.Spec.Replicas - replicas) < 3 {
+		return fmt.Errorf("the replicas of tikv must more than %d", 3)
+	}
+	if replicas*3 > tk.Spec.Replicas {
+		return fmt.Errorf("each scale can not be less than one-third")
+	}
+	logs.Info("start decrement scale tikv pod count: %d", replicas)
+
+	var names []string
+	for key := range tk.Stores {
+		names = append(names, key)
+	}
+
+	sort.Strings(names)
+	for i := 0; i <= replicas; i++ {
+		name := names[i]
+		if err = pdutil.PdStoreDelete(tk.Db.Pd.OuterAddresses[0], tk.Stores[name].ID); err != nil {
+			return err
+		}
+		tk.Stores[name].State = 1
+		tk.ReadyReplicas--
+		logs.Warn("delete tikv %s store %d", name, tk.Stores[name].ID)
+	}
+
+	return nil
 }
 
 func (tk *Tikv) increase(replicas int) (err error) {
@@ -239,10 +277,10 @@ func (tk *Tikv) increase(replicas int) (err error) {
 	if (replicas + tk.Spec.Replicas) > md.Spec.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Spec.Tikv.Max)
 	}
-	if replicas > tk.Spec.Replicas*3 || tk.Spec.Replicas > replicas*3 {
+	if replicas > tk.Spec.Replicas*2 {
 		return fmt.Errorf("each scale can not exceed 2 times")
 	}
-	logs.Info("start incrementally scale tikv pod count: %d", replicas)
+	logs.Info("start increment scale tikv pod count: %d", replicas)
 	for i := 0; i <= replicas; i++ {
 		tk.Member++
 		if err = tk._install(); err != nil {
