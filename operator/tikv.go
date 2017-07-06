@@ -181,6 +181,34 @@ func (tk *Tikv) waitForOk() (err error) {
 	return err
 }
 
+func DeleteBuriedTikv(db *Db) error {
+	if db == nil {
+		return nil
+	}
+	var deleted = 0
+	defer func() {
+		if deleted > 0 {
+			if err := db.update(); err != nil {
+				logs.Error("update db %v", err)
+			}
+		}
+	}()
+
+	for name, s := range db.Tikv.Stores {
+		b, err := db.Tikv.IsBuried(s)
+		if err != nil {
+			return err
+		}
+		if b {
+			logs.Warn("delete tikv %s", name)
+			deleted++
+			db.Tikv.AvailableReplicas--
+			delete(db.Tikv.Stores, name)
+		}
+	}
+	return nil
+}
+
 func (tk *Tikv) IsBuried(s *Store) (bool, error) {
 	j, err := pdutil.PdStoreIDGet(tk.Db.Pd.OuterAddresses[0], s.ID)
 	if err != nil {
@@ -221,9 +249,9 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 	}
 	wg.Add(1)
 	go func() {
-		db.Lock()
+		scaleMu.Lock()
 		defer func() {
-			db.Unlock()
+			scaleMu.Unlock()
 			wg.Done()
 		}()
 		var err error
@@ -249,24 +277,25 @@ func (tk *Tikv) decrease(replicas int) (err error) {
 		return fmt.Errorf("the replicas of tikv must more than %d", 3)
 	}
 	if replicas*3 > tk.Spec.Replicas {
-		return fmt.Errorf("each scale can not be less than one-third")
+		return fmt.Errorf("each scale dowm can not be less than one-third")
 	}
-	logs.Info("start decrement scale tikv pod count: %d", replicas)
-
+	logs.Info("start scaling down tikv pod count: %d", replicas)
+	tk.Replicas -= replicas
 	var names []string
 	for key := range tk.Stores {
 		names = append(names, key)
 	}
 
 	sort.Strings(names)
-	for i := 0; i <= replicas; i++ {
+	for i := 0; i < replicas; i++ {
 		name := names[i]
 		if err = pdutil.PdStoreDelete(tk.Db.Pd.OuterAddresses[0], tk.Stores[name].ID); err != nil {
 			return err
 		}
-		tk.Stores[name].State = 1
+		old := tk.Stores[name].State
+		tk.Stores[name].State = StoreOffline
 		tk.ReadyReplicas--
-		logs.Warn("delete tikv %s store %d", name, tk.Stores[name].ID)
+		logs.Warn("mark tikv %s state from %d to %d", name, old, StoreOffline)
 	}
 
 	return nil
@@ -281,13 +310,15 @@ func (tk *Tikv) increase(replicas int) (err error) {
 		return fmt.Errorf("each scale can not exceed 2 times")
 	}
 	logs.Info("start increment scale tikv pod count: %d", replicas)
-	for i := 0; i <= replicas; i++ {
+	tk.Replicas += replicas
+	for i := 0; i < replicas; i++ {
 		tk.Member++
 		if err = tk._install(); err != nil {
 			return err
 		}
 	}
-	logs.Info("end incrementally scale tikv %s pod desire: %d, available: %d", tk.Db.Metadata.Name, tk.Spec.Replicas, tk.AvailableReplicas)
+	logs.Info("end incrementally scale tikv %s pod desire: %d, available: %d",
+		tk.Db.Metadata.Name, tk.Replicas, tk.AvailableReplicas)
 	return err
 }
 

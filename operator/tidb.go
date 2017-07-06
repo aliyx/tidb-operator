@@ -16,6 +16,10 @@ import (
 	"github.com/ghodss/yaml"
 )
 
+var (
+	scaleMu sync.Mutex
+)
+
 func (td *Tidb) upgrade() (err error) {
 	if td.Db.Status.Phase < PhaseTidbStarted {
 		return fmt.Errorf("the db %s tidb unavailable", td.Db.Metadata.Name)
@@ -180,9 +184,9 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	}
 	wg.Add(1)
 	go func() {
-		db.Lock()
+		scaleMu.Lock()
 		defer func() {
-			db.Unlock()
+			scaleMu.Unlock()
 			wg.Done()
 		}()
 		var err error
@@ -203,13 +207,12 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			err = fmt.Errorf("each scale can not more or less then 2 times")
 			return
 		}
-		old := db.Tidb.Replicas
-		db.Tidb.Replicas = replica
-		if err = db.Tidb.validate(); err != nil {
-			db.Tidb.Replicas = old
+		if replica < 1 {
+			err = fmt.Errorf("replicas must be greater than 1")
 			return
 		}
-		logs.Info(`scale "tidb-%s" from %d to %d`, db.Metadata.Name, old, replica)
+		logs.Info(`start scaling tidb count of the db "%s" from %d to %d`, db.Metadata.Name, db.Tidb.Replicas, replica)
+		db.Tidb.Replicas = replica
 		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Metadata.Name), replica); err != nil {
 			return
 		}

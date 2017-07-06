@@ -20,6 +20,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	cleanInterval = 30 * time.Second
+)
+
 var (
 	supportedPVProvisioners = map[string]struct{}{
 		constants.PVProvisionerHostpath: {},
@@ -113,9 +117,19 @@ func (w *Watcher) Run() error {
 		time.Sleep(initRetryWaitTime)
 		// todo: add max retry?
 	}
-	if err = w.clean(); err != nil {
+
+	if err = w.recycle(); err != nil {
 		return err
 	}
+
+	go func() {
+		for {
+			select {
+			case <-time.After(cleanInterval):
+				w.cleanClusters()
+			}
+		}
+	}()
 
 	logs.Info("starts running from watch version: %s", watchVersion)
 
@@ -135,12 +149,11 @@ func (w *Watcher) Run() error {
 	return <-errCh
 }
 
-func (w *Watcher) gc()  {
+func (w *Watcher) cleanClusters() {
 	for _, db := range w.tidbs {
-		for _, s := range db.Tikv.Stores {
-			if s.State == operator.StoreOffline {
-				
-			}
+		err := operator.DeleteBuriedTikv(db)
+		if err != nil {
+			logs.Error("failed to delete %s buried tikv %v", db.Metadata.Name, err)
 		}
 	}
 }
@@ -224,8 +237,8 @@ func (w *Watcher) initResource() (string, error) {
 	return watchVersion, nil
 }
 
-// clean unrecycled resource
-func (w *Watcher) clean() error {
+// recycle unrecycled resource
+func (w *Watcher) recycle() error {
 	var all []*operator.Store
 	for _, db := range w.tidbs {
 		for _, s := range db.Tikv.Stores {

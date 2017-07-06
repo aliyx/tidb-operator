@@ -1,8 +1,6 @@
 package operator
 
 import (
-	"sync"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,8 +30,6 @@ type TidbList struct {
 
 // Db tidb metadata
 type Db struct {
-	*sync.Mutex // not copy
-
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 
