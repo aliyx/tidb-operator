@@ -8,7 +8,7 @@ set -e
 VERSION=${VERSION:-'latest'}
 
 echo "****************************"
-echo "*Starting build ffan/rds/tikv image..."
+echo "*Starting build tikv image..."
 echo "*  Proxy: $DPROXY"
 echo "*  Image: $REGISTRY/ffan/rds/tikv:$VERSION"
 echo "****************************" 

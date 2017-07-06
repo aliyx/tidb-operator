@@ -46,17 +46,14 @@ spec:
         mountPath: /data
       - name: zone
         mountPath: /etc/localtime
-    command:
-      - bash
-      - "-c"
-      - |
-        /tikv-server \
-        --store="/data/tikv-{{cell}}-{{id}}" \
-        --addr="0.0.0.0:20160" \
-        --capacity={{capacity}}GB \
-        --advertise-addr="$POD_IP:20160" \
-        --pd="pd-{{cell}}:2379" \
-        --config="/etc/tikv/config.toml"
+    command: ["/tikv-server"]
+    args:
+      - --store="/data/tikv-{{cell}}-{{id}}"
+      - --addr="0.0.0.0:20160"
+      - --capacity={{capacity}}GB
+      - --advertise-addr="$POD_IP:20160"
+      - --pd="pd-{{cell}}:2379"
+      - --config="/etc/tikv/config.toml"
     env: 
       - name: POD_IP
         valueFrom:
