@@ -3,9 +3,11 @@
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../../dev.env
 
+rm -rf base
+
 set -e
 
-VERSION="latest"
+VERSION=${VERSION:-'latest'}
 
 echo "****************************"
 echo "*Starting build tidb-gc image..."

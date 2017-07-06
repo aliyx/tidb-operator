@@ -3,6 +3,8 @@
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../../dev.env
 
+VERSION=${VERSION:-'latest'}
+
 echo "****************************"
 echo "*Starting build ffan/rds/migration image..."
 echo "*  Proxy: $DPROXY"

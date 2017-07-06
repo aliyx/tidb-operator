@@ -15,4 +15,6 @@ RUN GOBIN=/go/bin go install getpods
 
 ADD config.toml /etc/pd/config.toml
 
+EXPOSE 2379 2380
+
 CMD ["pd-server"]
