@@ -15,6 +15,7 @@ cell=`echo $CELL`
 # Delete pod
 for id in `seq 1 $replicas`; do
   echo "Deleting tikv pod $id for $cell cell..."
+  id=$(printf "%03d" $id)
   $KUBECTL $KUBECTL_OPTIONS  delete pod tikv-$cell-$id
 done
 

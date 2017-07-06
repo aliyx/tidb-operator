@@ -4,7 +4,7 @@ FROM centos:latest
 # Copy binaries (placed by build.sh)
 COPY base/tikv-server /
 
-ADD config.toml /etc/pd/config.toml
+ADD config.toml /etc/tikv/config.toml
 
 EXPOSE 20160
 

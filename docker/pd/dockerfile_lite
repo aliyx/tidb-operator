@@ -4,7 +4,7 @@ FROM debian:jessie
 # Copy binaries (placed by build.sh)
 COPY base/* /usr/bin/
 
-ADD config.toml /etc/pd/config.toml
+ADD config.toml /etc/tikv/config.toml
 
 EXPOSE 2379 2380
 

@@ -16,7 +16,7 @@ echo "*  Image: $REGISTRY/ffan/rds/tikv:$VERSION"
 echo "****************************" 
 (docker build $DPROXY -t $REGISTRY/ffan/rds/tikv:$VERSION-base -f dockerfile ./)
 
-# Extract files from ffan/rds/pd image
+# Extract files from ffan/rds/tikv image
 mkdir base
 docker run -ti --rm -v $PWD/base:/base -u $UID --entrypoint sh $REGISTRY/ffan/rds/tikv:$VERSION-base -c 'cp -f /tikv-server /base/tikv-server'
 

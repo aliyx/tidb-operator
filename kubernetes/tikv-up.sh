@@ -21,14 +21,14 @@ if [ -n "$DATA_VOLUME" ]; then
 fi
 
 for id in `seq 1 $replicas`; do
-  # Create the deployment.
+  echo "Creating tikv pod $id for $cell cell..."
+  id=$(printf "%03d" $id)
   sed_script=""
   for var in cell id cpu mem capacity version tidbdata_volume namespace registry; do
     sed_script+="s,{{$var}},${!var},g;"
   done
   # echo "Creating tikv deployment $id for $cell cell..."
   # cat tikv-deployment.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
-  echo "Creating tikv pod $id for $cell cell..."
   cat tikv-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done
 
