@@ -206,16 +206,14 @@ func GetDb(cell string) (*Db, error) {
 	if err != nil {
 		return nil, err
 	}
-	if db.Pd != nil {
-		db.Pd.Db = db
-	}
-	if db.Tikv != nil {
-		db.Tikv.Db = db
-	}
-	if db.Tidb != nil {
-		db.Tidb.Db = db
-	}
+	db.AfterPropertiesSet()
 	return db, nil
+}
+
+func (db *Db) AfterPropertiesSet() {
+	db.Pd.Db = db
+	db.Tikv.Db = db
+	db.Tidb.Db = db
 }
 
 // GetAllDbs get a tidbList object

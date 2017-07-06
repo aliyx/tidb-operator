@@ -67,9 +67,9 @@ type Event struct {
 type Watcher struct {
 	Config
 
-	tidbs map[string]*operator.Db
+	dbs map[string]*operator.Db
 	// Kubernetes resource version of the clusters
-	tidbRVs map[string]string
+	dbRVs map[string]string
 }
 
 // Config watch config
@@ -94,9 +94,9 @@ func (c *Config) Validate() error {
 // NewWatcher new a new watcher isntance
 func NewWatcher(cfg Config) *Watcher {
 	return &Watcher{
-		Config:  cfg,
-		tidbs:   make(map[string]*operator.Db),
-		tidbRVs: make(map[string]string),
+		Config: cfg,
+		dbs:    make(map[string]*operator.Db),
+		dbRVs:  make(map[string]string),
 	}
 }
 
@@ -150,7 +150,7 @@ func (w *Watcher) Run() error {
 }
 
 func (w *Watcher) cleanClusters() {
-	for _, db := range w.tidbs {
+	for _, db := range w.dbs {
 		err := operator.DeleteBuriedTikv(db)
 		if err != nil {
 			logs.Error("failed to delete %s buried tikv %v", db.Metadata.Name, err)
@@ -159,51 +159,52 @@ func (w *Watcher) cleanClusters() {
 }
 
 func (w *Watcher) handleTidbEvent(event *Event) (err error) {
-	tidb := event.Object
-
+	db := event.Object
+	db.AfterPropertiesSet()
 	switch event.Type {
 	case kwatch.Added:
-		w.tidbs[tidb.Metadata.Name] = tidb
-		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
+		w.dbs[db.Metadata.Name] = db
+		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
 	case kwatch.Modified:
-		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.tidbs[tidb.Metadata.Name], tidb, pvProvisioner); err != nil {
+		if err = gc(w.dbs[db.Metadata.Name], db, pvProvisioner); err != nil {
 			return err
 		}
-		w.tidbs[tidb.Metadata.Name] = tidb
-		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
+		w.dbs[db.Metadata.Name] = db
+		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
 	case kwatch.Deleted:
-		if _, ok := w.tidbs[tidb.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.Metadata.Name]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.tidbs[tidb.Metadata.Name], nil, pvProvisioner); err != nil {
+		if err = gc(w.dbs[db.Metadata.Name], nil, pvProvisioner); err != nil {
 			return err
 		}
-		delete(w.tidbs, tidb.Metadata.Name)
-		delete(w.tidbRVs, tidb.Metadata.Name)
+		delete(w.dbs, db.Metadata.Name)
+		delete(w.dbRVs, db.Metadata.Name)
 	}
 	return err
 }
 
-func (w *Watcher) findAllTidbs() (string, error) {
+func (w *Watcher) findAllDbs() (string, error) {
 	logs.Info("finding existing tidbs...")
-	tidbList, err := operator.GetAllDbs()
+	dbList, err := operator.GetAllDbs()
 	if err != nil {
 		return "", err
 	}
-	if tidbList == nil {
+	if dbList == nil {
 		return "", nil
 	}
 
-	for i := range tidbList.Items {
-		tidb := tidbList.Items[i]
-		w.tidbs[tidb.Metadata.Name] = &tidb
-		w.tidbRVs[tidb.Metadata.Name] = tidb.Metadata.ResourceVersion
+	for i := range dbList.Items {
+		db := &dbList.Items[i]
+		db.AfterPropertiesSet()
+		w.dbs[db.Metadata.Name] = db
+		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
 	}
 
-	return tidbList.Metadata.ResourceVersion, nil
+	return dbList.Metadata.ResourceVersion, nil
 }
 
 func (w *Watcher) initResource() (string, error) {
@@ -214,7 +215,7 @@ func (w *Watcher) initResource() (string, error) {
 	if err = k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
 		return "", fmt.Errorf("fail to create TPR: %v", err)
 	}
-	watchVersion, err = w.findAllTidbs()
+	watchVersion, err = w.findAllDbs()
 	if err != nil {
 		return "", err
 	}
@@ -240,7 +241,7 @@ func (w *Watcher) initResource() (string, error) {
 // recycle unrecycled resource
 func (w *Watcher) recycle() error {
 	var all []*operator.Store
-	for _, db := range w.tidbs {
+	for _, db := range w.dbs {
 		for _, s := range db.Tikv.Stores {
 			all = append(all, s)
 		}
@@ -283,9 +284,9 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 					if st.Code == http.StatusGone {
 						// event history is outdated.
 						// if nothing has changed, we can go back to watch again.
-						tidbList, err := operator.GetAllDbs()
-						if err == nil && !w.isTidbsCacheUnstable(tidbList.Items) {
-							watchVersion = tidbList.Metadata.ResourceVersion
+						dbList, err := operator.GetAllDbs()
+						if err == nil && !w.isDbsCacheUnstable(dbList.Items) {
+							watchVersion = dbList.Metadata.ResourceVersion
 							break
 						}
 
@@ -308,14 +309,14 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 	return eventCh, errCh
 }
 
-func (w *Watcher) isTidbsCacheUnstable(currentTidbs []operator.Db) bool {
-	if len(w.tidbRVs) != len(currentTidbs) {
+func (w *Watcher) isDbsCacheUnstable(currentDbs []operator.Db) bool {
+	if len(w.dbRVs) != len(currentDbs) {
 		return true
 	}
 
-	for _, ct := range currentTidbs {
-		rv, ok := w.tidbRVs[ct.Metadata.Name]
-		if !ok || rv != ct.Metadata.ResourceVersion {
+	for _, cd := range currentDbs {
+		rv, ok := w.dbRVs[cd.Metadata.Name]
+		if !ok || rv != cd.Metadata.ResourceVersion {
 			return true
 		}
 	}

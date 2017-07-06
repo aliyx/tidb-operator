@@ -359,20 +359,24 @@ func Scale(cell string, kvReplica, dbReplica int) (err error) {
 		return err
 	}
 	if !db.Status.Available {
-		return fmt.Errorf("tidb %s unavailable", cell)
+		return fmt.Errorf("db %s unavailable", cell)
 	}
 	if db.Status.ScaleState&scaling > 0 {
-		return fmt.Errorf("tidb %s is scaling", cell)
+		return fmt.Errorf("db %s is scaling", cell)
 	}
 	db.Status.ScaleState |= scaling
-	db.update()
+	if err = db.update(); err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	db.scaleTikvs(kvReplica, &wg)
 	db.scaleTidbs(dbReplica, &wg)
 	go func() {
 		wg.Wait()
 		db.Status.ScaleState ^= scaling
-		db.update()
+		if err = db.update(); err != nil {
+			logs.Error("failed to update db %s %v", db.Metadata.Name, err)
+		}
 	}()
 	return nil
 }

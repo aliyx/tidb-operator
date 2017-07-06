@@ -38,3 +38,7 @@ func Init() {
 	onInitHooks.Add(eventInit)
 	onInitHooks.Fire()
 }
+
+func recover()  {
+	
+}

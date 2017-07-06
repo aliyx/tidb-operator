@@ -14,6 +14,7 @@ import (
 	"sort"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/pkg/util/httputil"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/pdutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
@@ -212,6 +213,10 @@ func DeleteBuriedTikv(db *Db) error {
 func (tk *Tikv) IsBuried(s *Store) (bool, error) {
 	j, err := pdutil.PdStoreIDGet(tk.Db.Pd.OuterAddresses[0], s.ID)
 	if err != nil {
+		if err == httputil.ErrNotFound {
+			logs.Warn("can't get store:%d", s.ID)
+			return true, nil
+		}
 		return false, err
 	}
 	ret := gjson.Get(j, "store.state")
