@@ -15,12 +15,12 @@ spec:
   restartPolicy: Always
   # DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
   # For example, pd-test-001 in default namesapce will have DNS name
-  # `pd-test-001.test.default.svc.cluster.local`.
+  # 'pd-test-001.test.default.svc.cluster.local'.
   hostname: pd-{{cell}}-{{id}}
   subdomain: pd-{{cell}}-srv
   containers:
     - name: pd
-      image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
+      image: {{registry}}/pd:{{version}}
       # imagePullPolicy: IfNotPresent
       volumeMounts:
       - name: tidb-data
@@ -82,28 +82,3 @@ spec:
           --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
           --initial-cluster=$urls \
           --config="/etc/pd/config.toml"
-      lifecycle:
-        preStop:
-          exec:
-            command:
-              - bash
-              - "-c"
-              - |
-                # delete prometheus metrics
-                curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
-
-                # clear
-                resp=''
-                for i in $(seq 1 3)  
-                do  
-                  resp=$(curl -X DELETE --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/members/$PD_NAME)
-                  if [ $resp == 200 ]
-                  then
-                    break
-                  fi 
-                  sleep 1  
-                done
-                if [ $resp == 200 ]
-                then
-                  echo 'Delete pd "$PD_NAME" success'
-                fi

@@ -10,8 +10,6 @@ spec:
   volumes:
     - name: syslog
       hostPath: {path: /dev/log}
-    - name: zone
-      hostPath: {path: /etc/localtime}
   terminationGracePeriodSeconds: 10
   containers:
   - name: migration
@@ -29,9 +27,6 @@ spec:
           echo "Waiting for the pod to closed"
           sleep 10
         done
-    volumeMounts:
-      - name: zone
-        mountPath: /etc/localtime
     env: 
     - name: M_S_HOST
       value: "{{sh}}"
@@ -53,3 +48,5 @@ spec:
       value: "{{dp}}"
     - name: M_STAT_API
       value: "{{api}}"
+    - name: TZ
+      value: "Asia/Shanghai"

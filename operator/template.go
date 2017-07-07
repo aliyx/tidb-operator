@@ -67,15 +67,15 @@ spec:
   subdomain: pd-{{cell}}-srv
   containers:
     - name: pd
-      image: 10.209.224.13:10500/ffan/rds/pd:{{version}}
+      image: {{registry}}/pd:{{version}}
       # imagePullPolicy: IfNotPresent
       volumeMounts:
       - name: tidb-data
         mountPath: /var/pd
       resources:
         limits:
-          memory: {{mem}}Mi
-          cpu: {{cpu}}m
+          memory: "{{mem}}Mi"
+          cpu: "{{cpu}}m"
       env: 
       - name: M_INTERVAL
         value: "15"
@@ -99,7 +99,6 @@ spec:
 
           # set prometheus
           sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
-          sed -i -e 's/{m-interval}/'"$M_INTERVAL"'/' /etc/pd/config.toml
 
           if [ -d $PD_DATA_DIR ]; then
             echo "Resuming with existing data dir:$PD_DATA_DIR"
@@ -130,31 +129,6 @@ spec:
           --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
           --initial-cluster=$urls \
           --config="/etc/pd/config.toml"
-      lifecycle:
-        preStop:
-          exec:
-            command:
-              - bash
-              - "-c"
-              - |
-                # delete prometheus metrics
-                curl -X DELETE http://prom-gateway:9091/metrics/job/{{cell}}/instance/$HOSTNAME
-
-                # clear
-                resp=''
-                for i in $(seq 1 3)  
-                do  
-                  resp=$(curl -X DELETE --write-out %{http_code} --silent --output /dev/null http://pd-{{cell}}:2379/pd/api/v1/members/$PD_NAME)
-                  if [ $resp == 200 ]
-                  then
-                    break
-                  fi 
-                  sleep 1  
-                done
-                if [ $resp == 200 ]
-                then
-                  echo 'Delete pd "$PD_NAME" success'
-                fi
 `
 
 var tikvPodYaml = `
@@ -168,7 +142,8 @@ metadata:
     component: tikv
 spec:
   affinity:
-    # PD 和 TiKV 实例，建议每个实例单独部署一个硬盘，避免 IO 冲突，影响性能
+    # PD and TiKV instances, it is recommended that each instance individually deploy a hard disk 
+    # to avoid IO conflicts and affect performance
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
       - weight: 80
@@ -187,7 +162,7 @@ spec:
       {{tidbdata_volume}}
     - name: zone
       hostPath: {path: /etc/localtime}
-  terminationGracePeriodSeconds: 30
+  terminationGracePeriodSeconds: 5
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}
@@ -204,8 +179,6 @@ spec:
     volumeMounts:
       - name: datadir
         mountPath: /data
-      - name: zone
-        mountPath: /etc/localtime
     command:
       - bash
       - "-c"
@@ -222,14 +195,8 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: status.podIP
-    lifecycle:
-      preStop:
-        exec:
-          command:
-            - bash
-            - "-c"
-            - |
-              rm -rf /data/tikv-{{cell}}-{{id}}
+      - name: TZ
+        value: "Asia/Shanghai"
 `
 
 var tidbServiceYaml = `
@@ -270,7 +237,7 @@ spec:
         app: tidb
     spec:
       affinity:
-        # TiDB 和 TiKV 实例，建议分开部署，以免竞争 CPU 资源，影响性能
+        # iDB and TiKV instances, it is recommended to deploy separately to avoid competing CPU resources and performance
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 80
@@ -285,34 +252,33 @@ spec:
       volumes:
         - name: syslog
           hostPath: {path: /dev/log}
-        - name: zone
-          hostPath: {path: /etc/localtime}
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 5
       containers:
-        - name: tidb
-          image: {{registry}}/tidb:{{version}}
-          livenessProbe:
-            httpGet:
-              path: /status
-              port: 10080
-            initialDelaySeconds: 30
-            timeoutSeconds: 5
-          volumeMounts:
-            - name: syslog
-              mountPath: /dev/log
-            - name: zone
-              mountPath: /etc/localtime
-          resources:
-            limits:
-              memory: "{{mem}}Mi"
-              cpu: "{{cpu}}m"
-          command: ["/tidb-server"]
-          args: 
-            - -P=4000
-            - --store=tikv
-            - --path=pd-{{cell}}:2379
-            - --metrics-addr=prom-gateway:9091
-            - --metrics-interval=15
+      - name: tidb
+        image: {{registry}}/tidb:{{version}}
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 10080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        volumeMounts:
+          - name: syslog
+            mountPath: /dev/log
+        resources:
+          limits:
+            memory: "{{mem}}Mi"
+            cpu: "{{cpu}}m"
+        command: ["/tidb-server"]
+        args: 
+          - -P=4000
+          - --store=tikv
+          - --path=pd-{{cell}}:2379
+          - --metrics-addr=prom-gateway:9091
+          - --metrics-interval=15
+        env: 
+          - name: TZ
+            value: "Asia/Shanghai"
 `
 
 var mysqlMigrateYaml = `
@@ -328,8 +294,6 @@ spec:
   volumes:
     - name: syslog
       hostPath: {path: /dev/log}
-    - name: zone
-      hostPath: {path: /etc/localtime}
   terminationGracePeriodSeconds: 10
   containers:
   - name: migration
@@ -347,9 +311,6 @@ spec:
           echo "Waiting for the pod to closed"
           sleep 10
         done
-    volumeMounts:
-      - name: zone
-        mountPath: /etc/localtime
     env: 
     - name: M_S_HOST
       value: "{{sh}}"
@@ -371,6 +332,8 @@ spec:
       value: "{{dp}}"
     - name: M_STAT_API
       value: "{{api}}"
+    - name: TZ
+      value: "Asia/Shanghai"
 `
 
 func getResourceName(s string) string {

@@ -8,7 +8,8 @@ metadata:
     component: tikv
 spec:
   affinity:
-    # PD 和 TiKV 实例，建议每个实例单独部署一个硬盘，避免 IO 冲突，影响性能
+    # PD and TiKV instances, it is recommended that each instance individually deploy a hard disk 
+    # to avoid IO conflicts and affect performance
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
       - weight: 80
@@ -44,8 +45,6 @@ spec:
     volumeMounts:
       - name: datadir
         mountPath: /data
-      - name: zone
-        mountPath: /etc/localtime
     command:
       - bash
       - "-c"
@@ -62,11 +61,5 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: status.podIP
-    lifecycle:
-      preStop:
-        exec:
-          command:
-            - bash
-            - "-c"
-            - |
-              rm -rf /data/tikv-{{cell}}-{{id}}
+      - name: TZ
+        value: "Asia/Shanghai"

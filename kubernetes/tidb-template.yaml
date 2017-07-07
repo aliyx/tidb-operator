@@ -34,7 +34,7 @@ spec:
         app: tidb
     spec:
       affinity:
-        # TiDB 和 TiKV 实例，建议分开部署，以免竞争 CPU 资源，影响性能
+        # TiDB and TiKV instances, it is recommended to deploy separately to avoid competing CPU resources and performance
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 80
@@ -49,31 +49,30 @@ spec:
       volumes:
         - name: syslog
           hostPath: {path: /dev/log}
-        - name: zone
-          hostPath: {path: /etc/localtime}
       terminationGracePeriodSeconds: 5
       containers:
-        - name: tidb
-          image: {{registry}}/tidb:{{version}}
-          livenessProbe:
-            httpGet:
-              path: /status
-              port: 10080
-            initialDelaySeconds: 30
-            timeoutSeconds: 5
-          volumeMounts:
-            - name: syslog
-              mountPath: /dev/log
-            - name: zone
-              mountPath: /etc/localtime
-          resources:
-            limits:
-              memory: "{{mem}}Mi"
-              cpu: "{{cpu}}m"
-          command: ["/tidb-server"]
-          args: 
-            - -P=4000
-            - --store=tikv
-            - --path=pd-{{cell}}:2379
-            - --metrics-addr=prom-gateway:9091
-            - --metrics-interval=15
+      - name: tidb
+        image: {{registry}}/tidb:{{version}}
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 10080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        volumeMounts:
+          - name: syslog
+            mountPath: /dev/log
+        resources:
+          limits:
+            memory: "{{mem}}Mi"
+            cpu: "{{cpu}}m"
+        command: ["/tidb-server"]
+        args: 
+          - -P=4000
+          - --store=tikv
+          - --path=pd-{{cell}}:2379
+          - --metrics-addr=prom-gateway:9091
+          - --metrics-interval=15
+        env: 
+          - name: TZ
+            value: "Asia/Shanghai"

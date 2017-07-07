@@ -11,6 +11,7 @@ version=${VERSION}
 cpu=${PD_CPU:-200}
 mem=${PD_MEM:-256}
 replicas=${PD_REPLICAS:-3}
+registry=${REGISTRY}
 DATA_VOLUME=${DATA_VOLUME:-''}
 tidbdata_volume='emptyDir: {}'
 # if [ -n "$DATA_VOLUME" ]; then
