@@ -286,15 +286,14 @@ func (db *Db) Upgrade() {
 	}()
 }
 
-// UpdateMigrateStat update tidb migrate stat
-func (db *Db) UpdateMigrateStat(s, desc string) (err error) {
+// SyncMigrateStat update tidb migrate stat
+func (db *Db) SyncMigrateStat() (err error) {
 	var e *Event
-	db.Status.MigrateState = s
 	if err := db.update(); err != nil {
 		return err
 	}
-	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, s)
-	switch s {
+	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, db.Status.MigrateState)
+	switch db.Status.MigrateState {
 	case "Dumping":
 		e = NewEvent(db.Metadata.Name, "migration", "dump")
 		e.Trace(nil, "Start Dumping mysql data to local")

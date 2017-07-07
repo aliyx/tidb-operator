@@ -107,6 +107,27 @@ paths:
           description: '{string} delete success!'
         "403":
           description: cell is empty
+    patch:
+      tags:
+      - tidbs
+      description: partially update the specified Tidb
+      operationId: TidbController.Patch
+      parameters:
+      - in: path
+        name: cell
+        description: The cell for pd name
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: 'Data format reference: http://jsonpatch.com/'
+        required: true
+        schema:
+          $ref: '#/definitions/operator.Db'
+      responses:
+        "200": {}
+        "403":
+          description: unsupport operation
   /tidbs/{cell}/events:
     get:
       tags:
@@ -145,74 +166,6 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/.Mysql'
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
-  /tidbs/{cell}/scale:
-    patch:
-      tags:
-      - tidbs
-      description: Scale tidb cluster replicas
-      operationId: TidbController.Scale the tidb cluster
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for pd name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: 'Data format reference: http://jsonpatch.com/'
-        required: true
-        schema:
-          $ref: '#/definitions/operator.Db'
-      responses:
-        "200": {}
-        "403":
-          description: body is empty
-  /tidbs/{cell}/status:
-    patch:
-      tags:
-      - tidbs
-      description: patch tidb status
-      operationId: TidbController.status
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for pd name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: Patch tidb status
-        required: true
-        schema:
-          $ref: '#/definitions/controllers.Status'
-      responses:
-        "200": {}
-        "400":
-          description: body is empty
-        "403":
-          description: unsupport operation
-  /tidbs/{cell}/upgrade:
-    patch:
-      tags:
-      - tidbs
-      description: Upgrade tidb image version
-      operationId: TidbController.Upgrade version
-      parameters:
-      - in: path
-        name: cell
-        description: The cell for db name
-        required: true
-        type: string
-      - in: body
-        name: body
-        description: 'Data format reference: http://jsonpatch.com/'
-        required: true
-        schema:
-          $ref: '#/definitions/operator.Db'
       responses:
         "200": {}
         "403":
@@ -277,16 +230,6 @@ definitions:
       total:
         type: integer
         format: int64
-  controllers.Status:
-    title: Status
-    type: object
-    properties:
-      desc:
-        type: string
-      status:
-        type: string
-      type:
-        type: string
   operator.ApprovalConditions:
     title: ApprovalConditions
     type: object
@@ -303,6 +246,8 @@ definitions:
     properties:
       metadata:
         $ref: '#/definitions/metav1.ObjectMeta'
+      operator:
+        type: string
       owner:
         $ref: '#/definitions/operator.Owner'
       pd:
@@ -488,6 +433,23 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/operator.Preference'
+  operator.Status:
+    title: Status
+    type: object
+    properties:
+      available:
+        type: boolean
+      message:
+        type: string
+      migrateState:
+        type: string
+      outerAddresses: {}
+      outerStatusAddresses: {}
+      phase:
+        $ref: '#/definitions/operator.Phase'
+      scaleState:
+        type: integer
+        format: int64
   operator.Store:
     title: Store
     type: object
@@ -555,7 +517,7 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/57265.Store'
+        $ref: '#/definitions/57291.Store'
       tidbdata_volume:
         type: string
       upgradeState:

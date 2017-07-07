@@ -97,62 +97,10 @@ func (dc *TidbController) CheckResources() {
 	dc.ServeJSON()
 }
 
-// Scale the tidb cluster
-// @Title Scale the tidb cluster
-// @Description Scale tidb cluster replicas
-// @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	operator.Db	true	"Data format reference: http://jsonpatch.com/"
-// @Success 200
-// @Failure 403 body is empty
-// @router /:cell/scale [patch]
-func (dc *TidbController) Scale() {
-	cell := dc.GetString(":cell")
-	b := dc.Ctx.Input.RequestBody
-	if len(b) < 1 {
-		dc.CustomAbort(403, "body is empty")
-	}
-
-	db, err := operator.GetDb(cell)
-	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
-
-	if err = patch(b, db); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
-	}
-
-	errHandler(
-		dc.Controller,
-		operator.Scale(cell, db.Tikv.Replicas, db.Tidb.Replicas),
-		fmt.Sprintf("Scale tidb %s", cell),
-	)
-}
-
-// Upgrade upgrade tidb image version
-// @Title Upgrade version
-// @Description  Upgrade tidb image version
-// @Param	cell	path	string	true	"The cell for db name"
-// @Param	body	body 	operator.Db	true	"Data format reference: http://jsonpatch.com/"
-// @Success 200
-// @Failure 403 body is empty
-// @router /:cell/upgrade [patch]
-func (dc *TidbController) Upgrade() {
-	cell := dc.GetString(":cell")
-	b := dc.Ctx.Input.RequestBody
-	if len(b) < 1 {
-		dc.CustomAbort(403, "body is empty")
-	}
-	db, err := operator.GetDb(cell)
-	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
-
-	if err = patch(b, db); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
-	}
-	db.Upgrade()
-}
-
 // Migrate data to tidb
 // @Title Migrate
 // @Description migrate mysql data to tidb
-// @Param   sync	query	string	false       "increment sync"
+// @Param   sync	query	string	false	"increment sync"
 // @Param 	cell 	path	string	true	"The database name for tidb"
 // @Param	body	body	mysqlutil.Mysql	true	"Body for src mysql"
 // @Success 200
@@ -184,58 +132,68 @@ func (dc *TidbController) Migrate() {
 	)
 }
 
-// Status patch tidb status
-// @Title status
-// @Description patch tidb status
+// Patch tidb
+// @Title Patch
+// @Description partially update the specified Tidb
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body	controllers.Status	true	"Patch tidb status"
+// @Param	body	body	operator.Db	true	"Data format reference: http://jsonpatch.com/"
 // @Success 200
-// @Failure 400 body is empty
+// @Failure 403 body is empty
 // @Failure 403 unsupport operation
-// @router /:cell/status [patch]
-func (dc *TidbController) Status() {
+// @router /:cell [patch]
+func (dc *TidbController) Patch() {
 	cell := dc.GetString(":cell")
-	s := Status{}
-	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
+	b := dc.Ctx.Input.RequestBody
+	if len(b) < 1 {
+		dc.CustomAbort(403, "body is empty")
 	}
 	db, err := operator.GetDb(cell)
-	errHandler(dc.Controller, err, fmt.Sprintf("Get tidb %s", cell))
-	logs.Debug("%s patch: %+v", cell, s)
-	switch s.Type {
-	case "migrate":
-		db.UpdateMigrateStat(s.Status, "")
-		errHandler(dc.Controller, err, "Patch tidb status")
+	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
+
+	if err = patch(b, db); err != nil {
+		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
+	}
+	switch db.Operator {
 	case "audit":
-		switch s.Status {
-		case "-2":
-			db.Status.Phase = operator.PhaseRefuse
-			db.Owner.Reason = s.Desc
+		switch db.Status.Phase {
+		case operator.PhaseRefuse:
 			db.Update()
-		}
-	case "op":
-		switch s.Status {
-		case "start":
+		case operator.PhaseUndefined:
 			errHandler(
 				dc.Controller,
 				operator.Install(cell, nil),
-				fmt.Sprintf("Start installing tidb %s", cell),
+				fmt.Sprintf("start installing tidb %s", cell),
 			)
-		case "stop":
-			errHandler(
-				dc.Controller,
-				operator.Uninstall(cell, nil),
-				fmt.Sprintf("Start uninstalling tidb %s", cell),
-			)
-		case "retart":
-			errHandler(
-				dc.Controller,
-				operator.Reinstall(cell),
-				fmt.Sprintf("Start reinstalling tidb %s", cell),
-			)
-		default:
-			dc.CustomAbort(403, "unsupport operation")
 		}
+	case "start":
+		errHandler(
+			dc.Controller,
+			operator.Install(cell, nil),
+			fmt.Sprintf("start installing tidb %s", cell),
+		)
+	case "stop":
+		errHandler(
+			dc.Controller,
+			operator.Uninstall(cell, nil),
+			fmt.Sprintf("start uninstalling tidb %s", cell),
+		)
+	case "retart":
+		errHandler(
+			dc.Controller,
+			operator.Reinstall(cell),
+			fmt.Sprintf("start reinstalling tidb %s", cell),
+		)
+	case "upgrade":
+		db.Upgrade()
+	case "scale":
+		errHandler(
+			dc.Controller,
+			operator.Scale(cell, db.Tikv.Replicas, db.Tidb.Replicas),
+			fmt.Sprintf("Scale tidb %s", cell),
+		)
+	case "syncMigrateStat":
+		db.SyncMigrateStat()
+		errHandler(dc.Controller, err, "sync tidb migrate status")
 	default:
 		dc.CustomAbort(403, "unsupport operation")
 	}
@@ -288,11 +246,4 @@ func errHandler(c beego.Controller, err error, msg string) {
 	}
 	logs.Error("%s: %v", msg, err)
 	c.CustomAbort(err2httpStatuscode(err), fmt.Sprintf("%s error: %v", msg, err))
-}
-
-// Status patch tidb status
-type Status struct {
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Desc   string `json:"desc"`
 }

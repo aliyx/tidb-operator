@@ -35,10 +35,13 @@ type Db struct {
 
 	Owner  *Owner `json:"owner,omitempty"`
 	Schema Schema `json:"schema"`
-	Pd     *Pd    `json:"pd"`
-	Tikv   *Tikv  `json:"tikv"`
-	Tidb   *Tidb  `json:"tidb"`
-	Status Status `json:"status"`
+
+	Pd   *Pd   `json:"pd"`
+	Tikv *Tikv `json:"tikv"`
+	Tidb *Tidb `json:"tidb"`
+
+	Operator string `json:"operator"`
+	Status   Status `json:"status"`
 }
 
 // Tidb tidb module
