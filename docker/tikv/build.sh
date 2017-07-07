@@ -14,7 +14,7 @@ echo "*Starting build tikv image..."
 echo "*  Proxy: $DPROXY"
 echo "*  Image: $REGISTRY/ffan/rds/tikv:$VERSION"
 echo "****************************" 
-(docker build $DPROXY -t $REGISTRY/ffan/rds/tikv:$VERSION-base -f dockerfile ./)
+(docker build $DPROXY --build-arg VERSION=$VERSION -t $REGISTRY/ffan/rds/tikv:$VERSION-base -f dockerfile ./)
 
 # Extract files from ffan/rds/tikv image
 mkdir base

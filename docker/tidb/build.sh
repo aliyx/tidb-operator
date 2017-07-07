@@ -14,7 +14,14 @@ echo "*Starting build tidb image..."
 echo "*  Proxy: $DPROXY"
 echo "*  Image: $REGISTRY/ffan/rds/tidb:$VERSION"
 echo "****************************" 
-(docker build $DPROXY -t $REGISTRY/ffan/rds/tidb:$VERSION-base -f dockerfile ./)
+
+branch=$VERSION
+if [ "-skip-base" != "$1" ]; then
+  if [ "$branch" == "latest" ]; then
+    branch="master"
+  fi
+  (docker build $DPROXY --build-arg VERSION=$branch -t $REGISTRY/ffan/rds/tidb:$VERSION-base -f dockerfile ./)
+fi
 
 # Extract files from ffan/rds/tidb image
 mkdir base

@@ -2,11 +2,9 @@ FROM centos:latest
 
 MAINTAINER yangxin45
 
-ADD migrate.sh /usr/local/bin/migrate
+COPY migrate.sh /usr/local/bin/migrate
 
-RUN cd /usr/local && \
-    curl -L https://download.pingcap.org/tidb-enterprise-tools-latest-linux-amd64.tar.gz | tar -xz && \
-    curl -L https://download.pingcap.org/mydumper-linux-amd64.tar.gz | tar -xz && \
-    rm -f tidb-enterprise-tools-latest-linux-amd64.tar.gz mydumper-linux-amd64.tar.gz
+ADD https://download.pingcap.org/tidb-enterprise-tools-latest-linux-amd64.tar.gz /usr/local/tidb-enterprise-tools
+ADD https://download.pingcap.org/mydumper-linux-amd64.tar.gz /usr/local/mydumper
 
 CMD ["migrate"]
