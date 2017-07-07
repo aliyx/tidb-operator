@@ -86,8 +86,13 @@ func Install(cell string, ch chan int) error {
 		logs.Error("get db %s err: %v", cell, err)
 		return err
 	}
+
+	// Startup means passing the audit
+	if db.Status.Phase == PhaseAuditing {
+		db.Status.Phase = PhaseUndefined
+	}
 	if db.Status.Phase < PhaseUndefined {
-		return fmt.Errorf("db %s may be in the approval", cell)
+		return fmt.Errorf("db %s may be in the approval or no passed", cell)
 	}
 	if db.Status.Phase != PhaseUndefined {
 		return ErrRepeatOperation
