@@ -1,0 +1,15 @@
+language: go
+
+go:
+  - 1.8
+  - 1.7
+
+install:
+  - if ! go get code.google.com/p/go.tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+
+script:
+  - go get
+  - go test -cover ./...
+
+notifications:
+  email: false

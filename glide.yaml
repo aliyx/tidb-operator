@@ -4,16 +4,18 @@ import:
   version: v1.8.3
   subpackages:
   - logs
-- package: github.com/coreos/etcd
-  version: v3.2.0-rc.1
-  subpackages:
-  - clientv3
-  - etcdserver/api/v3rpc/rpctypes
+  - config
+  - context
+  - grace
+  - session
+  - toolbox
+  - utils
 - package: github.com/ghodss/yaml
   version: v1.0.0
 - package: github.com/go-sql-driver/mysql
   version: v1.3
 - package: github.com/tidwall/gjson
+- package: github.com/tidwall/match
 - package: google.golang.org/grpc
   version: v1.2.1
   subpackages:
@@ -31,3 +33,4 @@ import:
   version: ^1.0.0
 - package: gopkg.in/resty.v0
   version: ^0.12.0
+- package: github.com/evanphx/json-patch

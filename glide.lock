@@ -1,5 +1,5 @@
-hash: 4cb8cd9738ffeffa1f3e94e1749bbe1b68d7c3dc814edb14b635a9b6b3ffab2b
-updated: 2017-06-21T18:28:29.397801787+08:00
+hash: de88d2420a1e563642f3f94386b75e06485cea6f41897ced1763f60b6eb506ba
+updated: 2017-07-07T10:14:28.489380727+08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -17,11 +17,6 @@ imports:
   - session
   - toolbox
   - utils
-- name: github.com/coreos/etcd
-  version: 9d7ed0e63a4e9907c04396d0a9a7a01ba08d2852
-  subpackages:
-  - clientv3
-  - etcdserver/api/v3rpc/rpctypes
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
@@ -36,6 +31,8 @@ imports:
   subpackages:
   - log
   - swagger
+- name: github.com/evanphx/json-patch
+  version: c3740aa533c8ac9463b1428e3f964f66733135af
 - name: github.com/ghodss/yaml
   version: 0ca9ea5df5451ffdf184b4428c902747c2c11cd7
 - name: github.com/go-openapi/jsonpointer
@@ -102,6 +99,7 @@ imports:
   - http2/hpack
   - idna
   - lex/httplex
+  - publicsuffix
 - name: golang.org/x/oauth2
   version: 3c3a985cb79f52a3190fbc056984415ca6763d01
   subpackages:
@@ -145,7 +143,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/resty.v0
-  version: 7a8134d8718193eb857994adee49d73a302e7718
+  version: cf81ed0a604d373be63b4c036c6b05c06520615f
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
 - name: k8s.io/apimachinery
