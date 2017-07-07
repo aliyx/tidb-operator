@@ -27,6 +27,8 @@ metadata:
   name: tidb-gc
   namespace: {{namespace}}
 spec:
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:

@@ -218,7 +218,7 @@ spec:
     component: tidb
     cell: {{cell}}
     app: tidb
-  sessionAffinity: ClientIP
+  sessionAffinity: None
   type: NodePort
 `
 
@@ -282,58 +282,50 @@ spec:
 `
 
 var mysqlMigrateYaml = `
-apiVersion: v1
-kind: Pod
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: migration-{{cell}}
-  labels:
-    app: tidb
-    cell: {{cell}}
-    component: migration
+  name: migrator-{{cell}}
 spec:
-  volumes:
-    - name: syslog
-      hostPath: {path: /dev/log}
-  terminationGracePeriodSeconds: 10
-  containers:
-  - name: migration
-    image: {{image}}
-    resources:
-      limits:
-        cpu: "200m"
-        memory: "512Mi"
-    command:
-      - bash
-      - "-c"
-      - |
-        migrate {{sync}}
-        while true; do
-          echo "Waiting for the pod to closed"
-          sleep 10
-        done
-    env: 
-    - name: M_S_HOST
-      value: "{{sh}}"
-    - name: M_S_PORT
-      value: "{{sP}}"
-    - name: M_S_USER
-      value: "{{su}}"
-    - name: M_S_PASSWORD
-      value: "{{sp}}"
-    - name: M_S_DB
-      value: "{{db}}"
-    - name: M_D_HOST
-      value: "{{dh}}"
-    - name: M_D_PORT
-      value: "{{dP}}"
-    - name: M_D_USER
-      value: "{{duser}}"
-    - name: M_D_PASSWORD
-      value: "{{dp}}"
-    - name: M_STAT_API
-      value: "{{api}}"
-    - name: TZ
-      value: "Asia/Shanghai"
+  template:
+    metadata:
+      name: migrator-{{cell}}
+      labels:
+        app: tidb
+        cell: {{cell}}
+        component: migrator
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: syslog
+          hostPath: {path: /dev/log}
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: migrator
+        image: {{image}}
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+        command:
+          - bash
+          - "-c"
+          - |
+            migrator \
+              --database {{db}} \
+              --src-host {{sh}} \
+              --src-port {{sP}} \
+              --src-user {{su}} \
+              --src-password {{sp}} \
+              --dest-host {{dh}} \
+              --dest-port {{dP}} \
+              --dest-user {{du}} \
+              --dest-password {{dp}} \
+              --operator {{op}} \
+              --notice "{{api}}"
+        env: 
+        - name: TZ
+          value: "Asia/Shanghai"
 `
 
 func getResourceName(s string) string {

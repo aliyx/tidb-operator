@@ -12,6 +12,7 @@ import (
 	_ "github.com/ffan/tidb-operator/operator/routers"
 	_ "github.com/go-sql-driver/mysql"
 
+	"context"
 	"flag"
 	"strconv"
 )
@@ -32,7 +33,7 @@ func init() {
 	flag.IntVar(&httpport, "http-port", 12808, "The port on which the HTTP server will listen to.")
 	flag.BoolVar(&enableDocs, "enable-docs", false, "Enable show swagger.")
 	flag.StringVar(&runmode, "runmode", "dev", "run mode, eg: dev test prod.")
-	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
+	flag.IntVar(&logLevel, "log-level", logs.LevelInfo, "Beego logs level.")
 	flag.StringVar(&k8sAddress, "k8s-address", os.Getenv("K8S_ADDRESS"), "Kubernetes api address, if deployed in kubernetes, do not need to set, eg: 'http://127.0.0.1:8080'")
 	flag.StringVar(&dockerRegistry, "docker-registry", "10.209.224.13:10500/ffan/rds", "private docker registry.")
 	flag.BoolVar(&forceInitMd, "init-md", false, "force init metadata.")
@@ -72,7 +73,14 @@ func init() {
 
 func main() {
 	operator.ParseConfig()
+
 	operator.Init()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := operator.Run(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	go beego.Run()
 
@@ -84,6 +92,7 @@ func main() {
 		syscall.SIGQUIT)
 	sig := <-sc
 	logs.Info("Got signal [%d] to exit.", sig)
+	cancel()
 	switch sig {
 	case syscall.SIGTERM:
 		os.Exit(0)

@@ -22,16 +22,30 @@ var (
 )
 
 // GetTidbVersion get tidb image version
-func GetTidbVersion(pod *v1.Pod) string {
-	return pod.Annotations[tidbVersionAnnotationKey]
+func GetTidbVersion(i interface{}) string {
+	switch v := i.(type) {
+	case *v1.Pod:
+		return v.Annotations[tidbVersionAnnotationKey]
+	case *v1.ReplicationController:
+		return v.Annotations[tidbVersionAnnotationKey]
+	}
+	return ""
 }
 
 // SetTidbVersion set tidb image version
-func SetTidbVersion(pod *v1.Pod, version string) {
-	if len(pod.Annotations) < 1 {
-		pod.Annotations = make(map[string]string)
+func SetTidbVersion(i interface{}, version string) {
+	switch v := i.(type) {
+	case *v1.Pod:
+		if len(v.Annotations) < 1 {
+			v.Annotations = make(map[string]string)
+		}
+		v.Annotations[tidbVersionAnnotationKey] = version
+	case *v1.ReplicationController:
+		if len(v.Spec.Template.Annotations) < 1 {
+			v.Spec.Template.Annotations = make(map[string]string)
+		}
+		v.Spec.Template.Annotations[tidbVersionAnnotationKey] = version
 	}
-	pod.Annotations[tidbVersionAnnotationKey] = version
 }
 
 // CreateAndWaitPodByJSON create and wait pod status 'running'
@@ -51,25 +65,35 @@ func GetImageVersion(image string) string {
 }
 
 // PatchPod path pod
-func PatchPod(name string, patchdata []byte) error {
-	_, err := kubecli.CoreV1().Pods(Namespace).Patch(name, types.StrategicMergePatchType, patchdata)
+func PatchPod(op *v1.Pod, updateFunc func(*v1.Pod), timeout time.Duration) error {
+	np := clonePod(op)
+	updateFunc(np)
+	patchData, err := CreatePatch(op, np, v1.Pod{})
 	if err != nil {
-		return fmt.Errorf("fail to update the pod (%s): %v", name, err)
+		return err
 	}
+	_, err = kubecli.CoreV1().Pods(Namespace).Patch(op.GetName(), types.StrategicMergePatchType, patchData)
+	if err != nil {
+		return err
+	}
+	// wait restart the pod
+	time.Sleep(3 * time.Second)
+	_, err = waitPodRunning(op.GetName(), timeout)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// CreateAndWaitPod create and wait pod status 'running'
-func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
-	_, err := kubecli.CoreV1().Pods(Namespace).Create(pod)
-	if err != nil {
-		return nil, err
-	}
-
-	interval := time.Second
-	var retPod *v1.Pod
-	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
-		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(pod.Name, metav1.GetOptions{})
+func waitPodRunning(name string, timeout time.Duration) (*v1.Pod, error) {
+	var (
+		err      error
+		retPod   *v1.Pod
+		interval = 2 * time.Second
+	)
+	return retPod, retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
+		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -77,17 +101,52 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 		case v1.PodRunning:
 			return true, nil
 		case v1.PodPending:
+			for _, c := range retPod.Status.Conditions {
+				if c.Reason == v1.PodReasonUnschedulable {
+					return false, fmt.Errorf("%s:%s", c.Reason, c.Message)
+				}
+			}
 			return false, nil
 		default:
 			return false, fmt.Errorf("unexpected pod status.phase: %v", retPod.Status.Phase)
 		}
 	})
-	logs.Info(`Pod "%s" created`, retPod.GetName())
+}
+
+// CreateAndWaitPod create and wait pod status 'running'
+func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
+	retPod, err := kubecli.CoreV1().Pods(Namespace).Create(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	retPod, err = waitPodRunning(pod.GetName(), timeout)
+	if err != nil {
+		return nil, err
+	}
+	logs.Info("Pod '%s' created", retPod.GetName())
 	return retPod, err
 }
 
-// ClonePod deep clone Pod
-func ClonePod(p *v1.Pod) *v1.Pod {
+// IsPodOk pod status is True
+func IsPodOk(pod v1.Pod) (ok bool) {
+	ok = true
+	if pod.Status.Phase != v1.PodRunning {
+		ok = false
+	}
+	if !ok {
+		return
+	}
+	for _, c := range pod.Status.Conditions {
+		if c.Status != v1.ConditionTrue {
+			ok = false
+			return
+		}
+	}
+	return
+}
+
+func clonePod(p *v1.Pod) *v1.Pod {
 	np, err := api.Scheme.DeepCopy(p)
 	if err != nil {
 		panic("cannot deep copy pod")
@@ -118,6 +177,18 @@ func DeletePodsBy(cell, component string) error {
 		return err
 	}
 	logs.Warn(`Pods cell:"%s" component:"%s" deleted`, cell, component)
+	return nil
+}
+
+// DeletePodsByLabel delete the specified label pods
+func DeletePodsByLabel(ls map[string]string) error {
+	option := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(ls).String(),
+	}
+	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
+		return err
+	}
+	logs.Warn("Pods '%s' deleted", ls)
 	return nil
 }
 

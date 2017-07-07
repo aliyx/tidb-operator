@@ -18,12 +18,12 @@ const (
 CREATE DATABASE IF NOT EXISTS {{database}};
 DELETE FROM mysql.user WHERE User = '';
 CREATE USER '{{user}}'@'%' IDENTIFIED BY '{{password}}';
-GRANT ALL ON {{database}}.* TO '{{user}}'@'%' WITH GRANT OPTION;
+GRANT ALL ON *.* TO '{{user}}'@'%';
 FLUSH PRIVILEGES;
 `
 	maxBadConnRetries = 3
 	// tidbDsn tidb data source name
-	rootDsn  = "root@tcp(%s:%d)/mysql?timeout=10s"
+	rootDsn  = "root@tcp(%s:%d)/mysql?timeout=30s"
 	mysqlDsn = "%s:%s@tcp(%s:%d)/%s"
 	grants   = "SHOW GRANTS FOR '{{user}}'@'%'"
 )
@@ -98,7 +98,7 @@ func execMysqlCommand(dsn string, sqls ...string) error {
 		if len(c) < 1 {
 			return nil
 		}
-		logs.Debug("dsn: %s sql: %s", dsn, c)
+		logs.Info("dsn: %s sql: %s", dsn, c)
 		for i := 0; i < maxBadConnRetries; i++ {
 			if _, err = db.Exec(c); err == nil {
 				break

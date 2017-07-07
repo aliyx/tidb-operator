@@ -32,7 +32,7 @@ func Post(url string, body []byte) (string, error) {
 	case 409:
 		return "", ErrAlreadyExists
 	default:
-		return "", fmt.Errorf("create server %s error: %v", url, resp.String())
+		return "", fmt.Errorf("post %s error: %v", url, resp.String())
 	}
 }
 
@@ -49,7 +49,7 @@ func Get(url string, timeout time.Duration) ([]byte, error) {
 		return nil, ErrNotFound
 	}
 	if resp.StatusCode() != 200 {
-		return nil, fmt.Errorf("get server %s error: %v", url, resp.String())
+		return nil, fmt.Errorf("get resource %s error: %v", url, resp.String())
 	}
 	return resp.Body(), nil
 }

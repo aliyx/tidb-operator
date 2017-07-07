@@ -8,14 +8,23 @@ import (
 type StoreStatus int
 
 const (
+	PodOnline = iota
+	PodOffline
+)
+
+const (
+	// StoreOnline the store is available
 	StoreOnline StoreStatus = iota
+	// StoreOffline mark the store offline, but what will not be deleted
 	StoreOffline
+	// StoreTombstone the store' Pod will be deleted
 	StoreTombstone
 )
 
 const (
-	upgradeFailed = "False"
+	upgrading     = "Upgrading"
 	upgradeOk     = "True"
+	upgradeFailed = "False"
 )
 
 // TidbList is a list of tidb clusters.
@@ -33,18 +42,21 @@ type Db struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Owner  *Owner `json:"owner,omitempty"`
+	Owner  Owner  `json:"owner,omitempty"`
 	Schema Schema `json:"schema"`
-	Pd     *Pd    `json:"pd"`
-	Tikv   *Tikv  `json:"tikv"`
-	Tidb   *Tidb  `json:"tidb"`
-	Status Status `json:"status"`
+
+	Pd   *Pd   `json:"pd"`
+	Tikv *Tikv `json:"tikv"`
+	Tidb *Tidb `json:"tidb"`
+
+	Operator string `json:"operator"`
+	Status   Status `json:"status"`
 }
 
 // Tidb tidb module
 type Tidb struct {
-	Spec         `json:",inline"`
-	UpgradeState string `json:"upgradeState,omitempty"`
+	Spec    `json:",inline"`
+	Members []*Member `json:"members,omitempty"`
 
 	Db *Db `json:"-"`
 }
@@ -53,8 +65,8 @@ type Tidb struct {
 type Owner struct {
 	ID     string `json:"userId"` //user
 	Name   string `json:"userName"`
-	Desc   string `json:"desc,omitempty"`
-	Reason string `json:"reason,omitempty"`
+	Desc   string `json:"desc"`
+	Reason string `json:"reason"`
 }
 
 // Schema database schema
@@ -78,9 +90,12 @@ type Spec struct {
 type Status struct {
 	Available    bool   `json:"available"`
 	Phase        Phase  `json:"phase"`
+	Reason       string `json:"reason"`
 	MigrateState string `json:"migrateState"`
+	UpgradeState string `json:"upgradeState"`
 	ScaleState   int    `json:"scaleState"`
-	Message      string `json:"message,omitempty"`
+	ScaleCount   int    `json:"scaleCount"`
+	Message      string `json:"message"`
 
 	OuterAddresses       []string `json:"outerAddresses,omitempty"`
 	OuterStatusAddresses []string `json:"outerStatusAddresses,omitempty"`
@@ -96,9 +111,8 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member       int       `json:"member"`
-	Members      []*Member `json:"members,omitempty"`
-	UpgradeState string    `json:"upgradeState,omitempty"`
+	Member  int       `json:"member"`
+	Members []*Member `json:"members,omitempty"`
 
 	Db *Db `json:"-"`
 }
@@ -111,12 +125,14 @@ type Member struct {
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	Spec              `json:",inline"`
-	Member            int               `json:"member"`
-	ReadyReplicas     int               `json:"readyReplicas"`
-	AvailableReplicas int               `json:"availableReplicas"`
-	Stores            map[string]*Store `json:"stores,omitempty"`
-	UpgradeState      string            `json:"upgradeState,omitempty"`
+	Spec   `json:",inline"`
+	Member int `json:"member"`
+	// number of tikv pods
+	ReadyReplicas int `json:"readyReplicas"`
+	// all tikvs
+	Stores map[string]*Store `json:"stores,omitempty"`
+	// number of available tikv
+	AvailableReplicas int `json:"availableReplicas"`
 
 	cur string
 	Db  *Db `json:"-"`
@@ -129,7 +145,7 @@ type Store struct {
 	Name    string      `json:"name,omitempty"`
 	Address string      `json:"address,omitempty"`
 	Node    string      `json:"nodeName,omitempty"`
-	State   StoreStatus `json:"state,omitempty"`
+	State   StoreStatus `json:"state"`
 }
 
 const (
@@ -164,3 +180,7 @@ const (
 	// PhaseTidbUninstalling being uninstall tidb
 	PhaseTidbUninstalling
 )
+
+func (db *Db) GetName() string {
+	return db.Metadata.Name
+}

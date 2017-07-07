@@ -20,10 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const (
-	cleanInterval = 30 * time.Second
-)
-
 var (
 	supportedPVProvisioners = map[string]struct{}{
 		constants.PVProvisionerHostpath: {},
@@ -78,6 +74,7 @@ type Config struct {
 	Namespace     string
 	PVProvisioner string
 	Tprclient     *rest.RESTClient
+	ExcludeFiles  []string
 }
 
 // Validate validate config
@@ -122,15 +119,6 @@ func (w *Watcher) Run() error {
 		return err
 	}
 
-	go func() {
-		for {
-			select {
-			case <-time.After(cleanInterval):
-				w.cleanClusters()
-			}
-		}
-	}()
-
 	logs.Info("starts running from watch version: %s", watchVersion)
 
 	eventCh, errCh := w.watch(watchVersion)
@@ -149,40 +137,31 @@ func (w *Watcher) Run() error {
 	return <-errCh
 }
 
-func (w *Watcher) cleanClusters() {
-	for _, db := range w.dbs {
-		err := operator.DeleteBuriedTikv(db)
-		if err != nil {
-			logs.Error("failed to delete %s buried tikv %v", db.Metadata.Name, err)
-		}
-	}
-}
-
 func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 	db := event.Object
 	db.AfterPropertiesSet()
 	switch event.Type {
 	case kwatch.Added:
-		w.dbs[db.Metadata.Name] = db
-		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
+		w.dbs[db.GetName()] = db
+		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
 	case kwatch.Modified:
-		if _, ok := w.dbs[db.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.dbs[db.Metadata.Name], db, pvProvisioner); err != nil {
+		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
+		if err = gc(w.dbs[db.GetName()], db, pvProvisioner); err != nil {
 			return err
 		}
-		w.dbs[db.Metadata.Name] = db
-		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
+		w.dbs[db.GetName()] = db
 	case kwatch.Deleted:
-		if _, ok := w.dbs[db.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.dbs[db.Metadata.Name], nil, pvProvisioner); err != nil {
+		if err = gc(w.dbs[db.GetName()], nil, pvProvisioner); err != nil {
 			return err
 		}
-		delete(w.dbs, db.Metadata.Name)
-		delete(w.dbRVs, db.Metadata.Name)
+		delete(w.dbs, db.GetName())
+		delete(w.dbRVs, db.GetName())
 	}
 	return err
 }
@@ -231,8 +210,9 @@ func (w *Watcher) initResource() (string, error) {
 		}
 		logs.Info("current pv provisioner is hostpath, path: %s", md.Spec.K8s.Volume)
 		pvProvisioner = &HostPathPVProvisioner{
-			HostName: w.HostName,
-			Dir:      md.Spec.K8s.Volume,
+			HostName:     w.HostName,
+			Dir:          md.Spec.K8s.Volume,
+			ExcludeFiles: w.ExcludeFiles,
 		}
 	}
 	return watchVersion, nil
@@ -275,7 +255,10 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				if !ok {
 					break
 				}
-				obj, _ := json.Marshal(e.Object)
+				obj, err := json.Marshal(e.Object)
+				if err != nil {
+					logs.Error(err)
+				}
 				logs.Debug("tidb cluster event: %v %s", e.Type, obj)
 				ev, st := parse(e)
 				if st != nil {
@@ -302,7 +285,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				watchVersion = ev.Object.Metadata.ResourceVersion
 				eventCh <- ev
 			}
-			errCh <- errors.New("test")
+			resp.Stop()
 		}
 	}()
 

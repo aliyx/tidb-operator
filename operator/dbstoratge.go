@@ -1,10 +1,13 @@
 package operator
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"sync"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/spec"
@@ -49,15 +52,18 @@ func (db *Db) Save() error {
 	if err := db.check(); err != nil {
 		return err
 	}
-	if old, _ := GetDb(db.Metadata.Name); old != nil {
-		return fmt.Errorf(`db "%s" has created`, old.Metadata.Name)
+	if old, _ := GetDb(db.GetName()); old != nil {
+		return fmt.Errorf(`db "%s" has created`, old.GetName())
 	}
-	if pods, err := k8sutil.ListPodNames(db.Metadata.Name, ""); err != nil || len(pods) > 1 {
-		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.Metadata.Name, err)
+	if pods, err := k8sutil.ListPodNames(db.GetName(), ""); err != nil || len(pods) > 1 {
+		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.GetName(), err)
 	}
 	if err := dbS.Create(db); err != nil {
 		return err
 	}
+	mu.Lock()
+	lockers[db.GetName()] = new(sync.Mutex)
+	mu.Unlock()
 	return nil
 }
 
@@ -214,6 +220,27 @@ func (db *Db) AfterPropertiesSet() {
 	db.Pd.Db = db
 	db.Tikv.Db = db
 	db.Tidb.Db = db
+}
+
+func (db *Db) Clone() *Db {
+	c := *db
+	var nD = &c
+	pd := *(db.Pd)
+	nD.Pd = &pd
+	tk := *(db.Tikv)
+	nD.Tikv = &tk
+	td := *(db.Tidb)
+	nD.Tidb = &td
+	nD.AfterPropertiesSet()
+	return nD
+}
+
+func (db *Db) Unmarshal(data []byte) error {
+	if err := json.Unmarshal(data, db); err != nil {
+		return err
+	}
+	db.AfterPropertiesSet()
+	return nil
 }
 
 // GetAllDbs get a tidbList object

@@ -19,8 +19,9 @@ type PVProvisioner interface {
 
 // HostPathPVProvisioner local storage
 type HostPathPVProvisioner struct {
-	HostName string
-	Dir      string
+	HostName     string
+	Dir          string
+	ExcludeFiles []string
 }
 
 // Recycling implement PVProvisioner#Recycling
@@ -40,16 +41,27 @@ func (hp *HostPathPVProvisioner) Clean(all []*operator.Store) error {
 		return err
 	}
 
-	exist := false
 	for _, file := range files {
+		exist := false
 		for _, s := range all {
 			if file.Name() == s.Name {
 				exist = true
+				break
+			}
+		}
+
+		// fileter excluded files
+		if exist == false {
+			for _, ef := range hp.ExcludeFiles {
+				if file.Name() == ef {
+					exist = true
+					break
+				}
 			}
 		}
 		if !exist {
-			logs.Info("delete file %s", file.Name())
 			p := path.Join(hp.Dir, file.Name())
+			logs.Info("delete local file %s", p)
 			if err = os.RemoveAll(p); err != nil {
 				return err
 			}

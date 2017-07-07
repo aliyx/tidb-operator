@@ -56,6 +56,6 @@ func WaitTPRReady(restcli rest.Interface, interval, timeout time.Duration, uri s
 func WatchTidbs(restClient *rest.RESTClient, ns string, resourceVersion string) (watch.Interface, error) {
 	uri := fmt.Sprintf("/apis/%s/%s/namespaces/%s/tidbs?watch=true&resourceVersion=%s",
 		spec.TPRGroup, spec.TPRVersion, ns, resourceVersion)
-	logs.Debug("watch tidb uri: %s", uri)
+	logs.Info("watch tidb uri: %s", uri)
 	return restClient.Get().RequestURI(uri).Watch()
 }

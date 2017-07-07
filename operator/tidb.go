@@ -20,75 +20,88 @@ var (
 	scaleMu sync.Mutex
 )
 
-func (td *Tidb) upgrade() (err error) {
+func (td *Tidb) upgrade() error {
 	if td.Db.Status.Phase < PhaseTidbStarted {
-		return fmt.Errorf("the db %s tidb unavailable", td.Db.Metadata.Name)
+		return fmt.Errorf("the db %s tidb unavailable", td.Db.GetName())
 	}
 
 	var (
-		upgraded bool
-		count    int
-		pods     []string
+		err      error
+		newImage = fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version)
 	)
 
-	e := NewEvent(td.Db.Metadata.Name, "tidb", "upgrate")
+	e := NewEvent(td.Db.GetName(), "tidb/tidb", "upgrate")
 	defer func() {
-		// have upgrade
-		if err != nil {
-			td.UpgradeState = upgradeFailed
-		} else if count > 0 {
-			td.UpgradeState = upgradeOk
-		}
-		if count > 0 || err != nil {
-			if uerr := td.Db.update(); uerr != nil {
-				logs.Error("update tidb error: %v", uerr)
-			}
-			e.Trace(err, fmt.Sprintf("upgrate tidb to version %s", td.Version))
-		}
+		e.Trace(err, fmt.Sprintf("upgrate tidb to version: %s", td.Version))
+		logs.Info("end upgrading", td.Db.GetName())
 	}()
 
-	// get tidb pods name
-	pods, err = k8sutil.ListPodNames(td.Db.Metadata.Name, "tidb")
+	err = upgradeRC(fmt.Sprintf("tidb-%s", td.Db.GetName()), newImage, td.Version)
 	if err != nil {
 		return err
 	}
-	for _, podName := range pods {
-		upgraded, err = upgradeOne(podName, fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version), td.Version)
-		if err != nil {
-			return err
-		}
-		if upgraded {
-			count++
-			time.Sleep(reconcileInterval)
+	// get tidb pods
+	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
+	}
+	for i := range pods {
+		pod := pods[i]
+		if needUpgrade(&pod, td.Version) {
+			// delete pod, rc will create a new version pod
+			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
+				return err
+			}
+			// FIXME: cann't get tidb status
+			time.Sleep(waitTidbComponentAvailableTimeout)
+			if err = td.waitForOk(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func (td *Tidb) install() (err error) {
-	e := NewEvent(td.Db.Metadata.Name, "tidb", "install")
+	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "install")
 	td.Db.Status.Phase = PhaseTidbPending
-	td.Db.update()
+	err = td.Db.update()
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		ph := PhaseTidbStarted
 		if err != nil {
 			ph = PhaseTidbStartFailed
 		}
 		td.Db.Status.Phase = ph
-		if uerr := td.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
-		}
+
 		e.Trace(err, fmt.Sprintf("Install tidb replicationcontrollers with %d replicas on k8s", td.Replicas))
 	}()
+
 	if err = td.createService(); err != nil {
 		return err
 	}
 	if err = td.createReplicationController(); err != nil {
 		return err
 	}
+
 	// wait tidb started
 	if err = td.waitForOk(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (td *Tidb) syncMembers() error {
+	pods, err := k8sutil.ListPodNames(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
+	}
+	td.Members = nil
+	for _, n := range pods {
+		td.Members = append(td.Members, &Member{Name: n})
 	}
 	return nil
 }
@@ -104,17 +117,20 @@ func (td *Tidb) createService() (err error) {
 	}
 	ps := getProxys()
 	for _, py := range ps {
-		td.Db.Status.OuterAddresses = append(td.Db.Status.OuterAddresses, fmt.Sprintf("%s:%d", py, srv.Spec.Ports[0].NodePort))
+		td.Db.Status.OuterAddresses =
+			append(td.Db.Status.OuterAddresses, fmt.Sprintf("%s:%d", py, srv.Spec.Ports[0].NodePort))
 	}
-	td.Db.Status.OuterStatusAddresses = append(td.Db.Status.OuterStatusAddresses,
-		fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
-	logs.Info("tidb %s mysql address: %s, status address: %s",
-		td.Db.Metadata.Name, td.Db.Status.OuterAddresses, td.Db.Status.OuterStatusAddresses)
+	td.Db.Status.OuterStatusAddresses =
+		append(td.Db.Status.OuterStatusAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
 	return nil
 }
 
-func (td *Tidb) createReplicationController() (err error) {
-	j, err := td.toJSONTemplate(tidbRcYaml)
+func (td *Tidb) createReplicationController() error {
+	var (
+		err error
+		j   []byte
+	)
+	j, err = td.toJSONTemplate(tidbRcYaml)
 	if err != nil {
 		return err
 	}
@@ -138,94 +154,145 @@ func (td *Tidb) toJSONTemplate(temp string) ([]byte, error) {
 }
 
 func (td *Tidb) waitForOk() (err error) {
-	logs.Info("waiting for run tidb %s ok...", td.Db.Metadata.Name)
-	interval := 3 * time.Second
+	logs.Debug("waiting for run tidb %s ok...", td.Db.GetName())
+
 	sURL := fmt.Sprintf("http://%s/status", td.Db.Status.OuterStatusAddresses[0])
+	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
+		// check pod
+
+		pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+		if err != nil {
+			return false, err
+		}
+		count := 0
+		for _, pod := range pods {
+			if k8sutil.IsPodOk(pod) {
+				count++
+			}
+		}
+		if count != td.Replicas {
+			logs.Warn("some tidb %s pods not running yet", td.Db.GetName())
+			return false, nil
+		}
+
+		// check tidb status
+
 		if _, err := httputil.Get(sURL, 2*time.Second); err != nil {
 			logs.Warn("get tidb status: %v", err)
 			return false, nil
 		}
+		err = td.syncMembers()
+		if err != nil {
+			return false, err
+		}
+
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait tidb %s available: %v", td.Db.Metadata.Name, err)
+		logs.Error("wait tidb %s available: %v", td.Db.GetName(), err)
 	} else {
-		logs.Info("tidb %s ok", td.Db.Metadata.Name)
+		logs.Debug("tidb %s ok", td.Db.GetName())
 	}
 	return err
 }
 
 func (td *Tidb) uninstall() (err error) {
-	defer func() {
-		td.Db.Status.MigrateState = ""
-		td.Db.Status.ScaleState = 0
-		td.Db.Status.OuterAddresses = nil
-		td.Db.Status.OuterStatusAddresses = nil
+	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", td.Db.GetName())); err != nil {
+		return err
+	}
+	if err = k8sutil.DelSrvs(fmt.Sprintf("tidb-%s", td.Db.GetName())); err != nil {
+		return err
+	}
+	td.Members = nil
+	td.Db.Status.MigrateState = ""
+	td.Db.Status.ScaleState = 0
+	td.Db.Status.OuterAddresses = nil
+	td.Db.Status.OuterStatusAddresses = nil
+
+	return nil
+}
+
+func (db *Db) reconcileTidbs(replica int) error {
+	var (
+		err error
+		td  = db.Tidb
+	)
+
+	if replica < 1 || replica == db.Tidb.Replicas {
+		if err = td.checkStatus(); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// update status
+
+	e := NewEvent(db.GetName(), "tidb/tidb", "scale")
+	defer func(r int) {
 		if err != nil {
-			err = td.Db.update()
+			db.Status.ScaleState |= tidbScaleErr
 		}
-	}()
-	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", td.Db.Metadata.Name)); err != nil {
+		e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas from %d to %d", db.GetName(), r, replica))
+	}(td.Replicas)
+
+	// check replicas
+
+	md := getCachedMetadata()
+	if replica > md.Spec.Tidb.Max {
+		err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("tidb-%s", td.Db.Metadata.Name)); err != nil {
+	if replica < 2 {
+		err = fmt.Errorf("replicas must be greater than 2")
 		return err
 	}
-	return err
+	if replica > td.Replicas*3 {
+		err = fmt.Errorf("each scale out can not more then 2 times")
+		return err
+	}
+	if replica*3 > td.Spec.Replicas {
+		return fmt.Errorf("each scale dowm can not be less than one-third")
+	}
+
+	// scale
+
+	logs.Info("start scaling tidb count of the db '%s' from %d to %d",
+		db.GetName(), td.Replicas, replica)
+	td.Replicas = replica
+	if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.GetName()), replica); err != nil {
+		return err
+	}
+	if err = td.waitForOk(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
-	if replica < 1 {
-		return
+func (td *Tidb) checkStatus() error {
+	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
 	}
-	if replica == db.Tidb.Replicas {
-		return
-	}
-	wg.Add(1)
-	go func() {
-		scaleMu.Lock()
-		defer func() {
-			scaleMu.Unlock()
-			wg.Done()
-		}()
-		var err error
-		e := NewEvent(db.Metadata.Name, "tidb", "scale")
-		defer func(r int) {
+	need := false
+	for i := range pods {
+		pod := pods[i]
+		if !k8sutil.IsPodOk(pod) {
+			err = k8sutil.DeletePods(pod.GetName())
 			if err != nil {
-				db.Status.ScaleState |= tidbScaleErr
+				return err
 			}
-			db.update()
-			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Metadata.Name, r, replica))
-		}(db.Tidb.Replicas)
-		md := getCachedMetadata()
-		if replica > md.Spec.Tidb.Max {
-			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
-			return
+			continue
 		}
-		if replica > db.Tidb.Replicas*3 || db.Tidb.Replicas > replica*3 {
-			err = fmt.Errorf("each scale can not more or less then 2 times")
-			return
+		if needUpgrade(&pod, td.Version) {
+			need = true
 		}
-		if replica < 1 {
-			err = fmt.Errorf("replicas must be greater than 1")
-			return
-		}
-		logs.Info(`start scaling tidb count of the db "%s" from %d to %d`, db.Metadata.Name, db.Tidb.Replicas, replica)
-		db.Tidb.Replicas = replica
-		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Metadata.Name), replica); err != nil {
-			return
-		}
-	}()
-}
-
-func (td *Tidb) isNil() bool {
-	return td.Replicas < 1
-}
-
-func (td *Tidb) isOk() bool {
-	if td.Db.Status.Phase < PhaseTidbStarted || td.Db.Status.Phase > PhaseTidbInited {
-		return false
 	}
-	return true
+	if need {
+		if err = td.upgrade(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

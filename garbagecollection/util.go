@@ -7,6 +7,10 @@ import (
 	"github.com/ffan/tidb-operator/operator"
 	"github.com/ffan/tidb-operator/pkg/util/prometheusutil"
 
+	"reflect"
+
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	kwatch "k8s.io/apimachinery/pkg/watch"
@@ -71,8 +75,14 @@ func gcPd(o, n *operator.Db) error {
 	if n != nil {
 		return nil
 	}
-	if err := prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
-		return err
+	pd := o.Pd
+	if pd == nil {
+		return nil
+	}
+	for _, mem := range pd.Members {
+		if err := prometheusutil.DeleteMetrics(o.GetName(), mem.Name); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -99,16 +109,21 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 
 	// recycle
 
-	logs.Info("all recycled tikvs: %#v", deleted)
+	logs.Info("tikv %v to be recycled", reflect.ValueOf(deleted).MapKeys())
 
 	for _, s := range deleted {
 		if err = pv.Recycling(s); err != nil {
 			return err
 		}
+		// job is tikv_{id}
+		if err = prometheusutil.DeleteMetrics(fmt.Sprintf("tikv_%d", s.ID), s.Name); err != nil {
+			return err
+		}
 	}
 
+	// delete all mitric by job
 	if n == nil {
-		if err = prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
+		if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
 			return err
 		}
 	}
@@ -116,11 +131,45 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 }
 
 func gcTidb(o, n *operator.Db) error {
-	if n != nil {
+	// no initialization done
+	if o.Tidb == nil || len(o.Tidb.Members) == 0 {
 		return nil
 	}
-	if err := prometheusutil.DeleteMetricsByJob(o.Metadata.Name); err != nil {
-		return err
+
+	deleted := []string{}
+	if n == nil || n.Tidb == nil || len(n.Tidb.Members) == 0 {
+		for _, mb := range o.Tidb.Members {
+			deleted = append(deleted, mb.Name)
+		}
+	} else {
+		for _, oM := range o.Tidb.Members {
+			have := false
+			for _, nM := range n.Tidb.Members {
+				if oM.Name == nM.Name {
+					have = true
+					break
+				}
+			}
+			if !have {
+				deleted = append(deleted, oM.Name)
+			}
+		}
+	}
+	for _, name := range deleted {
+		// all tidb job is 'tidb'
+
+		if err := prometheusutil.DeleteMetrics("tidb", name); err != nil {
+			return err
+		}
+		// with port metrics
+		if err := prometheusutil.DeleteMetrics("tidb", fmt.Sprintf("%s_%d", name, 4000)); err != nil {
+			return err
+		}
+	}
+	if n == nil {
+		if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

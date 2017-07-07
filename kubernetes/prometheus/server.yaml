@@ -30,7 +30,7 @@ spec:
         node-role.prometheus:
       volumes:
       - name: prom-data
-        hostPath: {path: /var/lib/prometheus}
+        hostPath: {path: /data/prometheus}
       terminationGracePeriodSeconds: 5
       containers:
       - name: prom-server

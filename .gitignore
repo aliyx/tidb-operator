@@ -12,6 +12,8 @@ cmd/tidb-gc/tidb-gc
 # generate swagger file
 operator/swagger
 
+*.tar.gz
+
 # swagger lib
 swagger/css
 swagger/fonts
@@ -19,3 +21,4 @@ swagger/images
 swagger/lang
 swagger/lib
 swagger/swagger-ui*
+swagger/*.html
