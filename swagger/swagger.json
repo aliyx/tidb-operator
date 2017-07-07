@@ -232,8 +232,8 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "Scale tikv/tidb replicas",
-                "operationId": "TidbController.Scale tikv/tidb",
+                "description": "Scale tidb cluster replicas",
+                "operationId": "TidbController.Scale the tidb cluster",
                 "parameters": [
                     {
                         "in": "path",
@@ -245,10 +245,10 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body for patch content",
+                        "description": "Data format reference: http://jsonpatch.com/",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.ScaleReq"
+                            "$ref": "#/definitions/operator.Db"
                         }
                     }
                 ],
@@ -301,7 +301,7 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "Upgrade pd/tikv/tidb image version",
+                "description": "Upgrade tidb image version",
                 "operationId": "TidbController.Upgrade version",
                 "parameters": [
                     {
@@ -314,10 +314,10 @@
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "body for patch content",
+                        "description": "Data format reference: http://jsonpatch.com/",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/operator.Spec"
+                            "$ref": "#/definitions/operator.Db"
                         }
                     }
                 ],
@@ -395,9 +395,6 @@
         }
     },
     "definitions": {
-        ".Mutex": {
-            "type": "object"
-        },
         ".Mysql": {
             "type": "object"
         },
@@ -418,20 +415,6 @@
                     }
                 },
                 "total": {
-                    "type": "integer",
-                    "format": "int64"
-                }
-            }
-        },
-        "controllers.ScaleReq": {
-            "title": "ScaleReq",
-            "type": "object",
-            "properties": {
-                "dbReplica": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "kvReplica": {
                     "type": "integer",
                     "format": "int64"
                 }
@@ -763,10 +746,12 @@
                     "type": "string"
                 },
                 "state": {
-                    "type": "integer",
-                    "format": "int64"
+                    "$ref": "#/definitions/operator.StoreStatus"
                 }
             }
+        },
+        "operator.StoreStatus": {
+            "type": "object"
         },
         "operator.Tidb": {
             "title": "Spec",
@@ -835,7 +820,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/56501.Store"
+                    "$ref": "#/definitions/57265.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"

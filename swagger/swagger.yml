@@ -153,8 +153,8 @@ paths:
     patch:
       tags:
       - tidbs
-      description: Scale tikv/tidb replicas
-      operationId: TidbController.Scale tikv/tidb
+      description: Scale tidb cluster replicas
+      operationId: TidbController.Scale the tidb cluster
       parameters:
       - in: path
         name: cell
@@ -163,10 +163,10 @@ paths:
         type: string
       - in: body
         name: body
-        description: body for patch content
+        description: 'Data format reference: http://jsonpatch.com/'
         required: true
         schema:
-          $ref: '#/definitions/controllers.ScaleReq'
+          $ref: '#/definitions/operator.Db'
       responses:
         "200": {}
         "403":
@@ -199,7 +199,7 @@ paths:
     patch:
       tags:
       - tidbs
-      description: Upgrade pd/tikv/tidb image version
+      description: Upgrade tidb image version
       operationId: TidbController.Upgrade version
       parameters:
       - in: path
@@ -209,10 +209,10 @@ paths:
         type: string
       - in: body
         name: body
-        description: body for patch content
+        description: 'Data format reference: http://jsonpatch.com/'
         required: true
         schema:
-          $ref: '#/definitions/operator.Spec'
+          $ref: '#/definitions/operator.Db'
       responses:
         "200": {}
         "403":
@@ -260,8 +260,6 @@ paths:
         "404":
           description: :user not found
 definitions:
-  .Mutex:
-    type: object
   .Mysql:
     type: object
   .ObjectMeta:
@@ -277,16 +275,6 @@ definitions:
         items:
           $ref: '#/definitions/operator.Db'
       total:
-        type: integer
-        format: int64
-  controllers.ScaleReq:
-    title: ScaleReq
-    type: object
-    properties:
-      dbReplica:
-        type: integer
-        format: int64
-      kvReplica:
         type: integer
         format: int64
   controllers.Status:
@@ -514,8 +502,9 @@ definitions:
       nodeName:
         type: string
       state:
-        type: integer
-        format: int64
+        $ref: '#/definitions/operator.StoreStatus'
+  operator.StoreStatus:
+    type: object
   operator.Tidb:
     title: Spec
     type: object
@@ -566,7 +555,7 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/56501.Store'
+        $ref: '#/definitions/57265.Store'
       tidbdata_volume:
         type: string
       upgradeState:

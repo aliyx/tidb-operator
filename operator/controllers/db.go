@@ -97,50 +97,56 @@ func (dc *TidbController) CheckResources() {
 	dc.ServeJSON()
 }
 
-// Scale scale tikv/tidb
-// @Title Scale tikv/tidb
-// @Description Scale tikv/tidb replicas
+// Scale the tidb cluster
+// @Title Scale the tidb cluster
+// @Description Scale tidb cluster replicas
 // @Param	cell	path	string	true	"The cell for pd name"
-// @Param	body	body 	controllers.ScaleReq	true	"body for patch content"
+// @Param	body	body 	operator.Db	true	"Data format reference: http://jsonpatch.com/"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/scale [patch]
 func (dc *TidbController) Scale() {
 	cell := dc.GetString(":cell")
-	s := ScaleReq{}
-	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
+	b := dc.Ctx.Input.RequestBody
+	if len(b) < 1 {
+		dc.CustomAbort(403, "body is empty")
 	}
+
+	db, err := operator.GetDb(cell)
+	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
+
+	if err = patch(b, db); err != nil {
+		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
+	}
+
 	errHandler(
 		dc.Controller,
-		operator.Scale(cell, s.KvReplica, s.DbReplica),
+		operator.Scale(cell, db.Tikv.Replicas, db.Tidb.Replicas),
 		fmt.Sprintf("Scale tidb %s", cell),
 	)
 }
 
 // Upgrade upgrade tidb image version
 // @Title Upgrade version
-// @Description  Upgrade pd/tikv/tidb image version
+// @Description  Upgrade tidb image version
 // @Param	cell	path	string	true	"The cell for db name"
-// @Param	body	body 	operator.Spec	true	"body for patch content"
+// @Param	body	body 	operator.Db	true	"Data format reference: http://jsonpatch.com/"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/upgrade [patch]
 func (dc *TidbController) Upgrade() {
 	cell := dc.GetString(":cell")
-	s := operator.Spec{}
-	if err := json.Unmarshal(dc.Ctx.Input.RequestBody, &s); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("Parse body for patch error: %v", err))
+	b := dc.Ctx.Input.RequestBody
+	if len(b) < 1 {
+		dc.CustomAbort(403, "body is empty")
 	}
 	db, err := operator.GetDb(cell)
 	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
 
-	if s.Version != "" {
-		db.Pd.Version = s.Version
-		db.Tikv.Version = s.Version
-		db.Tidb.Version = s.Version
-		db.Upgrade()
+	if err = patch(b, db); err != nil {
+		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
 	}
+	db.Upgrade()
 }
 
 // Migrate data to tidb
@@ -289,10 +295,4 @@ type Status struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
 	Desc   string `json:"desc"`
-}
-
-// ScaleReq tidb scale request
-type ScaleReq struct {
-	DbReplica int `json:"dbReplica"`
-	KvReplica int `json:"kvReplica"`
 }
