@@ -313,6 +313,8 @@ func (db *Db) SyncMigrateStat() (err error) {
 	case "Syncing":
 		e = NewEvent(db.Metadata.Name, "migration", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
+	default:
+		return fmt.Errorf("unknow status")
 	}
 	return nil
 }

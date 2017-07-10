@@ -1,9 +1,12 @@
 #!/bin/bash
+
 # set -x
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+
+fun
 
 # global var
 db=$M_S_DB
@@ -20,22 +23,7 @@ reset() {
 
 # Will try again when an error occurs
 sync_migration_stat() {
-  api=$M_STAT_API
-  if [ -z "$api" ]; then
-    echo -e "\033[33m[Warining]: no set stat api in env \033[0m" >&2
-    return 1
-  fi
-  data="{\"type\":\"migrate\",\"status\":\"$1\"}"
-  for i in $(seq 1 30); do
-    curl -X PATCH --connect-timeout 3 --silent --output /dev/null --header "Content-Type: application/json" -d "$data" $api
-    if [ ! "$?" == 0 ]; then
-      echo -e "\033[31m[$(date)] sync migration status error, waiting for a maximum of 1 hour retry\033[0m" >&2
-      sleep $((i * 3))
-    else
-      return 0
-    fi
-  done
-  exit 1
+  python -c 'import pkg.est; rest.sync_stat($1,$2)'
 }
 
 # dump mysql data to local

@@ -71,15 +71,15 @@ func (dc *TidbController) Delete() {
 	dc.ServeJSON()
 }
 
-// CheckResources Check the user's request for resources
-// @Title CheckResources
-// @Description whether the user creates tidb for approval
+// Limit Check the user's request for resources
+// @Title Limit
+// @Description Whether the user creates tidb for approval
 // @Param 	user 	path 	string 	true	"The user id"
 // @Param	body	body 	operator.ApprovalConditions	true	"body for resource content"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:user/limit [post]
-func (dc *TidbController) CheckResources() {
+func (dc *TidbController) Limit() {
 	user := dc.GetString(":user")
 	if len(user) < 1 {
 		dc.CustomAbort(403, "user id is nil")
@@ -95,41 +95,6 @@ func (dc *TidbController) CheckResources() {
 	limit := operator.Limit(user, ac.KvReplicas, ac.DbReplicas)
 	dc.Data["json"] = limit
 	dc.ServeJSON()
-}
-
-// Migrate data to tidb
-// @Title Migrate
-// @Description migrate mysql data to tidb
-// @Param   sync	query	string	false	"increment sync"
-// @Param 	cell 	path	string	true	"The database name for tidb"
-// @Param	body	body	mysqlutil.Mysql	true	"Body for src mysql"
-// @Success 200
-// @Failure 403 body is empty
-// @router /:cell/migrate [post]
-func (dc *TidbController) Migrate() {
-	cell := dc.GetString(":cell")
-	if len(cell) < 1 {
-		dc.CustomAbort(403, "cell is nil")
-	}
-	sync := dc.GetString("sync")
-	src := &mysqlutil.Mysql{}
-	b := dc.Ctx.Input.RequestBody
-	if len(b) < 1 {
-		dc.CustomAbort(403, "Body is empty")
-	}
-	if err := json.Unmarshal(b, src); err != nil {
-		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
-	}
-	db, err := operator.GetDb(cell)
-	if err != nil {
-		dc.CustomAbort(404, fmt.Sprintf("Cannt get tidb: %v", err))
-	}
-	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
-	errHandler(
-		dc.Controller,
-		db.Migrate(*src, api, sync == "true"),
-		fmt.Sprintf(`Migrate mysql "%s" to tidb `, cell),
-	)
 }
 
 // Patch tidb
@@ -218,8 +183,7 @@ func (dc *TidbController) Get() {
 	dc.ServeJSON()
 }
 
-// GetEvents get events
-// @Title Get all events
+// @Title GetEvents
 // @Description get all events
 // @Param	cell	path	string	true	"The cell for tidb name"
 // @Success 200 {object} operator.Events
@@ -230,13 +194,43 @@ func (dc *TidbController) GetEvents() {
 		dc.CustomAbort(403, "cell is nil")
 	}
 	es, err := operator.GetEventsBy(cell)
-	errHandler(
-		dc.Controller,
-		err,
-		fmt.Sprintf("get %s events", cell),
-	)
+	errHandler(dc.Controller, err, fmt.Sprintf("get %s events", cell))
+
 	dc.Data["json"] = es
 	dc.ServeJSON()
+}
+
+// @Title Migrate
+// @Description migrate mysql data to tidb
+// @Param   sync	query	string	false	"increment sync"
+// @Param 	cell 	path	string	true	"The database name for tidb"
+// @Param	body	body	mysqlutil.Mysql	true	"Body for src mysql"
+// @Success 200
+// @Failure 403 body is empty
+// @router /:cell/migrate [post]
+func (dc *TidbController) Migrate() {
+	cell := dc.GetString(":cell")
+	if len(cell) < 1 {
+		dc.CustomAbort(403, "cell is nil")
+	}
+	sync := dc.GetString("sync")
+	b := dc.Ctx.Input.RequestBody
+	if len(b) < 1 {
+		dc.CustomAbort(403, "Body is empty")
+	}
+	src := &mysqlutil.Mysql{}
+	if err := json.Unmarshal(b, src); err != nil {
+		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
+	}
+	db, err := operator.GetDb(cell)
+	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
+
+	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
+	errHandler(
+		dc.Controller,
+		db.Migrate(*src, api, sync == "true"),
+		fmt.Sprintf(`Migrate mysql "%s" to tidb `, cell),
+	)
 }
 
 func errHandler(c beego.Controller, err error, msg string) {
