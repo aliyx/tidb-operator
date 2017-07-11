@@ -294,24 +294,12 @@ func (db *Db) SyncMigrateStat() (err error) {
 	}
 	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, db.Status.MigrateState)
 	switch db.Status.MigrateState {
-	case "Dumping":
-		e = NewEvent(db.Metadata.Name, "migration", "dump")
-		e.Trace(nil, "Start Dumping mysql data to local")
-	case "DumpError":
-		e = NewEvent(db.Metadata.Name, "migration", "dump")
-		e.Trace(fmt.Errorf("Unknow"), "Dumped mysql data to local error")
-	case "Loading":
-		e = NewEvent(db.Metadata.Name, "migration", "load")
-		e.Trace(nil, "End dumped and start loading local to tidb")
-	case "LoadError":
-		e = NewEvent(db.Metadata.Name, "migration", "load")
-		e.Trace(fmt.Errorf("Unknow"), "Loaded local data to tidb error")
 	case "Finished":
-		e = NewEvent(db.Metadata.Name, "tidb", "migration")
+		e = NewEvent(db.Metadata.Name, "tidb", "migrator/stop")
 		err = stopMigrateTask(db.Metadata.Name)
-		e.Trace(err, "End the full migration and delete migration docker on k8s")
+		e.Trace(err, "End the full migrate and delete migrator from k8s")
 	case "Syncing":
-		e = NewEvent(db.Metadata.Name, "migration", "sync")
+		e = NewEvent(db.Metadata.Name, "migrator", "migrator/sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	default:
 		return fmt.Errorf("unknow status")
@@ -320,30 +308,31 @@ func (db *Db) SyncMigrateStat() (err error) {
 }
 
 func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
-	sync := ""
+	sync := "load"
 	if my.ToggleSync {
 		sync = "sync"
 	}
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
 		"{{cell}}", db.Metadata.Name,
-		"{{image}}", fmt.Sprintf("%s/migration:latest", imageRegistry),
+		"{{image}}", fmt.Sprintf("%s/migrator:latest", imageRegistry),
 		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
 		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
 		"{{db}}", my.Src.Database,
 		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
-		"{{duser}}", my.Dest.User, "{{dp}}", my.Dest.Password,
-		"{{sync}}", sync,
+		"{{du}}", my.Dest.User, "{{dp}}", my.Dest.Password,
+		"{{op}}", sync,
 		"{{api}}", my.NotifyAPI)
 	s := r.Replace(mysqlMigrateYaml)
 	var j []byte
 	if j, err = yaml.YAMLToJSON([]byte(s)); err != nil {
 		return err
 	}
+
 	go func() {
-		e := NewEvent(db.Metadata.Name, "tidb", "migration")
+		e := NewEvent(db.Metadata.Name, "tidb", "migrator/start")
 		defer func() {
-			e.Trace(err, "Startup migration docker on k8s")
+			e.Trace(err, "Startup migrator on k8s")
 		}()
 		if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
 			db.Status.MigrateState = migStartMigrateErr
@@ -351,11 +340,12 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 			return
 		}
 	}()
+
 	return nil
 }
 
 func stopMigrateTask(cell string) error {
-	return k8sutil.DeletePodsBy(cell, "migration")
+	return k8sutil.DeletePodsBy(cell, "migrator")
 }
 
 // Scale tikv and tidb

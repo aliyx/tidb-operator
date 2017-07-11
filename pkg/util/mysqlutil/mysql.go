@@ -18,7 +18,7 @@ const (
 CREATE DATABASE IF NOT EXISTS {{database}};
 DELETE FROM mysql.user WHERE User = '';
 CREATE USER '{{user}}'@'%' IDENTIFIED BY '{{password}}';
-GRANT ALL ON {{database}}.* TO '{{user}}'@'%' WITH GRANT OPTION;
+GRANT ALL ON *.* TO '{{user}}'@'%';
 FLUSH PRIVILEGES;
 `
 	maxBadConnRetries = 3

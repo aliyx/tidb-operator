@@ -13,7 +13,7 @@ import (
 
 var (
 	// advertiseIP=beego.BConfig.Listen.HTTPSAddr
-	statAPI = "%s:%d/tidb/api/v1/tidbs/%s/status"
+	statAPI = "%s:%d/tidb/api/v1/tidbs/%s"
 )
 
 // TidbController operations about tidb

@@ -86,7 +86,7 @@ class Config:
         f.close()
 
     def toDumper(self):
-        cmds = '/usr/local/mydumper/bin/mydumper '
+        cmds = '/usr/local/mydumper-linux-amd64/bin/mydumper '
         cmds += '-t 2 -F 128 --no-views --skip-tz-utc --no-locks --less-locking --verbose 3'
         cmds += ' -h ' + self.host
         cmds += ' -P ' + str(self.port)
@@ -97,17 +97,18 @@ class Config:
         return cmds
 
     def toLoader(self):
-        cmds = '/usr/local/tidb-enterprise-tools/bin/loader '
+        cmds = '/usr/local/tidb-enterprise-tools-latest-linux-amd64/bin/loader '
         cmds += '-t 2'
         cmds += ' -h ' + self.host
         cmds += ' -P ' + str(self.port)
         cmds += ' -u ' + self.user
         cmds += ' -p ' + self.password
-        cmds += ' -checkpoint ' + self.getCheckpoint()
+        # will save checkpoint tidb tidb_loader
+        # cmds += ' -checkpoint ' + self.getCheckpoint()
         cmds += ' -d ' + self.getDataDir()
         return cmds
 
     def toSyncer(self):
-        cmds = '/usr/local/tidb-enterprise-tools/bin/syncer '
+        cmds = '/usr/local/tidb-enterprise-tools-latest-linux-amd64/bin/syncer '
         cmds += '-config ' + self.getConfig()
         return cmds

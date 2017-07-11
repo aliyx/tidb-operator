@@ -39,4 +39,4 @@ def sync_stat(api, stat, reason=""):
     ]
     sync(api, patch)
 
-sync_stat('http://10.213.44.128:12808/tidb/api/v1/tidbs/006-xinyang1', 'Dumping')
+# sync_stat('http://10.213.44.128:12808/tidb/api/v1/tidbs/006-xinyang1', 'Dumping')

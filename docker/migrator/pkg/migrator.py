@@ -1,4 +1,5 @@
 import logs
+import subprocess
 from subprocess import call
 import shlex
 import config
@@ -7,6 +8,7 @@ from os import path
 import sys
 import getopt
 import rest
+import re
 
 
 class Migrator:
@@ -17,7 +19,7 @@ class Migrator:
         self.dest = dest
 
     # dump remote mysql data to /tmp/{db} dir
-    def dump(self):
+    def dump(self, api):
         if self.src == None:
             logs.critical("src database is nil")
 
@@ -27,28 +29,60 @@ class Migrator:
         if path.isdir(datadir):
             shutil.rmtree(datadir)
 
+        rest.sync_stat(api, 'Dumping')
+
         cmds = self.src.toDumper()
         logs.info("dumper: %s", cmds)
-        return call(shlex.split(cmds))
+        try:
+            subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
+        except  subprocess.CalledProcessError as e:
+            print e.output
+            try:
+                err = re.search('\*\*: (.*)', e.output).group(1)
+            except:
+                err = e.output
+            rest.sync_stat(api, 'DumpError', reason=err)
+            logs.critical("dump error")
 
     # load local data to tidb
-    def load(self):
-        datadir = self.dest.getDataDir()
-        if not path.isdir(datadir):
-            logs.critical("no data loaded: %s", datadir)
+    def load(self, api):
+        if not path.isfile(self.src.getDumpedMeta()):
+            self.dump(api)
 
+        rest.sync_stat(api, 'Loading')
         cmds = self.dest.toLoader()
         logs.info("loader: %s", cmds)
-        return call(shlex.split(cmds))
+        try:
+            subprocess.check_call(shlex.split(cmds), stderr=subprocess.STDOUT)
+        except  subprocess.CalledProcessError as e:
+            try:
+                # can't get error message from stderr
+                err = re.search('[error] (.*)', e.output).group(1)
+            except:
+                err = 'exit status ' + str(e.returncode)
+            rest.sync_stat(api, 'LoadError', reason=err)
+            logs.critical("load error")
 
-    def sync(self):
+    def sync(self, api):
+        if not path.isfile(self.src.getCheckpoint()):
+            self.load(api)
+
         self.src.genSyncConfigFile(self.dest)
         if not path.isfile(self.src.getMeta()):
             self.src.genSyncMetaFile()
 
+        rest.sync_stat(api, 'Syncing')
         cmds = self.dest.toSyncer()
         logs.info("syncer: %s", cmds)
-        return call(shlex.split(cmds))
+        try:
+            subprocess.check_call(shlex.split(cmds), stderr=subprocess.STDOUT)
+        except  subprocess.CalledProcessError as e:
+            try:
+                # can't get error message from stderr
+                err = re.search('[error] (.*)', e.output).group(1)
+            except:
+                err = 'exit status ' + str(e.returncode)
+            rest.sync_stat(api, 'SyncStoped', reason=err)
 
 
 def main(argv):
@@ -66,12 +100,13 @@ def main(argv):
     d_user = ''
     d_password = ''
 
-    help = 'migrator.py --operator <dump,load,sync> --notice --database <db> --src-host <host> --src-port <port> --src-user <user> --src-password <password> --dest-host <host> --dest-port <port> --dest-user <user> --dest-password <password>'
+    help = 'migrator --operator <dump,load,sync> --notice --database <db> --src-host <host> --src-port <port> --src-user <user> --src-password <password> --dest-host <host> --dest-port <port> --dest-user <user> --dest-password <password>'
     try:
         opts, args = getopt.getopt(
             argv, "h:", ["operator=", "notice=", "database=", "src-host=", "src-port=", "src-user=", "src-password=", "dest-host=", "dest-port=", "dest-user=", "dest-password="])
     except getopt.GetoptError:
-        logs.critical("Error: %s", help)
+        print "Error: " + help
+        sys.exit(2)
 
     for opt, arg in opts:
         print opt + ":" + arg
@@ -104,25 +139,19 @@ def main(argv):
     dest = config.Config(db, d_host, d_port, d_user, d_password)
     m = Migrator(src, dest, notice)
     if operator == 'dump':
-        rest.sync_stat(notice, 'Dumping')
-        if m.dump() != 0:
-            rest.sync_stat(notice, 'DumpError')
+        m.dump(notice)
+        rest.sync_stat(notice, 'Finished')
     elif operator == 'load':
-        if path.isfile(src.getCheckpoint()):
-            logs.critical("maybe has loaded.")
-        if not path.isdir(src.getDataDir()):
-            m.dump()
-        m.load()
+        m.load(notice)
+        rest.sync_stat(notice, 'Finished')
     elif operator == 'sync':
-        if not path.isfile(src.getCheckpoint()):
-            m.load()
-        m.sync()
+        m.sync(notice)
     else:
         print 'Unsupport operator: ' + operator
         sys.exit(2)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
 
 # migrator.py --database xinyang1 --src-host 10.213.124.194 --src-port 13306 --src-user root --src-password EJq4dspojdY3FmVF?TYVBkEMB --dest-host 10.213.44.128 --dest-port 13213 --dest-user xinyang1 --dest-password xinyang1 --operator sync --notice http://10.213.44.128:12808/tidb/api/v1/tidbs/006-xinyang1
-
