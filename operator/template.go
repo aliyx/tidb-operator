@@ -317,7 +317,7 @@ spec:
           --dest-user {{du}} \
           --dest-password {{dp}} \
           --operator {{op}} \
-          --notice {{api}}
+          --notice "{{api}}"
         while true; do
           echo "Waiting for the pod to closed"
           sleep 10

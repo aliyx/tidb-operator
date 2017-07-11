@@ -30,8 +30,8 @@ def sync(api, arr):
 
 
 def sync_stat(api, stat, reason=""):
-    if api == None:
-        logs.error("sync state api is nil")
+    if api == None or api == '':
+        logs.warn("sync state api is nil")
         return
     patch = [
         {"op": "replace", "path": "/status/migrateState", "value": stat},

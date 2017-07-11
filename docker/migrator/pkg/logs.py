@@ -10,5 +10,8 @@ def critical(msg, *args, **kwargs):
 def error(msg, *args, **kwargs):
   logging.error(msg, *args, **kwargs)
 
+def warn(msg, *args, **kwargs):
+  logging.warn(msg, *args, **kwargs)
+
 def info(msg, *args, **kwargs):
   logging.info(msg, *args, **kwargs)

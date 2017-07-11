@@ -74,6 +74,8 @@ class Migrator:
         rest.sync_stat(api, 'Syncing')
         cmds = self.dest.toSyncer()
         logs.info("syncer: %s", cmds)
+
+        err = ''
         try:
             subprocess.check_call(shlex.split(cmds), stderr=subprocess.STDOUT)
         except  subprocess.CalledProcessError as e:
@@ -82,7 +84,10 @@ class Migrator:
                 err = re.search('[error] (.*)', e.output).group(1)
             except:
                 err = 'exit status ' + str(e.returncode)
-            rest.sync_stat(api, 'SyncStoped', reason=err)
+        finally:
+            if err == '':
+                err = 'Unknow'
+            rest.sync_stat(api, 'SyncError', reason=err)
 
 
 def main(argv):
@@ -109,7 +114,7 @@ def main(argv):
         sys.exit(2)
 
     for opt, arg in opts:
-        print opt + ":" + arg
+        logs.info(opt + ":" + arg)
         if opt == "-h":
             print help
         elif opt in ("--operator") and arg in ("dump", "load", "sync"):

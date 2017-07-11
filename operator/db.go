@@ -295,11 +295,11 @@ func (db *Db) SyncMigrateStat() (err error) {
 	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, db.Status.MigrateState)
 	switch db.Status.MigrateState {
 	case "Finished":
-		e = NewEvent(db.Metadata.Name, "tidb", "migrator/stop")
+		e = NewEvent(db.Metadata.Name, "migrator", "stop")
 		err = stopMigrateTask(db.Metadata.Name)
 		e.Trace(err, "End the full migrate and delete migrator from k8s")
 	case "Syncing":
-		e = NewEvent(db.Metadata.Name, "migrator", "migrator/sync")
+		e = NewEvent(db.Metadata.Name, "migrator", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	default:
 		return fmt.Errorf("unknow status")
@@ -330,13 +330,15 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	}
 
 	go func() {
-		e := NewEvent(db.Metadata.Name, "tidb", "migrator/start")
+		e := NewEvent(db.Metadata.Name, "migrator", "start")
 		defer func() {
 			e.Trace(err, "Startup migrator on k8s")
 		}()
 		if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
 			db.Status.MigrateState = migStartMigrateErr
-			err = db.update()
+			if uerr := db.update(); uerr != nil {
+				logs.Error("failed to update db %s error: %v", db.Metadata.Name, uerr)
+			}
 			return
 		}
 	}()
