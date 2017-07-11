@@ -98,7 +98,7 @@ func execMysqlCommand(dsn string, sqls ...string) error {
 		if len(c) < 1 {
 			return nil
 		}
-		logs.Debug("dsn: %s sql: %s", dsn, c)
+		logs.Info("dsn: %s sql: %s", dsn, c)
 		for i := 0; i < maxBadConnRetries; i++ {
 			if _, err = db.Exec(c); err == nil {
 				break
