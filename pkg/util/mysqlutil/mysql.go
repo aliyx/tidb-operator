@@ -23,7 +23,7 @@ FLUSH PRIVILEGES;
 `
 	maxBadConnRetries = 3
 	// tidbDsn tidb data source name
-	rootDsn  = "root@tcp(%s:%d)/mysql?timeout=10s"
+	rootDsn  = "root@tcp(%s:%d)/mysql?timeout=30s"
 	mysqlDsn = "%s:%s@tcp(%s:%d)/%s"
 	grants   = "SHOW GRANTS FOR '{{user}}'@'%'"
 )

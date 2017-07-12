@@ -46,16 +46,8 @@ func (tk *Tikv) upgrade() (err error) {
 	e := NewEvent(tk.Db.Metadata.Name, "tikv", "upgrate")
 	defer func() {
 		// have upgrade
-		if err != nil {
-			tk.UpgradeState = upgradeFailed
-		} else if count > 0 {
-			tk.UpgradeState = upgradeOk
-		}
 		if count > 0 || err != nil {
-			if uerr := tk.Db.update(); uerr != nil {
-				logs.Error("update tidb error: %v", uerr)
-			}
-			e.Trace(err, fmt.Sprintf("upgrate tikv to version %s", tk.Version))
+			e.Trace(err, fmt.Sprintf("upgrate tikv to version: %s", tk.Version))
 		}
 	}()
 

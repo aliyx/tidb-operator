@@ -14,8 +14,9 @@ const (
 )
 
 const (
-	upgradeFailed = "False"
+	upgrading     = "Upgrading"
 	upgradeOk     = "True"
+	upgradeFailed = "False"
 )
 
 // TidbList is a list of tidb clusters.
@@ -46,8 +47,7 @@ type Db struct {
 
 // Tidb tidb module
 type Tidb struct {
-	Spec         `json:",inline"`
-	UpgradeState string `json:"upgradeState,omitempty"`
+	Spec `json:",inline"`
 
 	Db *Db `json:"-"`
 }
@@ -82,6 +82,7 @@ type Status struct {
 	Available    bool   `json:"available"`
 	Phase        Phase  `json:"phase"`
 	MigrateState string `json:"migrateState"`
+	UpgradeState string `json:"upgradeState"`
 	ScaleState   int    `json:"scaleState"`
 	Message      string `json:"message"`
 
@@ -99,9 +100,8 @@ type Pd struct {
 	InnerAddresses []string `json:"innerAddresses,omitempty"`
 	OuterAddresses []string `json:"outerAddresses,omitempty"`
 
-	Member       int       `json:"member"`
-	Members      []*Member `json:"members,omitempty"`
-	UpgradeState string    `json:"upgradeState,omitempty"`
+	Member  int       `json:"member"`
+	Members []*Member `json:"members,omitempty"`
 
 	Db *Db `json:"-"`
 }
@@ -119,7 +119,6 @@ type Tikv struct {
 	ReadyReplicas     int               `json:"readyReplicas"`
 	AvailableReplicas int               `json:"availableReplicas"`
 	Stores            map[string]*Store `json:"stores,omitempty"`
-	UpgradeState      string            `json:"upgradeState,omitempty"`
 
 	cur string
 	Db  *Db `json:"-"`

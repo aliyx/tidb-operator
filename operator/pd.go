@@ -30,16 +30,8 @@ func (p *Pd) upgrade() (err error) {
 	e := NewEvent(p.Db.Metadata.Name, "pd", "upgrate")
 	defer func() {
 		// have upgrade
-		if err != nil {
-			p.UpgradeState = upgradeFailed
-		} else if count > 0 {
-			p.UpgradeState = upgradeOk
-		}
 		if count > 0 || err != nil {
-			if uerr := p.Db.update(); uerr != nil {
-				logs.Error("update tidb error: %v", uerr)
-			}
-			e.Trace(err, fmt.Sprintf("upgrate pd to version %s", p.Version))
+			e.Trace(err, fmt.Sprintf("upgrate pd to version: %s", p.Version))
 		}
 	}()
 

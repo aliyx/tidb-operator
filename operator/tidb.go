@@ -34,16 +34,8 @@ func (td *Tidb) upgrade() (err error) {
 	e := NewEvent(td.Db.Metadata.Name, "tidb", "upgrate")
 	defer func() {
 		// have upgrade
-		if err != nil {
-			td.UpgradeState = upgradeFailed
-		} else if count > 0 {
-			td.UpgradeState = upgradeOk
-		}
 		if count > 0 || err != nil {
-			if uerr := td.Db.update(); uerr != nil {
-				logs.Error("update tidb error: %v", uerr)
-			}
-			e.Trace(err, fmt.Sprintf("upgrate tidb to version %s", td.Version))
+			e.Trace(err, fmt.Sprintf("upgrate tidb to version: %s", td.Version))
 		}
 	}()
 
