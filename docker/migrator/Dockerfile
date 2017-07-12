@@ -26,7 +26,8 @@ RUN pip install requests
 COPY ./tidb-enterprise-tools-latest-linux-amd64.tar.gz /usr/local/
 COPY ./mydumper-linux-amd64.tar.gz /usr/local/
 
-RUN cd /usr/local/ && \
+RUN mkdir /data && \
+	cd /usr/local/ && \
     tar xzvf tidb-enterprise-tools-latest-linux-amd64.tar.gz && \
     tar xzvf mydumper-linux-amd64.tar.gz && \
     rm -rf *.tar.gz 

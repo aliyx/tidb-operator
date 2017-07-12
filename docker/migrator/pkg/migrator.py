@@ -34,7 +34,7 @@ class Migrator:
         cmds = self.src.toDumper()
         logs.info("dumper: %s", cmds)
         try:
-            subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
+            print subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
         except  subprocess.CalledProcessError as e:
             print e.output
             try:
@@ -53,11 +53,11 @@ class Migrator:
         cmds = self.dest.toLoader()
         logs.info("loader: %s", cmds)
         try:
-            subprocess.check_call(shlex.split(cmds), stderr=subprocess.STDOUT)
+            print subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
         except  subprocess.CalledProcessError as e:
+            print e.output
             try:
-                # can't get error message from stderr
-                err = re.search('[error] (.*)', e.output).group(1)
+                err = re.search('\[error\] (.*)', e.output).group(1)
             except:
                 err = 'exit status ' + str(e.returncode)
             rest.sync_stat(api, 'LoadError', reason=err)
@@ -74,18 +74,15 @@ class Migrator:
         rest.sync_stat(api, 'Syncing')
         cmds = self.dest.toSyncer()
         logs.info("syncer: %s", cmds)
-
-        err = ''
         try:
-            subprocess.check_call(shlex.split(cmds), stderr=subprocess.STDOUT)
+            subprocess.check_call(shlex.split(cmds))
         except  subprocess.CalledProcessError as e:
             try:
-                # can't get error message from stderr
-                err = re.search('[error] (.*)', e.output).group(1)
+                err = re.search('\[error\] (.*)', e.output).group(1)
             except:
                 err = 'exit status ' + str(e.returncode)
         finally:
-            if err == '':
+            if err == None:
                 err = 'Unknow'
             rest.sync_stat(api, 'SyncError', reason=err)
 

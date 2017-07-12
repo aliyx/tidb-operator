@@ -257,6 +257,7 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 		ToggleSync: sync,
 		NotifyAPI:  notify,
 	}
+	logs.Debug("migrator object: %v", my)
 	if err := my.Check(); err != nil {
 		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Metadata.Name, err)
 	}

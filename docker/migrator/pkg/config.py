@@ -14,7 +14,7 @@ class Config:
         self.password = password
 
     def getDataDir(self):
-        return '/tmp/' + self.db
+        return '/data/' + self.db
 
     def getDumpedMeta(self):
         return self.getDataDir() + "/metadata"
@@ -44,6 +44,7 @@ class Config:
                 name = line.strip()[5:]
             elif 'Pos: ' in line:
                 pos = line.strip()[5:]
+                break
             else:
                 continue
         if name == None or pos == None:
