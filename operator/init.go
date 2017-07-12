@@ -2,6 +2,7 @@ package operator
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/astaxie/beego"
@@ -18,6 +19,7 @@ var (
 	forceInitMd   bool
 	imageRegistry string
 	onInitHooks   servenv.Hooks
+	hook          *sync.WaitGroup
 )
 
 // ParseConfig parse all config
@@ -29,9 +31,9 @@ func ParseConfig() {
 }
 
 // Init init all model
-func Init() {
+func Init(wg *sync.WaitGroup) {
 	rand.Seed(time.Now().Unix())
-
+	hook = wg
 	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
 	onInitHooks.Add(metaInit)
 	onInitHooks.Add(dbInit)
@@ -39,6 +41,6 @@ func Init() {
 	onInitHooks.Fire()
 }
 
-func recover()  {
-	
+func recover() {
+
 }

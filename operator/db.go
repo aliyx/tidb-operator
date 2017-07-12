@@ -101,6 +101,9 @@ func Install(cell string, ch chan int) error {
 	}
 
 	go func() {
+		hook.Add(1)
+		defer hook.Done()
+
 		e := NewEvent(cell, "db", "install")
 		defer func() {
 			e.Trace(err, "Start installing tidb cluster on kubernete")
@@ -158,6 +161,9 @@ func Uninstall(cell string, ch chan int) error {
 	}
 	// aync waiting for all pods deleted from k8s
 	go func() {
+		hook.Add(1)
+		defer hook.Done()
+
 		e := NewEvent(cell, "db", "uninstall")
 		defer func() {
 			stoped := 0
@@ -272,6 +278,9 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 
 // Upgrade tidb version
 func (db *Db) Upgrade() (err error) {
+	hook.Add(1)
+	defer hook.Done()
+
 	if db.Status.UpgradeState == upgrading {
 		return fmt.Errorf("db %s is upgrading", db.Metadata.Name)
 	}
@@ -372,6 +381,9 @@ func stopMigrateTask(cell string) error {
 
 // Scale tikv and tidb
 func Scale(cell string, kvReplica, dbReplica int) (err error) {
+	hook.Add(1)
+	defer hook.Done()
+
 	var db *Db
 	if db, err = GetDb(cell); err != nil {
 		return err

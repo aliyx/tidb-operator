@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/astaxie/beego"
@@ -72,7 +73,9 @@ func init() {
 
 func main() {
 	operator.ParseConfig()
-	operator.Init()
+
+	var wg sync.WaitGroup
+	operator.Init(&wg)
 
 	go beego.Run()
 
@@ -84,6 +87,7 @@ func main() {
 		syscall.SIGQUIT)
 	sig := <-sc
 	logs.Info("Got signal [%d] to exit.", sig)
+	wg.Wait()
 	switch sig {
 	case syscall.SIGTERM:
 		os.Exit(0)
