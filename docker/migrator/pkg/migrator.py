@@ -9,6 +9,7 @@ import sys
 import getopt
 import rest
 import re
+import shell
 
 
 class Migrator:
@@ -34,14 +35,15 @@ class Migrator:
         cmds = self.src.toDumper()
         logs.info("dumper: %s", cmds)
         try:
-            print subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
+            # print subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
+            shell.run('CRITICAL', cmds)
         except  subprocess.CalledProcessError as e:
-            print e.output
-            try:
-                err = re.search('\*\*: (.*)', e.output).group(1)
-            except:
-                err = e.output
-            rest.sync_stat(api, 'DumpError', reason=err)
+            # print e.output
+            # try:
+            #     err = re.search('\*\*: (.*)', e.output).group(1)
+            # except:
+            #     err = e.output
+            rest.sync_stat(api, 'DumpError', reason=e.output)
             logs.critical("dump error")
 
     # load local data to tidb
@@ -53,14 +55,9 @@ class Migrator:
         cmds = self.dest.toLoader()
         logs.info("loader: %s", cmds)
         try:
-            print subprocess.check_output(shlex.split(cmds), stderr=subprocess.STDOUT)
+            shell.run('[fatal]', cmds)
         except  subprocess.CalledProcessError as e:
-            print e.output
-            try:
-                err = re.search('\[error\] (.*)', e.output).group(1)
-            except:
-                err = 'exit status ' + str(e.returncode)
-            rest.sync_stat(api, 'LoadError', reason=err)
+            rest.sync_stat(api, 'LoadError', reason=e.output)
             logs.critical("load error")
 
     def sync(self, api):
@@ -75,12 +72,9 @@ class Migrator:
         cmds = self.dest.toSyncer()
         logs.info("syncer: %s", cmds)
         try:
-            subprocess.check_call(shlex.split(cmds))
+             shell.run('[fatal]', cmds)
         except  subprocess.CalledProcessError as e:
-            try:
-                err = re.search('\[error\] (.*)', e.output).group(1)
-            except:
-                err = 'exit status ' + str(e.returncode)
+            err = e.output
         finally:
             if err == None:
                 err = 'Unknow'
@@ -111,7 +105,7 @@ def main(argv):
         sys.exit(2)
 
     for opt, arg in opts:
-        logs.info(opt + ":" + arg)
+        logs.info(opt + ": " + arg)
         if opt == "-h":
             print help
         elif opt in ("--operator") and arg in ("dump", "load", "sync"):
@@ -136,7 +130,7 @@ def main(argv):
             d_user = arg
         elif opt in ("--dest-password"):
             d_password = arg
-
+    print ""
     src = config.Config(db, s_host, s_port, s_user, s_password)
     dest = config.Config(db, d_host, d_port, d_user, d_password)
     m = Migrator(src, dest, notice)

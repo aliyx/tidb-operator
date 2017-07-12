@@ -14,7 +14,6 @@ def sync(api, arr):
     for op in arr:
         st.append(op)
     j = json.dumps(st).strip()
-    logs.info("current migrate state: %s", j)
     for i in range(0, 60):
         try:
             r = requests.patch(api, data=j)
@@ -24,12 +23,13 @@ def sync(api, arr):
             else:
                 return
         except requests.exceptions.ConnectionError as ce:
-            logs.error("can't connect to tidb-operator: %s", ce)
+            logs.error("can't connect to tidb-operator, retry after 60s: %s", ce)
             time.sleep(60)
     logs.critical("retry 60 times after exiting")
 
 
 def sync_stat(api, stat, reason=""):
+    logs.info("\x1b[0;32m status:%s reason:%s \x1b[0m", stat, reason)
     if api == None or api == '':
         logs.warn("sync state api is nil")
         return
