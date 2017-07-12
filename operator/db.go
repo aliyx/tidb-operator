@@ -270,6 +270,9 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 
 // Upgrade tidb version
 func (db *Db) Upgrade() (err error) {
+	if db.Status.UpgradeState == upgrading {
+		return fmt.Errorf("db %s is upgrading", db.Metadata.Name)
+	}
 	db.Status.UpgradeState = upgrading
 	if err = db.update(); err != nil {
 		return err

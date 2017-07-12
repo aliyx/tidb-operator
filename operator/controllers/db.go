@@ -149,6 +149,11 @@ func (dc *TidbController) Patch() {
 			fmt.Sprintf("start reinstalling tidb %s", cell),
 		)
 	case "upgrade":
+		errHandler(
+			dc.Controller,
+			db.Upgrade(),
+			fmt.Sprintf("upgrade tidb %s", cell),
+		)
 		db.Upgrade()
 	case "scale":
 		errHandler(
