@@ -246,9 +246,10 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 		return
 	}
 	kv := db.Tikv
-	if replica == kv.Spec.Replicas {
+	if replica == kv.AvailableReplicas && replica == kv.ReadyReplicas {
 		return
 	}
+
 	wg.Add(1)
 	go func() {
 		scaleMu.Lock()
@@ -264,13 +265,15 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 				db.Status.ScaleState |= tikvScaleErr
 			}
 			db.update()
-			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replica: %d->%d`, db.Metadata.Name, r, replica))
+			e.Trace(err, fmt.Sprintf(`Scale tikv "%s" replicas: %d -> %d`, db.Metadata.Name, r, replica))
 		}(kv.Spec.Replicas)
 		switch n := replica - kv.Spec.Replicas; {
 		case n > 0:
 			err = kv.increase(n)
 		case n < 0:
 			err = kv.decrease(-n)
+		default:
+			err = kv.reconcile()
 		}
 	}()
 }
@@ -323,6 +326,35 @@ func (tk *Tikv) increase(replicas int) (err error) {
 	logs.Info("end incrementally scale tikv %s pod desire: %d, available: %d",
 		tk.Db.Metadata.Name, tk.Replicas, tk.AvailableReplicas)
 	return err
+}
+
+func (tk *Tikv) reconcile() (err error) {
+	// delete all invalid tikv from tidb cluster
+	if tk.ReadyReplicas != tk.AvailableReplicas {
+		for k, s := range tk.Stores {
+			// the tikv no started ok
+			if s.Name == "" {
+				if err = k8sutil.DeletePods(k); err != nil {
+					return err
+				}
+				delete(tk.Stores, k)
+				tk.ReadyReplicas--
+				logs.Warn("delete no started tikv %s", k)
+			}
+		}
+	}
+
+	if tk.ReadyReplicas != tk.AvailableReplicas {
+		return fmt.Errorf("the current tikv %s cluster is inconsistent", tk.Db.Metadata.Name)
+	}
+
+	for tk.ReadyReplicas < tk.Replicas {
+		tk.Member++
+		if err = tk._install(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func isOkTikv(cell string) bool {
