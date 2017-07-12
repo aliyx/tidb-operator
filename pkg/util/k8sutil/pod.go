@@ -77,6 +77,11 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 		case v1.PodRunning:
 			return true, nil
 		case v1.PodPending:
+			for _, c := range retPod.Status.Conditions {
+				if c.Status == v1.ConditionFalse {
+					return false, fmt.Errorf("%s:%s", c.Reason, c.Message)
+				}
+			}
 			return false, nil
 		default:
 			return false, fmt.Errorf("unexpected pod status.phase: %v", retPod.Status.Phase)

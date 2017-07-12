@@ -31,7 +31,7 @@ func (td *Tidb) upgrade() (err error) {
 		pods     []string
 	)
 
-	e := NewEvent(td.Db.Metadata.Name, "tidb", "upgrate")
+	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "upgrate")
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
@@ -58,10 +58,12 @@ func (td *Tidb) upgrade() (err error) {
 }
 
 func (td *Tidb) install() (err error) {
-	e := NewEvent(td.Db.Metadata.Name, "tidb", "install")
+	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "install")
 	td.Db.Status.Phase = PhaseTidbPending
 	td.Db.update()
+
 	defer func() {
+		parseError(td.Db, err)
 		ph := PhaseTidbStarted
 		if err != nil {
 			ph = PhaseTidbStartFailed
@@ -182,8 +184,9 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			wg.Done()
 		}()
 		var err error
-		e := NewEvent(db.Metadata.Name, "tidb", "scale")
+		e := NewEvent(db.Metadata.Name, "tidb/tidb", "scale")
 		defer func(r int) {
+			parseError(db, err)
 			if err != nil {
 				db.Status.ScaleState |= tidbScaleErr
 			}

@@ -43,7 +43,7 @@ func (tk *Tikv) upgrade() (err error) {
 		count    int
 	)
 
-	e := NewEvent(tk.Db.Metadata.Name, "tikv", "upgrate")
+	e := NewEvent(tk.Db.Metadata.Name, "tidb/tikv", "upgrate")
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
@@ -65,11 +65,16 @@ func (tk *Tikv) upgrade() (err error) {
 }
 
 func (tk *Tikv) install() (err error) {
-	e := NewEvent(tk.Db.Metadata.Name, "tikv", "install")
+	e := NewEvent(tk.Db.Metadata.Name, "tidb/tikv", "install")
 	tk.Db.Status.Phase = PhaseTikvPending
-	tk.Db.update()
+	if err = tk.Db.update(); err != nil {
+		e.Trace(err, fmt.Sprintf("Faile to update db: %v", err))
+		return err
+	}
+
 	tk.Stores = make(map[string]*Store)
 	defer func() {
+		parseError(tk.Db, err)
 		ph := PhaseTikvStarted
 		if err != nil {
 			ph = PhaseTikvStartFailed
@@ -252,8 +257,9 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 			wg.Done()
 		}()
 		var err error
-		e := NewEvent(db.Metadata.Name, "tikv", "scale")
+		e := NewEvent(db.Metadata.Name, "tidb/tikv", "scale")
 		defer func(r int) {
+			parseError(db, err)
 			if err != nil {
 				db.Status.ScaleState |= tikvScaleErr
 			}

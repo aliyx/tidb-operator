@@ -27,7 +27,7 @@ func (p *Pd) upgrade() (err error) {
 		count    int
 	)
 
-	e := NewEvent(p.Db.Metadata.Name, "pd", "upgrate")
+	e := NewEvent(p.Db.Metadata.Name, "tidb/pd", "upgrate")
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
@@ -70,7 +70,7 @@ func (p *Pd) uninstall() (err error) {
 }
 
 func (p *Pd) install() (err error) {
-	e := NewEvent(p.Db.Metadata.Name, "pd", "install")
+	e := NewEvent(p.Db.Metadata.Name, "tidb/pd", "install")
 	p.Db.Status.Phase = PhasePdPending
 	if err = p.Db.update(); err != nil {
 		e.Trace(err,
@@ -78,6 +78,7 @@ func (p *Pd) install() (err error) {
 		return err
 	}
 	defer func() {
+		parseError(p.Db, err)
 		ph := PhasePdStarted
 		if err != nil {
 			ph = PhasePdStartFailed

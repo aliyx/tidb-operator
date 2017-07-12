@@ -81,6 +81,7 @@ type Spec struct {
 type Status struct {
 	Available    bool   `json:"available"`
 	Phase        Phase  `json:"phase"`
+	Reason       string `json:"reason"`
 	MigrateState string `json:"migrateState"`
 	UpgradeState string `json:"upgradeState"`
 	ScaleState   int    `json:"scaleState"`

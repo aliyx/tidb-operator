@@ -43,7 +43,7 @@ const (
 
 // create user specify schema and set database privileges
 func (db *Db) initSchema() (err error) {
-	if !db.Tidb.isOk() {
+	if db.Status.Phase != PhaseTidbStarted {
 		return fmt.Errorf(`tidb "%s" no started`, db.Metadata.Name)
 	}
 
@@ -57,10 +57,11 @@ func (db *Db) initSchema() (err error) {
 		}
 		db.Status.Phase = ph
 		if uerr := db.update(); uerr != nil {
-			logs.Error("update db %v", uerr)
+			logs.Error("failed to update db: %v", uerr)
 		}
 		e.Trace(err, fmt.Sprintf("Create schema %s and set database privileges", db.Schema.Name))
 	}()
+
 	var (
 		h string
 		p string
@@ -87,6 +88,7 @@ func Install(cell string, ch chan int) error {
 		return err
 	}
 
+	// check status
 	// Startup means passing the audit
 	if db.Status.Phase == PhaseAuditing {
 		db.Status.Phase = PhaseUndefined
@@ -103,25 +105,25 @@ func Install(cell string, ch chan int) error {
 		defer func() {
 			e.Trace(err, "Start installing tidb cluster on kubernete")
 			if err != nil {
-				ch <- 0
-			} else {
 				ch <- 1
+			} else {
+				ch <- 0
 			}
 		}()
 		if err = db.Pd.install(); err != nil {
-			logs.Error("install pd %s on k8s err: %v", cell, err)
+			logs.Error("failed to install pd %s on k8s: %v", cell, err)
 			return
 		}
 		if err = db.Tikv.install(); err != nil {
-			logs.Error("install tikv %s on k8s err: %v", cell, err)
+			logs.Error("failed to install tikv %s on k8s: %v", cell, err)
 			return
 		}
 		if err = db.Tidb.install(); err != nil {
-			logs.Error("install tidb %s on k8s err: %v", cell, err)
+			logs.Error("failed to install tidb %s on k8s: %v", cell, err)
 			return
 		}
 		if err = db.initSchema(); err != nil {
-			logs.Error("init db %s privileges err: %v", cell, err)
+			logs.Error("failed to init db %s privileges: %v", cell, err)
 			return
 		}
 	}()
@@ -136,13 +138,13 @@ func Uninstall(cell string, ch chan int) error {
 	)
 	if db, err = GetDb(cell); err != nil {
 		if ch != nil {
-			ch <- 0
+			ch <- 1
 		}
 		return err
 	}
 	if db.Status.Phase <= PhaseUndefined {
 		if ch != nil {
-			ch <- 1
+			ch <- 0
 		}
 		return nil
 	}
@@ -150,7 +152,7 @@ func Uninstall(cell string, ch chan int) error {
 	db.Status.Phase = PhaseTidbUninstalling
 	if err = db.update(); err != nil {
 		if ch != nil {
-			ch <- 0
+			ch <- 1
 		}
 		return err
 	}
@@ -158,11 +160,11 @@ func Uninstall(cell string, ch chan int) error {
 	go func() {
 		e := NewEvent(cell, "db", "uninstall")
 		defer func() {
-			stoped := 1
+			stoped := 0
 			ph := PhaseUndefined
 			if started(cell) {
 				ph = PhaseTidbUninstalling
-				stoped = 0
+				stoped = 1
 				err = errors.New("async delete pods timeout")
 			}
 			db.Status.Phase = ph
@@ -216,7 +218,7 @@ func Reinstall(cell string) (err error) {
 		}
 		// waiting for all pod deleted
 		stoped := <-ch
-		if stoped == 0 {
+		if stoped != 0 {
 			logs.Error("Uninstall db %s timeout", cell)
 			return
 		}
@@ -313,11 +315,11 @@ func (db *Db) SyncMigrateStat() (err error) {
 	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, db.Status.MigrateState)
 	switch db.Status.MigrateState {
 	case "Finished":
-		e = NewEvent(db.Metadata.Name, "migrator", "stop")
+		e = NewEvent(db.Metadata.Name, "db/migrator", "stop")
 		err = stopMigrateTask(db.Metadata.Name)
 		e.Trace(err, "End the full migrate and delete migrator from k8s")
 	case "Syncing":
-		e = NewEvent(db.Metadata.Name, "migrator", "sync")
+		e = NewEvent(db.Metadata.Name, "db/migrator", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	default:
 		return fmt.Errorf("unknow status")
@@ -348,7 +350,7 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	}
 
 	go func() {
-		e := NewEvent(db.Metadata.Name, "migrator", "start")
+		e := NewEvent(db.Metadata.Name, "db/migrator", "start")
 		defer func() {
 			e.Trace(err, "Startup migrator on k8s")
 		}()
@@ -443,7 +445,7 @@ func Delete(cell string) error {
 	go func() {
 		// wait uninstalled
 		stoped := <-ch
-		if stoped == 0 {
+		if stoped != 0 {
 			// fail to uninstall tidb, so quit
 			return
 		}
