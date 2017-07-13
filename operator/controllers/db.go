@@ -119,7 +119,7 @@ func (dc *TidbController) Patch() {
 	if err = patch(b, newDb); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
 	}
-	switch db.Operator {
+	switch newDb.Operator {
 	case "patch":
 		newDb.Update()
 	case "audit":
