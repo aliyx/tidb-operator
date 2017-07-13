@@ -13,6 +13,7 @@ import (
 	_ "github.com/ffan/tidb-operator/operator/routers"
 	_ "github.com/go-sql-driver/mysql"
 
+	"context"
 	"flag"
 	"strconv"
 )
@@ -74,8 +75,14 @@ func init() {
 func main() {
 	operator.ParseConfig()
 
+	operator.Init()
+
 	var wg sync.WaitGroup
-	operator.Init(&wg)
+	ctx, cancel := context.WithCancel(context.Background())
+	err := operator.Run(ctx, &wg)
+	if err != nil {
+		panic(err)
+	}
 
 	go beego.Run()
 
@@ -87,7 +94,9 @@ func main() {
 		syscall.SIGQUIT)
 	sig := <-sc
 	logs.Info("Got signal [%d] to exit.", sig)
+	cancel()
 	wg.Wait()
+	logs.Info("exit.")
 	switch sig {
 	case syscall.SIGTERM:
 		os.Exit(0)

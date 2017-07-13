@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/pkg/api/v1"
+
 	"github.com/astaxie/beego/logs"
 
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -98,10 +100,11 @@ func (td *Tidb) createService() (err error) {
 	}
 	ps := getProxys()
 	for _, py := range ps {
-		td.Db.Status.OuterAddresses = append(td.Db.Status.OuterAddresses, fmt.Sprintf("%s:%d", py, srv.Spec.Ports[0].NodePort))
+		td.Db.Status.OuterAddresses =
+			append(td.Db.Status.OuterAddresses, fmt.Sprintf("%s:%d", py, srv.Spec.Ports[0].NodePort))
 	}
-	td.Db.Status.OuterStatusAddresses = append(td.Db.Status.OuterStatusAddresses,
-		fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
+	td.Db.Status.OuterStatusAddresses =
+		append(td.Db.Status.OuterStatusAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
 	logs.Info("tidb %s mysql address: %s, status address: %s",
 		td.Db.Metadata.Name, td.Db.Status.OuterAddresses, td.Db.Status.OuterStatusAddresses)
 	return nil
@@ -173,15 +176,24 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
-	if replica == db.Tidb.Replicas {
+
+	td := db.Tidb
+	if replica == td.Replicas {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := td.reconcile(); err != nil {
+				logs.Error("failed to reconcile tidb %s %v", db.GetName(), err)
+			}
+		}()
 		return
 	}
 	wg.Add(1)
 	go func() {
 		scaleMu.Lock()
 		defer func() {
-			scaleMu.Unlock()
 			wg.Done()
+			scaleMu.Unlock()
 		}()
 		var err error
 		e := NewEvent(db.Metadata.Name, "tidb/tidb", "scale")
@@ -190,15 +202,17 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			if err != nil {
 				db.Status.ScaleState |= tidbScaleErr
 			}
-			db.update()
-			e.Trace(err, fmt.Sprintf(`Scale tidb "%s" replica: %d->%d`, db.Metadata.Name, r, replica))
-		}(db.Tidb.Replicas)
+			if uerr := db.update(); uerr != nil {
+				logs.Error("failed to update db %s %v", db.Metadata.Name, uerr)
+			}
+			e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas: %d -> %d", db.Metadata.Name, r, replica))
+		}(td.Replicas)
 		md := getCachedMetadata()
 		if replica > md.Spec.Tidb.Max {
 			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
 			return
 		}
-		if replica > db.Tidb.Replicas*3 || db.Tidb.Replicas > replica*3 {
+		if replica > td.Replicas*3 || td.Replicas > replica*3 {
 			err = fmt.Errorf("each scale can not more or less then 2 times")
 			return
 		}
@@ -206,12 +220,33 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			err = fmt.Errorf("replicas must be greater than 1")
 			return
 		}
-		logs.Info(`start scaling tidb count of the db "%s" from %d to %d`, db.Metadata.Name, db.Tidb.Replicas, replica)
-		db.Tidb.Replicas = replica
+		logs.Info("start scaling tidb count of the db '%s' from %d to %d",
+			db.Metadata.Name, td.Replicas, replica)
+		td.Replicas = replica
 		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Metadata.Name), replica); err != nil {
 			return
 		}
 	}()
+}
+
+// delete invalid pods
+func (td *Tidb) reconcile() error {
+	var (
+		err  error
+		pods []v1.Pod
+	)
+	pods, err = k8sutil.GetPods(td.Db.Metadata.Name, "tidb")
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods {
+		if pod.Status.Phase != v1.PodRunning {
+			if err = k8sutil.DeletePods(pod.Name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (td *Tidb) isNil() bool {

@@ -8,6 +8,45 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 )
 
+// Upgrade tidb version
+func (db *Db) Upgrade() (err error) {
+	hook.Add(1)
+	defer hook.Done()
+
+	if db.Status.UpgradeState == upgrading {
+		return fmt.Errorf("db %s is upgrading", db.GetName())
+	}
+	db.Status.UpgradeState = upgrading
+	if err = db.update(); err != nil {
+		return err
+	}
+	go func() {
+		defer func() {
+			st := upgradeOk
+			if err != nil {
+				st = upgradeFailed
+			}
+			db.Status.UpgradeState = st
+			if err = db.update(); err != nil {
+				logs.Error("failed to update db: %v", err)
+			}
+		}()
+		if err = db.Pd.upgrade(); err != nil {
+			logs.Error("failed to upgrade pd %v", err)
+			return
+		}
+		if err = db.Tikv.upgrade(); err != nil {
+			logs.Error("failed to upgrade tikv %v", err)
+			return
+		}
+		if err = db.Tidb.upgrade(); err != nil {
+			logs.Error("failed to upgrade tidb %v", err)
+			return
+		}
+	}()
+	return nil
+}
+
 func upgradeOne(name, image, version string) (bool, error) {
 	pod, err := k8sutil.GetPod(name)
 	if err != nil {

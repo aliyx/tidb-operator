@@ -121,6 +121,7 @@ func (tk *Tikv) createPod() (err error) {
 	s.Name = tk.cur
 	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
 	s.Node = pod.Spec.NodeName
+	s.State = StoreOnline
 	return nil
 }
 
@@ -156,7 +157,7 @@ func (tk *Tikv) waitForOk() (err error) {
 			logs.Warn("current stores count: %d", ret.Int())
 			return false, nil
 		}
-		// 获取online的tikv
+		// get all online tikvs
 		s := tk.Stores[tk.cur]
 		ret = gjson.Get(j, fmt.Sprintf("stores.#[store.address==%s]#.store.id", s.Address))
 		if ret.Type == gjson.Null {
@@ -246,7 +247,21 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 		return
 	}
 	kv := db.Tikv
-	if replica == kv.AvailableReplicas && replica == kv.ReadyReplicas {
+	if replica == kv.AvailableReplicas {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			c, err := kv.checkStoresStatus()
+			if err != nil {
+				logs.Error("check tikv %s stores status %v", db.GetName(), err)
+			}
+			if c > 0 {
+				if err = db.update(); err != nil {
+					logs.Error("failed to update db %s %v", db.GetName(), err)
+				}
+			}
+		}()
 		return
 	}
 
@@ -254,8 +269,8 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 	go func() {
 		scaleMu.Lock()
 		defer func() {
-			scaleMu.Unlock()
 			wg.Done()
+			scaleMu.Unlock()
 		}()
 		var err error
 		e := NewEvent(db.Metadata.Name, "tidb/tikv", "scale")
@@ -276,6 +291,45 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 			err = kv.reconcile()
 		}
 	}()
+}
+
+func (tk *Tikv) checkStoresStatus() (int, error) {
+	count := 0
+
+	j, err := pdutil.PdStoresGet(tk.Db.Pd.OuterAddresses[0])
+	if err != nil {
+		return count, err
+	}
+
+	ret := gjson.Get(j, "count")
+	if ret.Int() < 1 {
+		logs.Warn("current stores count: %d", ret.Int())
+		for _, s := range tk.Stores {
+			logs.Warn("store %s offline", s.Name)
+			s.State = StoreOffline
+			count++
+		}
+		return count, nil
+	}
+
+	// get all non online tikvs
+	ret = gjson.Get(j, fmt.Sprintf("stores.#[store.state>%d]#.store.id", StoreOnline))
+	if ret.Type == gjson.Null {
+		logs.Info("%s tikvs is normal", tk.Db.Metadata.Name)
+		return count, nil
+	}
+	for _, sid := range ret.Array() {
+		id := int(sid.Int())
+		for _, s := range tk.Stores {
+			if s.ID == id {
+				logs.Warn("store %s offline", s.Name)
+				s.State = StoreOffline
+				count++
+				break
+			}
+		}
+	}
+	return count, nil
 }
 
 func (tk *Tikv) decrease(replicas int) (err error) {

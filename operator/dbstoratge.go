@@ -216,6 +216,11 @@ func (db *Db) AfterPropertiesSet() {
 	db.Tidb.Db = db
 }
 
+func (db *Db) Clone() *Db {
+	c := *db
+	return &c
+}
+
 // GetAllDbs get a tidbList object
 func GetAllDbs() (*TidbList, error) {
 	list := &TidbList{}

@@ -12,6 +12,10 @@ var (
 
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
 	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")
+
+	ErrScaling = errors.New("be scaling")
+
+	ErrUnavailable = errors.New("unavailable")
 )
 
 func parseError(db *Db, err error) {

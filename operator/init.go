@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"context"
+
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/servenv"
@@ -30,17 +32,75 @@ func ParseConfig() {
 	logs.Debug("image registrey: ", imageRegistry)
 }
 
-// Init init all model
-func Init(wg *sync.WaitGroup) {
+func Init() {
 	rand.Seed(time.Now().Unix())
-	hook = wg
 	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
 	onInitHooks.Add(metaInit)
 	onInitHooks.Add(dbInit)
 	onInitHooks.Add(eventInit)
 	onInitHooks.Fire()
+
 }
 
-func recover() {
+func Run(ctx context.Context, wg *sync.WaitGroup) (err error) {
+	hook = wg
 
+	if err = recover(); err != nil {
+		return err
+	}
+
+	reconcile(ctx)
+	return nil
+}
+
+func recover() error {
+	dbs, err := GetDbs("admin")
+	if err != nil {
+		return err
+	}
+	for i := range dbs {
+		db := &dbs[i]
+		db.AfterPropertiesSet()
+		// recover scaling to normal
+		if db.Status.ScaleState&scaling > 0 {
+			db.Status.ScaleState ^= scaling
+			if err = db.update(); err != nil {
+				return err
+			}
+			logs.Warn("recover db %s", db.GetName())
+		}
+	}
+	return nil
+}
+
+func reconcile(ctx context.Context) {
+	tick := time.Tick(reconcileInterval)
+	go func() {
+		for {
+			select {
+			case <-tick:
+			case <-ctx.Done():
+				logs.Warn("reconcile cancled")
+				return
+			}
+			logs.Info("reconcile all tidb clusters")
+
+			dbs, err := GetDbs("admin")
+			if err != nil {
+				logs.Error("failed to get all tidb clusters")
+			}
+			for i := range dbs {
+				db := &dbs[i]
+				db.AfterPropertiesSet()
+				if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
+					switch err {
+					case ErrScaling, ErrUnavailable:
+						logs.Warn("%s %v", db.GetName(), err)
+					default:
+						logs.Error("failed to reconcile db %s: %v", db.GetName(), err)
+					}
+				}
+			}
+		}
+	}()
 }

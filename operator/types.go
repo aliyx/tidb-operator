@@ -132,7 +132,7 @@ type Store struct {
 	Name    string      `json:"name,omitempty"`
 	Address string      `json:"address,omitempty"`
 	Node    string      `json:"nodeName,omitempty"`
-	State   StoreStatus `json:"state,omitempty"`
+	State   StoreStatus `json:"state"`
 }
 
 const (
@@ -167,3 +167,7 @@ const (
 	// PhaseTidbUninstalling being uninstall tidb
 	PhaseTidbUninstalling
 )
+
+func (db *Db) GetName() string {
+	return db.Metadata.Name
+}

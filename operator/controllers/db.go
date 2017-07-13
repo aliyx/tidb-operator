@@ -44,9 +44,9 @@ func (dc *TidbController) Post() {
 	)
 	// start is async
 	if db.Status.Phase == operator.PhaseUndefined {
-		operator.Install(db.Metadata.Name, nil)
+		db.Install(nil)
 	}
-	dc.Data["json"] = db.Metadata.Name
+	dc.Data["json"] = db.GetName()
 	dc.ServeJSON()
 }
 
@@ -115,50 +115,52 @@ func (dc *TidbController) Patch() {
 	db, err := operator.GetDb(cell)
 	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
 
-	if err = patch(b, db); err != nil {
+	newDb := db.Clone()
+	if err = patch(b, newDb); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
 	}
 	switch db.Operator {
+	case "patch":
+		newDb.Update()
 	case "audit":
 		switch db.Status.Phase {
 		case operator.PhaseRefuse:
-			db.Update()
+			newDb.Update()
 		case operator.PhaseUndefined:
 			errHandler(
 				dc.Controller,
-				operator.Install(cell, nil),
+				newDb.Install(nil),
 				fmt.Sprintf("start installing tidb %s", cell),
 			)
 		}
 	case "start":
 		errHandler(
 			dc.Controller,
-			operator.Install(cell, nil),
+			newDb.Install(nil),
 			fmt.Sprintf("start installing tidb %s", cell),
 		)
 	case "stop":
 		errHandler(
 			dc.Controller,
-			operator.Uninstall(cell, nil),
+			newDb.Uninstall(nil),
 			fmt.Sprintf("start uninstalling tidb %s", cell),
 		)
 	case "retart":
 		errHandler(
 			dc.Controller,
-			operator.Reinstall(cell),
+			newDb.Reinstall(cell),
 			fmt.Sprintf("start reinstalling tidb %s", cell),
 		)
 	case "upgrade":
 		errHandler(
 			dc.Controller,
-			db.Upgrade(),
+			newDb.Upgrade(),
 			fmt.Sprintf("upgrade tidb %s", cell),
 		)
-		db.Upgrade()
 	case "scale":
 		errHandler(
 			dc.Controller,
-			operator.Scale(cell, db.Tikv.Replicas, db.Tidb.Replicas),
+			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
 			fmt.Sprintf("Scale tidb %s", cell),
 		)
 	case "syncMigrateStat":

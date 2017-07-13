@@ -30,3 +30,15 @@ func TestDeleteBuriedTikv(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestTikv_checkStoresStatus(t *testing.T) {
+	db, err := GetDb("006-xinyang1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := db.Tikv.checkStoresStatus()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("count of changed stores is %d\n", c)
+}

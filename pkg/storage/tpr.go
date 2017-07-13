@@ -103,6 +103,7 @@ func (s *Storage) DeleteAll() error {
 
 // Update update a tpr.
 func (s *Storage) Update(key string, v interface{}) error {
+	retryCount := 0
 	for {
 		r := spec.Resource{}
 		if err := s.Get(key, &r); err != nil {
@@ -121,7 +122,10 @@ func (s *Storage) Update(key string, v interface{}) error {
 			Body(v).
 			Do().StatusCode(&statusCode).Error()
 		if statusCode == http.StatusConflict {
-			logs.Warn("retry update trp")
+			if retryCount > 5 {
+				logs.Warn("retry update trp %s %d times", key, retryCount)
+			}
+			retryCount++
 			continue
 		}
 
