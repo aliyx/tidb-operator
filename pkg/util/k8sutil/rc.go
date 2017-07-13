@@ -33,6 +33,7 @@ func CreateRcByJSON(j []byte, timeout time.Duration) (*v1.ReplicationController,
 	if err := json.Unmarshal(j, rc); err != nil {
 		return nil, err
 	}
+	rc.Spec.Template.Annotations[tidbVersionAnnotationKey] = GetImageVersion(rc.Spec.Template.Spec.Containers[0].Image)
 	retRc, err := kubecli.CoreV1().ReplicationControllers(Namespace).Create(rc)
 	if err != nil {
 		return nil, err

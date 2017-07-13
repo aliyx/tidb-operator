@@ -153,7 +153,7 @@ func (w *Watcher) cleanClusters() {
 	for _, db := range w.dbs {
 		err := operator.DeleteBuriedTikv(db)
 		if err != nil {
-			logs.Error("failed to delete %s buried tikv %v", db.Metadata.Name, err)
+			logs.Error("failed to delete buried tikv of %s: %v", db.GetName(), err)
 		}
 	}
 }

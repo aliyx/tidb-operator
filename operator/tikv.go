@@ -193,16 +193,17 @@ func DeleteBuriedTikv(db *Db) error {
 		}
 	}()
 
-	for name, s := range db.Tikv.Stores {
-		b, err := db.Tikv.IsBuried(s)
+	kv := db.Tikv
+	for name, s := range kv.Stores {
+		b, err := kv.IsBuried(s)
 		if err != nil {
 			return err
 		}
 		if b {
 			logs.Warn("delete tikv %s", name)
 			deleted++
-			db.Tikv.AvailableReplicas--
-			delete(db.Tikv.Stores, name)
+			kv.AvailableReplicas--
+			delete(kv.Stores, name)
 		}
 	}
 	return nil
