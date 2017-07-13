@@ -163,26 +163,26 @@ func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 	db.AfterPropertiesSet()
 	switch event.Type {
 	case kwatch.Added:
-		w.dbs[db.Metadata.Name] = db
-		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
+		w.dbs[db.GetName()] = db
+		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
 	case kwatch.Modified:
-		if _, ok := w.dbs[db.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.dbs[db.Metadata.Name], db, pvProvisioner); err != nil {
+		if err = gc(w.dbs[db.GetName()], db, pvProvisioner); err != nil {
 			return err
 		}
-		w.dbs[db.Metadata.Name] = db
-		w.dbRVs[db.Metadata.Name] = db.Metadata.ResourceVersion
+		w.dbs[db.GetName()] = db
+		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
 	case kwatch.Deleted:
-		if _, ok := w.dbs[db.Metadata.Name]; !ok {
+		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
-		if err = gc(w.dbs[db.Metadata.Name], nil, pvProvisioner); err != nil {
+		if err = gc(w.dbs[db.GetName()], nil, pvProvisioner); err != nil {
 			return err
 		}
-		delete(w.dbs, db.Metadata.Name)
-		delete(w.dbRVs, db.Metadata.Name)
+		delete(w.dbs, db.GetName())
+		delete(w.dbRVs, db.GetName())
 	}
 	return err
 }

@@ -47,7 +47,8 @@ type Db struct {
 
 // Tidb tidb module
 type Tidb struct {
-	Spec `json:",inline"`
+	Spec    `json:",inline"`
+	Members []*Member `json:"members,omitempty"`
 
 	Db *Db `json:"-"`
 }

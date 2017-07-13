@@ -89,6 +89,17 @@ func (td *Tidb) install() (err error) {
 	return nil
 }
 
+func (td *Tidb) syncMembers() error {
+	pods, err := k8sutil.ListPodNames(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
+	}
+	for _, n := range pods {
+		td.Members = append(td.Members, &Member{Name: n})
+	}
+	return nil
+}
+
 func (td *Tidb) createService() (err error) {
 	j, err := td.toJSONTemplate(tidbServiceYaml)
 	if err != nil {
@@ -245,6 +256,9 @@ func (td *Tidb) reconcile() error {
 				return err
 			}
 		}
+	}
+	if err = td.syncMembers(); err != nil {
+		return err
 	}
 	return nil
 }
