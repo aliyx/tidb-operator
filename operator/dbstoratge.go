@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -49,11 +50,11 @@ func (db *Db) Save() error {
 	if err := db.check(); err != nil {
 		return err
 	}
-	if old, _ := GetDb(db.Metadata.Name); old != nil {
-		return fmt.Errorf(`db "%s" has created`, old.Metadata.Name)
+	if old, _ := GetDb(db.GetName()); old != nil {
+		return fmt.Errorf(`db "%s" has created`, old.GetName())
 	}
-	if pods, err := k8sutil.ListPodNames(db.Metadata.Name, ""); err != nil || len(pods) > 1 {
-		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.Metadata.Name, err)
+	if pods, err := k8sutil.ListPodNames(db.GetName(), ""); err != nil || len(pods) > 1 {
+		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.GetName(), err)
 	}
 	if err := dbS.Create(db); err != nil {
 		return err
@@ -220,6 +221,14 @@ func (db *Db) Clone() *Db {
 	c := *db
 	(&c).AfterPropertiesSet()
 	return &c
+}
+
+func (db *Db) Unmarshal(data []byte) error {
+	if err := json.Unmarshal(data, db); err != nil {
+		return err
+	}
+	db.AfterPropertiesSet()
+	return nil
 }
 
 // GetAllDbs get a tidbList object

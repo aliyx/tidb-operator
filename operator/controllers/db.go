@@ -35,7 +35,7 @@ func (dc *TidbController) Post() {
 	}
 	var err error
 	db := operator.NewDb()
-	if err = json.Unmarshal(b, db); err != nil {
+	if err = db.Unmarshal(b); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse body %v", err))
 	}
 	errHandler(

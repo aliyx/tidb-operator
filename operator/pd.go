@@ -65,7 +65,7 @@ func (p *Pd) uninstall() (err error) {
 }
 
 func (p *Pd) install() (err error) {
-	e := NewEvent(p.Db.Metadata.Name, "tidb/pd", "install")
+	e := NewEvent(p.Db.GetName(), "tidb/pd", "install")
 	p.Db.Status.Phase = PhasePdPending
 	if err = p.Db.update(); err != nil {
 		e.Trace(err,
