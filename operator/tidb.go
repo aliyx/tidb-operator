@@ -72,6 +72,8 @@ func (td *Tidb) install() (err error) {
 		ph := PhaseTidbStarted
 		if err != nil {
 			ph = PhaseTidbStartFailed
+		} else {
+			td.AvailableReplicas = td.Replicas
 		}
 		td.Db.Status.Phase = ph
 		if uerr := td.Db.update(); uerr != nil {
@@ -97,9 +99,11 @@ func (td *Tidb) syncMembers() error {
 	if err != nil {
 		return err
 	}
+	td.Members = nil
 	for _, n := range pods {
 		td.Members = append(td.Members, &Member{Name: n})
 	}
+	td.AvailableReplicas = len(td.Members)
 	return nil
 }
 
@@ -179,6 +183,7 @@ func (td *Tidb) uninstall() (err error) {
 		return err
 	}
 	td.Members = nil
+	td.AvailableReplicas = 0
 	td.Db.Status.MigrateState = ""
 	td.Db.Status.ScaleState = 0
 	td.Db.Status.OuterAddresses = nil
@@ -192,16 +197,7 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	}
 
 	td := db.Tidb
-	if replica == td.Replicas {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := td.reconcile(); err != nil {
-				logs.Error("failed to reconcile tidb %s %v", db.GetName(), err)
-			}
-		}()
-		return
-	}
+	logs.Info("-------%d %d", td.Replicas, replica)
 	wg.Add(1)
 	go func() {
 		scaleMu.Lock()
@@ -209,8 +205,24 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			wg.Done()
 			scaleMu.Unlock()
 		}()
-		var err error
-		e := NewEvent(db.Metadata.Name, "tidb/tidb", "scale")
+		var (
+			err error
+			op  = "reconcile"
+		)
+		// remove all invalid pod
+		if td.AvailableReplicas == td.Replicas {
+			if err = td.reconcile(); err != nil {
+				logs.Error("failed to reconcile tidb %s %v", db.GetName(), err)
+			}
+			td.Replicas = td.AvailableReplicas
+		} else {
+			op = "scale"
+		}
+		if replica == td.Replicas {
+			return
+		}
+		logs.Info("%d %d", td.Replicas, replica)
+		e := NewEvent(db.GetName(), "tidb/tidb", op)
 		defer func(r int) {
 			parseError(db, err)
 			if err != nil {
@@ -249,7 +261,7 @@ func (td *Tidb) reconcile() error {
 		err  error
 		pods []v1.Pod
 	)
-	pods, err = k8sutil.GetPods(td.Db.Metadata.Name, "tidb")
+	pods, err = k8sutil.GetPods(td.Db.GetName(), "tidb")
 	if err != nil {
 		return err
 	}

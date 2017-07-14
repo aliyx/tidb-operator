@@ -167,7 +167,7 @@ func (dc *TidbController) Patch() {
 		errHandler(
 			dc.Controller,
 			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
-			fmt.Sprintf("Scale db %s", cell),
+			fmt.Sprintf("Start scaling db %s", cell),
 		)
 	case "syncMigrateStat":
 		db.SyncMigrateStat()
@@ -248,7 +248,7 @@ func (dc *TidbController) Migrate() {
 
 func errHandler(c beego.Controller, err error, msg string) {
 	if err == nil {
-		logs.Info("%s ok.", msg)
+		logs.Info(msg)
 		return
 	}
 	logs.Error("%s: %v", msg, err)

@@ -201,6 +201,7 @@ func DeleteBuriedTikv(db *Db) error {
 			logs.Warn("delete tikv %s", name)
 			deleted++
 			kv.AvailableReplicas--
+			kv.ReadyReplicas--
 			delete(kv.Stores, name)
 		}
 	}
@@ -240,24 +241,6 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 		return
 	}
 	kv := db.Tikv
-	if replica == kv.AvailableReplicas {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			c, err := kv.checkStoresStatus()
-			if err != nil {
-				logs.Error("check tikv %s stores status %v", db.GetName(), err)
-			}
-			if c > 0 {
-				if err = db.update(); err != nil {
-					logs.Error("failed to update db %s %v", db.GetName(), err)
-				}
-			}
-		}()
-		return
-	}
-
 	wg.Add(1)
 	go func() {
 		scaleMu.Lock()
@@ -265,7 +248,17 @@ func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
 			wg.Done()
 			scaleMu.Unlock()
 		}()
-		var err error
+		var (
+			err error
+		)
+		if replica == kv.AvailableReplicas {
+			_, err = kv.checkStoresStatus()
+			if err != nil {
+				logs.Error("check tikv %s stores status %v", db.GetName(), err)
+			}
+			return
+		}
+
 		e := NewEvent(db.Metadata.Name, "tidb/tikv", "scale")
 		defer func(r int) {
 			parseError(db, err)
@@ -308,7 +301,6 @@ func (tk *Tikv) checkStoresStatus() (int, error) {
 	// get all non online tikvs
 	ret = gjson.Get(j, fmt.Sprintf("stores.#[store.state>%d]#.store.id", StoreOnline))
 	if ret.Type == gjson.Null {
-		logs.Info("%s tikvs is normal", tk.Db.Metadata.Name)
 		return count, nil
 	}
 	for _, sid := range ret.Array() {

@@ -121,7 +121,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_capacity\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"storage_capacity\"}",
               "format": "time_series",
               "intervalFactor": 2,
               "refId": "A",
@@ -201,7 +201,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"storage_size\"}",
               "intervalFactor": 2,
               "refId": "A",
               "step": 40
@@ -278,7 +278,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"region_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"region_count\"}",
               "intervalFactor": 2,
               "refId": "A",
               "step": 40
@@ -356,7 +356,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "holt_winters(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"leader_balance_ratio\"}[5m], 0.8, 0.1)",
+              "expr": "holt_winters(pd_cluster_status{job=~\"$tidb\",type=\"leader_balance_ratio\"}[5m], 0.8, 0.1)",
               "intervalFactor": 2,
               "refId": "A",
               "step": 40
@@ -434,7 +434,7 @@
           "tableColumn": "",
           "targets": [
             {
-              "expr": "holt_winters(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"region_balance_ratio\"}[5m], 0.2, 0.1)",
+              "expr": "holt_winters(pd_cluster_status{job=~\"$tidb\",type=\"region_balance_ratio\"}[5m], 0.2, 0.1)",
               "intervalFactor": 2,
               "legendFormat": "",
               "refId": "A",
@@ -503,7 +503,7 @@
           ],
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"store_up_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"store_up_count\"}",
               "interval": "",
               "intervalFactor": 2,
               "legendFormat": "Up Stores",
@@ -512,21 +512,21 @@
               "step": 20
             },
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"store_down_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"store_down_count\"}",
               "intervalFactor": 2,
               "legendFormat": "Down Stores",
               "refId": "B",
               "step": 20
             },
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"store_offline_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"store_offline_count\"}",
               "intervalFactor": 2,
               "legendFormat": "Offline Stores",
               "refId": "C",
               "step": 20
             },
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"store_tombstone_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"store_tombstone_count\"}",
               "intervalFactor": 2,
               "legendFormat": "Tombstone Stores",
               "refId": "D",
@@ -554,7 +554,7 @@
                 "query": {
                   "datasourceId": 1,
                   "model": {
-                    "expr": "avg(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
+                    "expr": "avg(pd_cluster_status{job=~\"$tidb\",type=\"storage_size\"}) / avg(pd_cluster_status{job=~\"$tidb\",type=\"storage_capacity\"})",
                     "hide": false,
                     "intervalFactor": 4,
                     "legendFormat": "used ratio",
@@ -622,7 +622,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"storage_size\"}",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "strage size",
@@ -630,7 +630,7 @@
               "step": 10
             },
             {
-              "expr": "avg(pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"storage_size\"}) / avg(pd_cluster_status{type=\"storage_capacity\"})",
+              "expr": "avg(pd_cluster_status{job=~\"$tidb\",type=\"storage_size\"}) / avg(pd_cluster_status{job=~\"$tidb\",type=\"storage_capacity\"})",
               "hide": false,
               "intervalFactor": 4,
               "legendFormat": "used ratio",
@@ -719,7 +719,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"region_count\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"region_count\"}",
               "intervalFactor": 2,
               "legendFormat": "count",
               "refId": "A",
@@ -861,7 +861,7 @@
                 "query": {
                   "datasourceId": 1,
                   "model": {
-                    "expr": "min(pd_cluster_status{type=\"leader_balance_ratio\"})",
+                    "expr": "min(pd_cluster_status{job=~\"$tidb\",type=\"leader_balance_ratio\"})",
                     "hide": true,
                     "intervalFactor": 2,
                     "legendFormat": "ratio",
@@ -924,14 +924,14 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"leader_balance_ratio\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"leader_balance_ratio\"}",
               "intervalFactor": 2,
               "legendFormat": "leader max diff ratio",
               "refId": "A",
               "step": 4
             },
             {
-              "expr": "min(pd_cluster_status{type=\"leader_balance_ratio\"})",
+              "expr": "min(pd_cluster_status{job=~\"$tidb\",type=\"leader_balance_ratio\"})",
               "hide": true,
               "intervalFactor": 2,
               "legendFormat": "ratio",
@@ -1000,7 +1000,7 @@
                 "query": {
                   "datasourceId": 1,
                   "model": {
-                    "expr": "min(pd_cluster_status{type=\"region_balance_ratio\"})",
+                    "expr": "min(pd_cluster_status{job=~\"$tidb\",type=\"region_balance_ratio\"})",
                     "hide": true,
                     "intervalFactor": 2,
                     "legendFormat": "ratio",
@@ -1063,7 +1063,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "pd_cluster_status{instance=~\"pd-$tidb-.*\",type=\"region_balance_ratio\"}",
+              "expr": "pd_cluster_status{job=~\"$tidb\",type=\"region_balance_ratio\"}",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "\bstore balance ratio",
@@ -1071,7 +1071,7 @@
               "step": 4
             },
             {
-              "expr": "min(pd_cluster_status{type=\"region_balance_ratio\"})",
+              "expr": "min(pd_cluster_status{job=~\"$tidb\",type=\"region_balance_ratio\"})",
               "hide": true,
               "intervalFactor": 2,
               "legendFormat": "ratio",
