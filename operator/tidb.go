@@ -62,7 +62,10 @@ func (td *Tidb) upgrade() (err error) {
 func (td *Tidb) install() (err error) {
 	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "install")
 	td.Db.Status.Phase = PhaseTidbPending
-	td.Db.update()
+	err = td.Db.update()
+	if err != nil {
+		return err
+	}
 
 	defer func() {
 		parseError(td.Db, err)
@@ -121,8 +124,12 @@ func (td *Tidb) createService() (err error) {
 	return nil
 }
 
-func (td *Tidb) createReplicationController() (err error) {
-	j, err := td.toJSONTemplate(tidbRcYaml)
+func (td *Tidb) createReplicationController() error {
+	var (
+		err error
+		j   []byte
+	)
+	j, err = td.toJSONTemplate(tidbRcYaml)
 	if err != nil {
 		return err
 	}

@@ -33,8 +33,9 @@ func (dc *TidbController) Post() {
 	if len(b) < 1 {
 		dc.CustomAbort(403, "body is empty")
 	}
+	var err error
 	db := operator.NewDb()
-	if err := json.Unmarshal(b, db); err != nil {
+	if err = json.Unmarshal(b, db); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse body %v", err))
 	}
 	errHandler(
@@ -42,9 +43,14 @@ func (dc *TidbController) Post() {
 		db.Save(),
 		fmt.Sprintf("Create tidb %s", db.Schema.Name),
 	)
+
 	// start is async
 	if db.Status.Phase == operator.PhaseUndefined {
-		db.Install(nil)
+		errHandler(
+			dc.Controller,
+			db.Install(nil),
+			fmt.Sprintf("install tidb %s cluster", db.Schema.Name),
+		)
 	}
 	dc.Data["json"] = db.GetName()
 	dc.ServeJSON()
@@ -130,42 +136,42 @@ func (dc *TidbController) Patch() {
 			errHandler(
 				dc.Controller,
 				newDb.Install(nil),
-				fmt.Sprintf("start installing tidb %s", cell),
+				fmt.Sprintf("start installing db %s", cell),
 			)
 		}
 	case "start":
 		errHandler(
 			dc.Controller,
 			newDb.Install(nil),
-			fmt.Sprintf("start installing tidb %s", cell),
+			fmt.Sprintf("start installing db %s", cell),
 		)
 	case "stop":
 		errHandler(
 			dc.Controller,
 			newDb.Uninstall(nil),
-			fmt.Sprintf("start uninstalling tidb %s", cell),
+			fmt.Sprintf("start uninstalling db %s", cell),
 		)
 	case "retart":
 		errHandler(
 			dc.Controller,
 			newDb.Reinstall(cell),
-			fmt.Sprintf("start reinstalling tidb %s", cell),
+			fmt.Sprintf("start reinstalling db %s", cell),
 		)
 	case "upgrade":
 		errHandler(
 			dc.Controller,
 			newDb.Upgrade(),
-			fmt.Sprintf("upgrade tidb %s", cell),
+			fmt.Sprintf("upgrade db %s", cell),
 		)
 	case "scale":
 		errHandler(
 			dc.Controller,
 			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
-			fmt.Sprintf("Scale tidb %s", cell),
+			fmt.Sprintf("Scale db %s", cell),
 		)
 	case "syncMigrateStat":
 		db.SyncMigrateStat()
-		errHandler(dc.Controller, err, "sync tidb migrate status")
+		errHandler(dc.Controller, err, "sync db migrate status")
 	default:
 		dc.CustomAbort(403, "unsupport operation")
 	}

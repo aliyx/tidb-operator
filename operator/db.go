@@ -97,6 +97,9 @@ func (db *Db) Install(ch chan int) (err error) {
 
 		e := NewEvent(db.GetName(), "db", "install")
 		defer func() {
+			if r := recover(); r != nil {
+				err = r
+			}
 			e.Trace(err, "Start installing tidb cluster on kubernete")
 			if err != nil {
 				ch <- 1
@@ -147,6 +150,9 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
+			if r := recover(); r != nil {
+				err = r
+			}
 			stoped := 0
 			ph := PhaseUndefined
 			if started(db.GetName()) {

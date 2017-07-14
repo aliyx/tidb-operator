@@ -66,10 +66,6 @@ func gc(o, n *operator.Db, pv PVProvisioner) (err error) {
 	if err = gcTidb(o, n); err != nil {
 		return err
 	}
-	if n == nil {
-		// Delete all metrics grouped by job only
-		// XXX
-	}
 	return nil
 }
 
