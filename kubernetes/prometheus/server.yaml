@@ -30,7 +30,7 @@ spec:
         node-role.prometheus:
       volumes:
       - name: prom-data
-        hostPath: {path: /var/lib/prometheus}
+        hostPath: {path: /data/prometheus}
       terminationGracePeriodSeconds: 5
       containers:
       - name: prom-server
@@ -45,7 +45,7 @@ spec:
           - containerPort: 9090
         volumeMounts:
         - name: prom-data
-          mountPath: /var/lib/prometheus
+          mountPath: /data/prometheus
       tolerations:
       - key: node-role.prometheus
         effect: NoSchedule
