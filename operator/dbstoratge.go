@@ -218,6 +218,7 @@ func (db *Db) AfterPropertiesSet() {
 
 func (db *Db) Clone() *Db {
 	c := *db
+	(&c).AfterPropertiesSet()
 	return &c
 }
 

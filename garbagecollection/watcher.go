@@ -150,7 +150,8 @@ func (w *Watcher) Run() error {
 }
 
 func (w *Watcher) cleanClusters() {
-	for _, db := range w.dbs {
+	for key := range w.dbs {
+		db := w.dbs[key]
 		err := operator.DeleteBuriedTikv(db)
 		if err != nil {
 			logs.Error("failed to delete buried tikv of %s: %v", db.GetName(), err)
@@ -169,20 +170,20 @@ func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
+		w.dbs[db.GetName()] = db
+		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
 		if err = gc(w.dbs[db.GetName()], db, pvProvisioner); err != nil {
 			return err
 		}
-		w.dbs[db.GetName()] = db
-		w.dbRVs[db.GetName()] = db.Metadata.ResourceVersion
 	case kwatch.Deleted:
 		if _, ok := w.dbs[db.GetName()]; !ok {
 			return fmt.Errorf("unsafe state. tidb was never created but we received event (%s)", event.Type)
 		}
+		delete(w.dbs, db.GetName())
+		delete(w.dbRVs, db.GetName())
 		if err = gc(w.dbs[db.GetName()], nil, pvProvisioner); err != nil {
 			return err
 		}
-		delete(w.dbs, db.GetName())
-		delete(w.dbRVs, db.GetName())
 	}
 	return err
 }

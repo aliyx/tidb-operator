@@ -1,7 +1,6 @@
 package operator
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -129,7 +128,7 @@ func (db *Db) Install(ch chan int) (err error) {
 
 // Uninstall tidb from kubernetes
 func (db *Db) Uninstall(ch chan int) (err error) {
-	if db.Status.Phase <= PhaseUndefined {
+	if db.Status.Phase < PhaseUndefined {
 		if ch != nil {
 			ch <- 0
 		}
@@ -158,18 +157,20 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			if started(db.GetName()) {
 				ph = PhaseTidbUninstalling
 				stoped = 1
-				err = errors.New("async delete pods timeout")
+				err = fmt.Errorf("async delete pods timeout: %v", err)
 			}
 			db.Status.Phase = ph
-			if uerr := db.update(); err != nil {
-				logs.Error("update db error: %", uerr)
+			db.Status.Reason = ""
+			db.Status.Message = ""
+			if uerr := db.update(); uerr != nil {
+				logs.Error("failed to update db %s: %v", db.GetName(), uerr)
 			}
 			e.Trace(err, "Uninstall tidb all pods/rc/service components on k8s")
 			if ch != nil {
 				ch <- stoped
 			}
 		}()
-		if err = stopMigrateTask(db.GetName()); err != nil {
+		if err = db.stopMigrateTask(); err != nil {
 			return
 		}
 		if err = db.Tidb.uninstall(); err != nil {
@@ -183,7 +184,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 		}
 		for i := 0; i < int(stopTidbTimeout/2); i++ {
 			if started(db.GetName()) {
-				logs.Warn(`tidb "%s" has not been cleared yet`, db.GetName())
+				logs.Warn("db '%s' is not completely uninstalled yet", db.GetName())
 				time.Sleep(2 * time.Second)
 			} else {
 				break
@@ -265,14 +266,14 @@ func (db *Db) SyncMigrateStat() (err error) {
 	if err := db.update(); err != nil {
 		return err
 	}
-	logs.Info("Current tidb %s migrate status: %s", db.Metadata.Name, db.Status.MigrateState)
+	logs.Info("Current tidb %s migrate status: %s", db.GetName(), db.Status.MigrateState)
 	switch db.Status.MigrateState {
 	case "Finished":
-		e = NewEvent(db.Metadata.Name, "db/migrator", "stop")
-		err = stopMigrateTask(db.Metadata.Name)
+		e = NewEvent(db.GetName(), "db/migrator", "stop")
+		err = db.stopMigrateTask()
 		e.Trace(err, "End the full migrate and delete migrator from k8s")
 	case "Syncing":
-		e = NewEvent(db.Metadata.Name, "db/migrator", "sync")
+		e = NewEvent(db.GetName(), "db/migrator", "sync")
 		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
 	default:
 		return fmt.Errorf("unknow status")
@@ -287,7 +288,7 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	}
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
-		"{{cell}}", db.Metadata.Name,
+		"{{cell}}", db.GetName(),
 		"{{image}}", fmt.Sprintf("%s/migrator:latest", imageRegistry),
 		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
 		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
@@ -319,8 +320,8 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	return nil
 }
 
-func stopMigrateTask(cell string) error {
-	return k8sutil.DeletePodsBy(cell, "migrator")
+func (db *Db) stopMigrateTask() error {
+	return k8sutil.DeletePodsBy(db.GetName(), "migrator")
 }
 
 // Scale tikv and tidb

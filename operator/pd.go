@@ -49,15 +49,6 @@ func (p *Pd) upgrade() (err error) {
 }
 
 func (p *Pd) uninstall() (err error) {
-	defer func() {
-		p.Member = 0
-		p.InnerAddresses = nil
-		p.OuterAddresses = nil
-		p.Members = nil
-		if err == nil {
-			err = p.Db.update()
-		}
-	}()
 	if err = k8sutil.DeletePodsBy(p.Db.Metadata.Name, "pd"); err != nil {
 		return err
 	}
@@ -66,7 +57,11 @@ func (p *Pd) uninstall() (err error) {
 		fmt.Sprintf("pd-%s-srv", p.Db.Metadata.Name)); err != nil {
 		return err
 	}
-	return err
+	p.Member = 0
+	p.InnerAddresses = nil
+	p.OuterAddresses = nil
+	p.Members = nil
+	return nil
 }
 
 func (p *Pd) install() (err error) {

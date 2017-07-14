@@ -34,7 +34,7 @@ type Db struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Owner  *Owner `json:"owner,omitempty"`
+	Owner  Owner  `json:"owner,omitempty"`
 	Schema Schema `json:"schema"`
 
 	Pd   *Pd   `json:"pd"`

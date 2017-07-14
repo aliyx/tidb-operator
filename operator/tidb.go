@@ -172,22 +172,18 @@ func (td *Tidb) waitForOk() (err error) {
 }
 
 func (td *Tidb) uninstall() (err error) {
-	defer func() {
-		td.Db.Status.MigrateState = ""
-		td.Db.Status.ScaleState = 0
-		td.Db.Status.OuterAddresses = nil
-		td.Db.Status.OuterStatusAddresses = nil
-		if err != nil {
-			err = td.Db.update()
-		}
-	}()
-	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", td.Db.Metadata.Name)); err != nil {
+	if err = k8sutil.DelRc(fmt.Sprintf("tidb-%s", td.Db.GetName())); err != nil {
 		return err
 	}
-	if err = k8sutil.DelSrvs(fmt.Sprintf("tidb-%s", td.Db.Metadata.Name)); err != nil {
+	if err = k8sutil.DelSrvs(fmt.Sprintf("tidb-%s", td.Db.GetName())); err != nil {
 		return err
 	}
-	return err
+	td.Members = nil
+	td.Db.Status.MigrateState = ""
+	td.Db.Status.ScaleState = 0
+	td.Db.Status.OuterAddresses = nil
+	td.Db.Status.OuterStatusAddresses = nil
+	return nil
 }
 
 func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {

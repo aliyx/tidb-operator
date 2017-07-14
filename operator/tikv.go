@@ -173,9 +173,7 @@ func (tk *Tikv) waitForOk() (err error) {
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait tikv %s available: %v", tk.cur, err)
-	} else {
-		logs.Info("tikv %s ok", tk.cur)
+		logs.Error("tikv %s available: %v", tk.cur, err)
 	}
 	return err
 }
@@ -188,7 +186,7 @@ func DeleteBuriedTikv(db *Db) error {
 	defer func() {
 		if deleted > 0 {
 			if err := db.update(); err != nil {
-				logs.Error("update db %v", err)
+				logs.Error("failed to update db %v", err)
 			}
 		}
 	}()
@@ -226,21 +224,15 @@ func (tk *Tikv) IsBuried(s *Store) (bool, error) {
 }
 
 func (tk *Tikv) uninstall() (err error) {
-	cell := tk.Db.Metadata.Name
-	defer func() {
-		tk.Stores = nil
-		tk.Member = 0
-		tk.cur = ""
-		tk.AvailableReplicas = 0
-		tk.ReadyReplicas = 0
-		if err == nil {
-			err = tk.Db.update()
-		}
-	}()
-	if err = k8sutil.DeletePodsBy(cell, "tikv"); err != nil {
+	if err = k8sutil.DeletePodsBy(tk.Db.GetName(), "tikv"); err != nil {
 		return err
 	}
-	return err
+	tk.Stores = nil
+	tk.Member = 0
+	tk.cur = ""
+	tk.AvailableReplicas = 0
+	tk.ReadyReplicas = 0
+	return nil
 }
 
 func (db *Db) scaleTikvs(replica int, wg *sync.WaitGroup) {
