@@ -190,7 +190,7 @@ func (dc *TidbController) Get() {
 	errHandler(
 		dc.Controller,
 		err,
-		fmt.Sprintf("Cannt get tidb %s", cell),
+		fmt.Sprintf("get tidb %s", cell),
 	)
 	dc.Data["json"] = db
 	dc.ServeJSON()
@@ -248,7 +248,7 @@ func (dc *TidbController) Migrate() {
 
 func errHandler(c beego.Controller, err error, msg string) {
 	if err == nil {
-		logs.Info(msg)
+		logs.Debug("controller:", msg)
 		return
 	}
 	logs.Error("%s: %v", msg, err)

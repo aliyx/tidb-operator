@@ -53,7 +53,9 @@ func (td *Tidb) upgrade() (err error) {
 		}
 		if upgraded {
 			count++
-			time.Sleep(reconcileInterval)
+			if err = td.waitForOk(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -72,8 +74,6 @@ func (td *Tidb) install() (err error) {
 		ph := PhaseTidbStarted
 		if err != nil {
 			ph = PhaseTidbStartFailed
-		} else {
-			td.AvailableReplicas = td.Replicas
 		}
 		td.Db.Status.Phase = ph
 		if uerr := td.Db.update(); uerr != nil {
@@ -87,6 +87,7 @@ func (td *Tidb) install() (err error) {
 	if err = td.createReplicationController(); err != nil {
 		return err
 	}
+
 	// wait tidb started
 	if err = td.waitForOk(); err != nil {
 		return err
@@ -103,7 +104,6 @@ func (td *Tidb) syncMembers() error {
 	for _, n := range pods {
 		td.Members = append(td.Members, &Member{Name: n})
 	}
-	td.AvailableReplicas = len(td.Members)
 	return nil
 }
 
@@ -157,20 +157,45 @@ func (td *Tidb) toJSONTemplate(temp string) ([]byte, error) {
 }
 
 func (td *Tidb) waitForOk() (err error) {
-	logs.Info("waiting for run tidb %s ok...", td.Db.Metadata.Name)
-	interval := 3 * time.Second
+	logs.Info("waiting for run tidb %s ok...", td.Db.GetName())
+
 	sURL := fmt.Sprintf("http://%s/status", td.Db.Status.OuterStatusAddresses[0])
+	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
+		// check pod
+
+		pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+		if err != nil {
+			return false, err
+		}
+		count := 0
+		for _, pod := range pods {
+			if pod.Status.Phase == v1.PodRunning {
+				count++
+			}
+		}
+		if count != td.Replicas {
+			logs.Warn("some tidb pods not running yet")
+			return false, nil
+		}
+
+		// check tidb status
+
 		if _, err := httputil.Get(sURL, 2*time.Second); err != nil {
 			logs.Warn("get tidb status: %v", err)
 			return false, nil
 		}
+		err = td.syncMembers()
+		if err != nil {
+			return false, err
+		}
+
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait tidb %s available: %v", td.Db.Metadata.Name, err)
+		logs.Error("wait tidb %s available: %v", td.Db.GetName(), err)
 	} else {
-		logs.Info("tidb %s ok", td.Db.Metadata.Name)
+		logs.Info("tidb %s ok", td.Db.GetName())
 	}
 	return err
 }
@@ -183,7 +208,6 @@ func (td *Tidb) uninstall() (err error) {
 		return err
 	}
 	td.Members = nil
-	td.AvailableReplicas = 0
 	td.Db.Status.MigrateState = ""
 	td.Db.Status.ScaleState = 0
 	td.Db.Status.OuterAddresses = nil
@@ -195,9 +219,7 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
-
 	td := db.Tidb
-	logs.Info("-------%d %d", td.Replicas, replica)
 	wg.Add(1)
 	go func() {
 		scaleMu.Lock()
@@ -205,24 +227,17 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			wg.Done()
 			scaleMu.Unlock()
 		}()
+
 		var (
 			err error
-			op  = "reconcile"
 		)
-		// remove all invalid pod
-		if td.AvailableReplicas == td.Replicas {
-			if err = td.reconcile(); err != nil {
-				logs.Error("failed to reconcile tidb %s %v", db.GetName(), err)
-			}
-			td.Replicas = td.AvailableReplicas
-		} else {
-			op = "scale"
-		}
 		if replica == td.Replicas {
 			return
 		}
-		logs.Info("%d %d", td.Replicas, replica)
-		e := NewEvent(db.GetName(), "tidb/tidb", op)
+
+		// update status
+
+		e := NewEvent(db.GetName(), "tidb/tidb", "scale")
 		defer func(r int) {
 			parseError(db, err)
 			if err != nil {
@@ -233,6 +248,9 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			}
 			e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas: %d -> %d", db.Metadata.Name, r, replica))
 		}(td.Replicas)
+
+		// check replicas
+
 		md := getCachedMetadata()
 		if replica > md.Spec.Tidb.Max {
 			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
@@ -246,36 +264,20 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			err = fmt.Errorf("replicas must be greater than 1")
 			return
 		}
+
+		// scale
+
 		logs.Info("start scaling tidb count of the db '%s' from %d to %d",
 			db.Metadata.Name, td.Replicas, replica)
 		td.Replicas = replica
-		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.Metadata.Name), replica); err != nil {
+		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.GetName()), replica); err != nil {
 			return
 		}
-	}()
-}
-
-// delete invalid pods
-func (td *Tidb) reconcile() error {
-	var (
-		err  error
-		pods []v1.Pod
-	)
-	pods, err = k8sutil.GetPods(td.Db.GetName(), "tidb")
-	if err != nil {
-		return err
-	}
-	for _, pod := range pods {
-		if pod.Status.Phase != v1.PodRunning {
-			if err = k8sutil.DeletePods(pod.Name); err != nil {
-				return err
-			}
+		if err = td.waitForOk(); err != nil {
+			return
 		}
-	}
-	if err = td.syncMembers(); err != nil {
-		return err
-	}
-	return nil
+
+	}()
 }
 
 func (td *Tidb) isNil() bool {

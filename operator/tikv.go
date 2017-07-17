@@ -83,6 +83,9 @@ func (tk *Tikv) install() (err error) {
 		if uerr := tk.Db.update(); uerr != nil {
 			logs.Error("update tidb error: %v", uerr)
 		}
+		if err == nil {
+			logs.Info("tikv %s ok", tk.Db.GetName())
+		}
 		e.Trace(err, fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", tk.Spec.Replicas, tk.AvailableReplicas))
 	}()
 	for r := 1; r <= tk.Spec.Replicas; r++ {

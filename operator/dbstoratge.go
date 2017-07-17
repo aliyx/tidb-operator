@@ -219,8 +219,15 @@ func (db *Db) AfterPropertiesSet() {
 
 func (db *Db) Clone() *Db {
 	c := *db
-	(&c).AfterPropertiesSet()
-	return &c
+	var nD = &c
+	pd := *(db.Pd)
+	nD.Pd = &pd
+	tk := *(db.Tikv)
+	nD.Tikv = &tk
+	td := *(db.Tidb)
+	nD.Tidb = &td
+	nD.AfterPropertiesSet()
+	return nD
 }
 
 func (db *Db) Unmarshal(data []byte) error {
