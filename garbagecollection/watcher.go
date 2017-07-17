@@ -303,7 +303,7 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				watchVersion = ev.Object.Metadata.ResourceVersion
 				eventCh <- ev
 			}
-			errCh <- errors.New("test")
+			resp.Stop()
 		}
 	}()
 

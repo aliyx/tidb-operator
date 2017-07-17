@@ -32,7 +32,7 @@ spec:
         node-role.prometheus:
       volumes:
       - name: grafana-data
-        hostPath: {path: /var/lib/grafana}
+        hostPath: {path: /data/grafana}
       terminationGracePeriodSeconds: 5
       containers:
       - name: grafana
@@ -52,7 +52,7 @@ spec:
           - containerPort: 3000
         volumeMounts:
           - name: grafana-data
-            mountPath: /var/lib/grafana
+            mountPath: /data/grafana
       tolerations:
       - key: node-role.prometheus
         effect: NoSchedule
