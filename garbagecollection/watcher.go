@@ -78,6 +78,7 @@ type Config struct {
 	Namespace     string
 	PVProvisioner string
 	Tprclient     *rest.RESTClient
+	ExcludeFiles  []string
 }
 
 // Validate validate config
@@ -232,8 +233,9 @@ func (w *Watcher) initResource() (string, error) {
 		}
 		logs.Info("current pv provisioner is hostpath, path: %s", md.Spec.K8s.Volume)
 		pvProvisioner = &HostPathPVProvisioner{
-			HostName: w.HostName,
-			Dir:      md.Spec.K8s.Volume,
+			HostName:     w.HostName,
+			Dir:          md.Spec.K8s.Volume,
+			ExcludeFiles: w.ExcludeFiles,
 		}
 	}
 	return watchVersion, nil

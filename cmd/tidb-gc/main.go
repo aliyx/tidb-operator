@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"strings"
+
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/garbagecollection"
@@ -21,11 +23,13 @@ import (
 var (
 	logLevel   int
 	k8sAddress string
+	exclude    string
 )
 
 func init() {
 	flag.IntVar(&logLevel, "log-level", logs.LevelDebug, "Beego logs level.")
 	flag.StringVar(&k8sAddress, "k8s-address", "", "Kubernetes api address, if deployed in kubernetes, do not need to set.")
+	flag.StringVar(&exclude, "exclude", "grafana,prometheus", "Exclude which files to be recycled.")
 	flag.Parse()
 
 	// set logs
@@ -63,6 +67,7 @@ func main() {
 		Namespace:     k8sutil.Namespace,
 		PVProvisioner: constants.PVProvisionerHostpath,
 		Tprclient:     tpr,
+		ExcludeFiles:  strings.Split(exclude, ","),
 	}
 	if err = c.Validate(); err != nil {
 		panic(fmt.Sprintf("validate config: %v", err))
