@@ -164,6 +164,7 @@ func (dc *TidbController) Patch() {
 			fmt.Sprintf("upgrade db %s", cell),
 		)
 	case "scale":
+		db.Status.ScaleCount++
 		errHandler(
 			dc.Controller,
 			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),

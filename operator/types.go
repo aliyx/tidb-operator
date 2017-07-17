@@ -86,6 +86,7 @@ type Status struct {
 	MigrateState string `json:"migrateState"`
 	UpgradeState string `json:"upgradeState"`
 	ScaleState   int    `json:"scaleState"`
+	ScaleCount   int    `json:"scaleCount"`
 	Message      string `json:"message"`
 
 	OuterAddresses       []string `json:"outerAddresses,omitempty"`
