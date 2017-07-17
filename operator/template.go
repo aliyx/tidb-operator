@@ -218,7 +218,7 @@ spec:
     component: tidb
     cell: {{cell}}
     app: tidb
-  sessionAffinity: ClientIP
+  sessionAffinity: None
   type: NodePort
 `
 
