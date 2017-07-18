@@ -37,6 +37,13 @@ spec:
       containers:
       - name: grafana
         image:  10.209.224.13:10500/rds/grafana:latest
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
         livenessProbe:
           httpGet:
             path: /api/health

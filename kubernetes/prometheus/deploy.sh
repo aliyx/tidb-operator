@@ -8,6 +8,8 @@ if [ "$1" == "d" ]; then
 	c=delete
 fi
 
+cIp=''
+
 $KUBECTL $KUBECTL_OPTIONS $c -f gateway.yaml
 
 $KUBECTL $KUBECTL_OPTIONS $c -f server.yaml
@@ -21,3 +23,32 @@ if [ "$c" == "create" ]; then
 	cIp=$($KUBECTL $KUBECTL_OPTIONS get -o template --template '{{.spec.clusterIP}}'  service grafana)
 	wait_for_complete $(echo "http://$cIp:3000/datasources")
 fi
+
+# import datasource
+for file in *-datasource.json ; do
+  if [ -e "$file" ] ; then
+    echo "importing $file" &&
+    curl --silent --fail --show-error \
+      --request POST http://admin:admin@$cIp:3000/api/datasources \
+      --header "Content-Type: application/json" \
+      --data-binary "@$file" ;
+    echo "" ;
+  fi
+done ;
+
+files=./grafana/*
+# import dashboards
+for file in $files ; do
+  if [ -e "$file" ] ; then
+    echo "importing $file" &&
+    ( echo '{"dashboard":'; \
+      cat "$file"; \
+      echo ',"overwrite":true,"inputs":[{"name":"DS_PROMETHEUS","type":"datasource","pluginId":"prometheus","value":"tidb"}]}' ) \
+    | jq -c '.' \
+    | curl --silent --fail --show-error \
+      --request POST http://admin:admin@$cIp:3000/api/dashboards/import \
+      --header "Content-Type: application/json" \
+      --data-binary "@-" ;
+    echo "" ;
+  fi
+done
