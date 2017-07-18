@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# script_root=`dirname "${BASH_SOURCE}"`
-# source $script_root/../env.sh
+script_root=`dirname "${BASH_SOURCE}"`
+source $script_root/../env.sh
 
-# c=create
-# if [ "$1" == "d" ]; then
-# 	c=delete
-# fi
+c=create
+if [ "$1" == "d" ]; then
+	c=delete
+fi
 
 cIp=''
 

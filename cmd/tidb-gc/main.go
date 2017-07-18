@@ -56,11 +56,14 @@ func main() {
 		}
 	}
 
+	// register schema for serializer
+
 	operator.Init()
 	scheme := runtime.NewScheme()
 	scheme.AddUnversionedTypes(apiv1.SchemeGroupVersion, &metav1.Status{})
 	codecs := serializer.NewCodecFactory(scheme)
 	garbagecollection.AddToScheme(scheme)
+
 	tpr, err := k8sutil.NewTPRClientWithCodecFactory(spec.TPRGroup, spec.TPRVersion, codecs)
 	if err != nil {
 		panic(fmt.Sprintf("create a tpr client: %v", err))
@@ -76,6 +79,21 @@ func main() {
 		panic(fmt.Sprintf("validate config: %v", err))
 	}
 	w := garbagecollection.NewWatcher(c)
+
+	// clear all metrics by restart a new Pod 'prom-gateway'
+
+	pods, err := k8sutil.GetPodsByNamespace(k8sutil.Namespace, map[string]string{"name": "prom-gateway"})
+	if err != nil || len(pods) != 1 {
+		logs.Error("can't get Pod 'prom-gateway'", err)
+	} else {
+		if pods[0].Spec.NodeName == node {
+			if err = k8sutil.DeletePods(pods[0].GetName()); err != nil {
+				logs.Error("delete prom-gateway failed, please delete manually %v", err)
+			} else {
+				logs.Info("prom-gateway deleted, kubernetes will create a new Pod")
+			}
+		}
+	}
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,

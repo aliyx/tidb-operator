@@ -9,6 +9,8 @@ import (
 
 	"reflect"
 
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	kwatch "k8s.io/apimachinery/pkg/watch"
@@ -113,15 +115,17 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 		if err = pv.Recycling(s); err != nil {
 			return err
 		}
-		if err = prometheusutil.DeleteMetrics(o.GetName(), s.Name); err != nil {
+		// job is tikv_{id}
+		if err = prometheusutil.DeleteMetrics(fmt.Sprintf("tikv_%d", s.ID), s.Name); err != nil {
 			return err
 		}
 	}
 
+	// delete all mitric by job
 	if n == nil {
-		if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-			return err
-		}
+		// if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
+		// 	return err
+		// }
 	}
 	return nil
 }
@@ -152,14 +156,15 @@ func gcTidb(o, n *operator.Db) error {
 		}
 	}
 	for _, name := range deleted {
-		if err := prometheusutil.DeleteMetrics(o.GetName(), name); err != nil {
+		// all tidb job is 'tidb'
+		if err := prometheusutil.DeleteMetrics("tidb", name); err != nil {
 			return err
 		}
 	}
 	if n == nil {
-		if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-			return err
-		}
+		// if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
+		// 	return err
+		// }
 	}
 	return nil
 }
