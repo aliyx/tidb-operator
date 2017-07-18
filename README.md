@@ -16,7 +16,7 @@ Build tidb docker images and push to yourself private registry.
 ./docker/tidb-gc/build.sh # build tidb-gc image, for recyling tikvs deleted and delete prometheus metrics...
 ./docker/tidb-operator/build.sh # build tidb-operator image, create/delete/scale/upgrade tidb cluster
 ./docker/prom-server/build.sh # build prom-server image for adding prometheus config to image
-./docker/migrator/build.sh # build migrator image for supporting full / incremental migrate mysql data to tidb cluster
+./docker/migrator/build.sh # build migrator image for supporting full/incremental migrate mysql data to tidb cluster
 
 # build pd/tikv/tidb image, such as add some configuration to image. The official image on docker.com doesn't have
 ./docker/pd/build.sh
@@ -32,7 +32,7 @@ Build tidb docker images and push to yourself private registry.
 
 Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes `./kubernetes/deploy` directory.
 
-Access kubernetes dashboard: {masterid}:10281
+Access kubernetes dashboard: http://{masterid}:10281
 
 ### Download
 
@@ -44,7 +44,7 @@ Git clone the project to `$GOPATH/src/github/ffan` dir
 ./kubernetes/prometheus/deploy.sh # run this shell on kubernetes master
 ```
 
-Access grafana: {masterid}:12802, user/password is admin/admin.
+Access grafana: http://{masterid}:12802, user/password is admin/admin.
 
 ### Deploy tidb-gc on kubernetes
 
@@ -67,7 +67,7 @@ bee run -downdoc=true
 ./restart.sh
 ```
 
-Access endpoint: 127.0.0.1:12808/swagger
+Access endpoint: http://127.0.0.1:12808/swagger
 
 ### Kubernetes
 
