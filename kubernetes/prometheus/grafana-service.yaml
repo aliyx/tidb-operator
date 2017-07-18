@@ -46,13 +46,11 @@ spec:
         env:
         - name: GF_AUTH_ANONYMOUS_ENABLED
           value: "true"
-        # - name: TZ
-        #   value: "Asia/Shanghai"
         ports:
           - containerPort: 3000
         volumeMounts:
           - name: grafana-data
-            mountPath: /data/grafana
+            mountPath: /var/lib/grafana
       tolerations:
       - key: node-role.prometheus
         effect: NoSchedule

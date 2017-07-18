@@ -45,7 +45,7 @@ spec:
           - containerPort: 9090
         volumeMounts:
         - name: prom-data
-          mountPath: /data/prometheus
+          mountPath: /var/lib/prometheus
       tolerations:
       - key: node-role.prometheus
         effect: NoSchedule
