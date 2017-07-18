@@ -278,7 +278,10 @@ func (w *Watcher) watch(watchVersion string) (<-chan *Event, <-chan error) {
 				if !ok {
 					break
 				}
-				obj, _ := json.Marshal(e.Object)
+				obj, err := json.Marshal(e.Object)
+				if err != nil {
+					logs.Error(err)
+				}
 				logs.Debug("tidb cluster event: %v %s", e.Type, obj)
 				ev, st := parse(e)
 				if st != nil {

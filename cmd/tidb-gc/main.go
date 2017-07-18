@@ -16,8 +16,10 @@ import (
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	apiv1 "k8s.io/client-go/pkg/api/v1"
 )
 
 var (
@@ -56,6 +58,7 @@ func main() {
 
 	operator.Init()
 	scheme := runtime.NewScheme()
+	scheme.AddUnversionedTypes(apiv1.SchemeGroupVersion, &metav1.Status{})
 	codecs := serializer.NewCodecFactory(scheme)
 	garbagecollection.AddToScheme(scheme)
 	tpr, err := k8sutil.NewTPRClientWithCodecFactory(spec.TPRGroup, spec.TPRVersion, codecs)
