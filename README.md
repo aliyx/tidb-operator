@@ -74,5 +74,5 @@ Access endpoint: http://127.0.0.1:12808/swagger
 Please set your environment variable in `./kubernetes/env.sh` and run.
 
 ```bash
-./kubernetes/tk-up.sh # deploy tidb-operator on kubernetes
+./kubernetes/manager/op.sh # deploy tidb-operator on kubernetes
 ```
