@@ -1,12 +1,12 @@
 #!/bin/bash
 
-script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/../env.sh
+# script_root=`dirname "${BASH_SOURCE}"`
+# source $script_root/../env.sh
 
-c=create
-if [ "$1" == "d" ]; then
-	c=delete
-fi
+# c=create
+# if [ "$1" == "d" ]; then
+# 	c=delete
+# fi
 
 cIp=''
 
@@ -24,6 +24,10 @@ if [ "$c" == "create" ]; then
 	wait_for_complete $(echo "http://$cIp:3000/datasources")
 fi
 
+if ! [ "$c" == "create" ]; then
+  exit 0
+fi
+
 # import datasource
 for file in *-datasource.json ; do
   if [ -e "$file" ] ; then
@@ -36,14 +40,14 @@ for file in *-datasource.json ; do
   fi
 done ;
 
-files=./grafana/*
 # import dashboards
+files=./grafana/*
 for file in $files ; do
   if [ -e "$file" ] ; then
     echo "importing $file" &&
     ( echo '{"dashboard":'; \
       cat "$file"; \
-      echo ',"overwrite":true,"inputs":[{"name":"DS_PROMETHEUS","type":"datasource","pluginId":"prometheus","value":"tidb"}]}' ) \
+      echo ',"overwrite":true,"inputs":[{"name":"DS_TIDB","type":"datasource","pluginId":"prometheus","value":"tidb"}]}' ) \
     | jq -c '.' \
     | curl --silent --fail --show-error \
       --request POST http://admin:admin@$cIp:3000/api/dashboards/import \
