@@ -24,6 +24,9 @@ const (
 	waitPodRuningTimeout              = 180 * time.Second
 	waitTidbComponentAvailableTimeout = 180 * time.Second
 
+	// wait leader election
+	upgradeInterval = 15 * time.Second
+
 	scaling      = 1 << 8
 	tikvScaleErr = 1
 	tidbScaleErr = 1 << 1

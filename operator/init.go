@@ -83,7 +83,7 @@ func reconcile(ctx context.Context) {
 			default:
 				time.Sleep(reconcileInterval)
 			}
-			logs.Info("reconcile all tidb clusters")
+			logs.Debug("reconcile all tidb clusters")
 
 			dbs, err := GetDbs("admin")
 			if err != nil {

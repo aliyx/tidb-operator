@@ -57,6 +57,7 @@ func (td *Tidb) upgrade() (err error) {
 				return err
 			}
 		}
+		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
@@ -155,7 +156,7 @@ func (td *Tidb) toJSONTemplate(temp string) ([]byte, error) {
 }
 
 func (td *Tidb) waitForOk() (err error) {
-	logs.Info("waiting for run tidb %s ok...", td.Db.GetName())
+	logs.Debug("waiting for run tidb %s ok...", td.Db.GetName())
 
 	sURL := fmt.Sprintf("http://%s/status", td.Db.Status.OuterStatusAddresses[0])
 	interval := 3 * time.Second
@@ -193,7 +194,7 @@ func (td *Tidb) waitForOk() (err error) {
 	if err != nil {
 		logs.Error("wait tidb %s available: %v", td.Db.GetName(), err)
 	} else {
-		logs.Info("tidb %s ok", td.Db.GetName())
+		logs.Debug("tidb %s ok", td.Db.GetName())
 	}
 	return err
 }

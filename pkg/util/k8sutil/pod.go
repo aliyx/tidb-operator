@@ -56,6 +56,8 @@ func PatchPod(name string, patchdata []byte, timeout time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("fail to update the pod (%s): %v", name, err)
 	}
+	// wait restart the pod
+	time.Sleep(3 * time.Second)
 	_, err = waitPodRunning(name, timeout)
 	if err != nil {
 		return err

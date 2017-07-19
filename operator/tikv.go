@@ -60,6 +60,7 @@ func (tk *Tikv) upgrade() (err error) {
 			count++
 			time.Sleep(reconcileInterval)
 		}
+		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
@@ -78,9 +79,6 @@ func (tk *Tikv) install() (err error) {
 			ph = PhaseTikvStartFailed
 		}
 		tk.Db.Status.Phase = ph
-		if err == nil {
-			logs.Info("tikv %s ok", tk.Db.GetName())
-		}
 		e.Trace(err,
 			fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", tk.Spec.Replicas, tk.AvailableReplicas))
 	}()

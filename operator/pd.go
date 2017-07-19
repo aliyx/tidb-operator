@@ -51,6 +51,7 @@ func (p *Pd) upgrade() error {
 			mb.State = PodOffline
 			return err
 		}
+		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
