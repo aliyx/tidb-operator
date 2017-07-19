@@ -26,6 +26,6 @@ for var in cell image sh sP su sp db dh dP du dp api op; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo sed_script
-echo "Creating migration pod for $cell cell..."
-cat migration-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+echo "Creating migrator job for $cell cell..."
+cat migration-job.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 

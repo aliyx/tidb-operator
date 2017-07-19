@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 
 func TestDb_Save(t *testing.T) {
 	db := &Db{
-		Owner: &Owner{
+		Owner: Owner{
 			ID:   "6",
 			Name: "yangxin45",
 		},

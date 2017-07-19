@@ -170,7 +170,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 				ch <- stoped
 			}
 		}()
-		if err = db.stopMigrateTask(); err != nil {
+		if err = db.stopMigrator(); err != nil {
 			return
 		}
 		if err = db.Tidb.uninstall(); err != nil {
@@ -257,7 +257,7 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	if err := db.update(); err != nil {
 		return err
 	}
-	return db.startMigrateTask(my)
+	return db.startMigrator(my)
 }
 
 // SyncMigrateStat update tidb migrate stat
@@ -270,7 +270,7 @@ func (db *Db) SyncMigrateStat() (err error) {
 	switch db.Status.MigrateState {
 	case "Finished":
 		e = NewEvent(db.GetName(), "db/migrator", "stop")
-		err = db.stopMigrateTask()
+		err = db.stopMigrator()
 		e.Trace(err, "End the full migrate and delete migrator from k8s")
 	case "Syncing":
 		e = NewEvent(db.GetName(), "db/migrator", "sync")
@@ -281,7 +281,7 @@ func (db *Db) SyncMigrateStat() (err error) {
 	return nil
 }
 
-func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
+func (db *Db) startMigrator(my *tsql.Migration) (err error) {
 	sync := "load"
 	if my.ToggleSync {
 		sync = "sync"
@@ -304,14 +304,14 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	}
 
 	go func() {
-		e := NewEvent(db.Metadata.Name, "db/migrator", "start")
+		e := NewEvent(db.GetName(), "db/migrator", "start")
 		defer func() {
 			e.Trace(err, "Startup migrator on k8s")
 		}()
-		if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
+		if _, err = k8sutil.CreateAndWaitJobByJSON(j, waitPodRuningTimeout); err != nil {
 			db.Status.MigrateState = migStartMigrateErr
 			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %s error: %v", db.Metadata.Name, uerr)
+				logs.Error("failed to update db %s error: %v", db.GetName(), uerr)
 			}
 			return
 		}
@@ -320,8 +320,8 @@ func (db *Db) startMigrateTask(my *tsql.Migration) (err error) {
 	return nil
 }
 
-func (db *Db) stopMigrateTask() error {
-	return k8sutil.DeletePodsBy(db.GetName(), "migrator")
+func (db *Db) stopMigrator() error {
+	return k8sutil.DeleteJob("migrator-" + db.GetName())
 }
 
 // Scale tikv and tidb

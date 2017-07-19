@@ -126,6 +126,18 @@ func DeletePodsBy(cell, component string) error {
 	return nil
 }
 
+// DeletePodsByLabel delete the specified label pods
+func DeletePodsByLabel(ls map[string]string) error {
+	option := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(ls).String(),
+	}
+	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
+		return err
+	}
+	logs.Warn("Pods '%s' deleted", ls)
+	return nil
+}
+
 // GetPodsByNamespace Gets the pods of the specified namespace
 func GetPodsByNamespace(ns string, ls map[string]string) ([]v1.Pod, error) {
 	opts := metav1.ListOptions{

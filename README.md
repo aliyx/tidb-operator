@@ -13,7 +13,7 @@ Build all the images needed by the project and push to yourself private docker r
 - Build all docker images, default version is `latest`:
 
     ```bash
-    # Build tidb-gc image, for recyling tikvs deleted and delete prometheus metrics etc.
+    # Build tidb-gc image, for recyling tikvs deleted and delete prometheus metrics, etc.
     ./docker/tidb-gc/build.sh
     # Build tidb-operator image, for create/delete/scale/upgrade tidb cluster.
     ./docker/tidb-operator/build.sh

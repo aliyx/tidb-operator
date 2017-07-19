@@ -282,49 +282,50 @@ spec:
 `
 
 var mysqlMigrateYaml = `
-apiVersion: v1
-kind: Pod
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: migrator-{{cell}}
-  labels:
-    app: tidb
-    cell: {{cell}}
-    component: migrator
 spec:
-  volumes:
-    - name: syslog
-      hostPath: {path: /dev/log}
-  terminationGracePeriodSeconds: 10
-  containers:
-  - name: migrator
-    image: {{image}}
-    resources:
-      limits:
-        cpu: "200m"
-        memory: "512Mi"
-    command:
-      - bash
-      - "-c"
-      - |
-        migrator \
-          --database {{db}} \
-          --src-host {{sh}} \
-          --src-port {{sP}} \
-          --src-user {{su}} \
-          --src-password {{sp}} \
-          --dest-host {{dh}} \
-          --dest-port {{dP}} \
-          --dest-user {{du}} \
-          --dest-password {{dp}} \
-          --operator {{op}} \
-          --notice "{{api}}"
-        while true; do
-          echo "Waiting for the pod to closed"
-          sleep 60
-        done
-    env: 
-    - name: TZ
-      value: "Asia/Shanghai"
+  template:
+    metadata:
+      name: migrator-{{cell}}
+      labels:
+        app: tidb
+        cell: {{cell}}
+        component: migrator
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: syslog
+          hostPath: {path: /dev/log}
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: migrator
+        image: {{image}}
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+        command:
+          - bash
+          - "-c"
+          - |
+            migrator \
+              --database {{db}} \
+              --src-host {{sh}} \
+              --src-port {{sP}} \
+              --src-user {{su}} \
+              --src-password {{sp}} \
+              --dest-host {{dh}} \
+              --dest-port {{dP}} \
+              --dest-user {{du}} \
+              --dest-password {{dp}} \
+              --operator {{op}} \
+              --notice "{{api}}"
+        env: 
+        - name: TZ
+          value: "Asia/Shanghai"
 `
 
 func getResourceName(s string) string {
