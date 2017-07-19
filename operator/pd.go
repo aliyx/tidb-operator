@@ -227,7 +227,10 @@ func (p *Pd) waitForOk() (err error) {
 			return false, nil
 		}
 		js, err := pdutil.PdMembersGet(p.OuterAddresses[0])
-		ret := gjson.Get(js, "#.name")
+		if err != nil {
+			return false, err
+		}
+		ret := gjson.Get(js, "members.#.name")
 		if ret.Type == gjson.Null {
 			logs.Warn("cann't get pd %s members", p.Db.GetName())
 			return false, nil

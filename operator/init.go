@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	reconcileInterval = 30 * time.Second
+	reconcileInterval = 60 * time.Second
 )
 
 var (
@@ -74,14 +74,14 @@ func recover() error {
 }
 
 func reconcile(ctx context.Context) {
-	tick := time.Tick(reconcileInterval)
 	go func() {
 		for {
 			select {
-			case <-tick:
 			case <-ctx.Done():
 				logs.Warn("reconcile cancled")
 				return
+			default:
+				time.Sleep(reconcileInterval)
 			}
 			logs.Info("reconcile all tidb clusters")
 
