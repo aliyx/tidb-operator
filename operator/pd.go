@@ -219,7 +219,7 @@ func (p *Pd) createPod() error {
 }
 
 func (p *Pd) waitForOk() (err error) {
-	logs.Info("wait for pd %s running", p.Db.GetName())
+	logs.Debug("wait for pd %s running", p.Db.GetName())
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
 		if _, err = pdutil.PdLeaderGet(p.OuterAddresses[0]); err != nil {
@@ -244,7 +244,7 @@ func (p *Pd) waitForOk() (err error) {
 	if err != nil {
 		logs.Error("wait for pd %s available: %v", p.Db.GetName(), err)
 	} else {
-		logs.Info("pd %s ok", p.Db.GetName())
+		logs.Debug("pd %s ok", p.Db.GetName())
 	}
 	return err
 }

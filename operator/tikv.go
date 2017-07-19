@@ -159,7 +159,7 @@ func (tk *Tikv) waitForOk() (err error) {
 		}
 		// get all online tikvs
 		s := tk.Stores[tk.cur]
-		ret = gjson.Get(j, fmt.Sprintf("#[store.address==%s]#.store.id", s.Address))
+		ret = gjson.Get(j, fmt.Sprintf("stores.#[store.address==%s]#.store.id", s.Address))
 		if ret.Type == gjson.Null {
 			logs.Warn("cannt get store[%s]", tk.Stores[tk.cur].Address)
 			return false, nil
