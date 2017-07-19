@@ -26,7 +26,7 @@ type Events struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Events []Event `json:"events"`
+	Events []*Event `json:"events"`
 }
 
 // Event record the tidb creation process
@@ -38,6 +38,7 @@ type Event struct {
 	Message         string    `json:"msg,omitempty"`
 	FirstSeen       time.Time `json:"first,omitempty"`
 	LastSeen        time.Time `json:"last,omitempty"`
+	Count           int       `json:"count"`
 }
 
 var (
@@ -60,6 +61,7 @@ func NewEvent(cell, comp, key string) *Event {
 		Key:             key,
 		FirstSeen:       time.Now(),
 		SourceComponent: comp,
+		Count:           1,
 	}
 }
 
@@ -98,14 +100,29 @@ func (e *Event) save() error {
 			},
 		}
 	}
-
-	es.Events = append(es.Events, *e)
+	have := false
+	for i := range es.Events {
+		old := es.Events[i]
+		if old.String() == e.String() {
+			e.Count++
+			es.Events[i] = e
+			have = true
+			break
+		}
+	}
+	if !have {
+		es.Events = append(es.Events, e)
+	}
 	if es.Metadata.ResourceVersion == "" {
 		if err = es.save(); err != nil {
 			return err
 		}
 	}
 	return es.update()
+}
+
+func (e *Event) String() string {
+	return e.Cell + "|" + e.SourceComponent + "|" + e.Message
 }
 
 func (es *Events) save() error {
