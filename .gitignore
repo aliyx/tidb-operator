@@ -21,3 +21,4 @@ swagger/images
 swagger/lang
 swagger/lib
 swagger/swagger-ui*
+swagger/*.html
