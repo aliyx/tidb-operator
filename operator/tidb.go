@@ -42,7 +42,7 @@ func (td *Tidb) upgrade() (err error) {
 	}()
 
 	// get tidb pods name
-	pods, err = k8sutil.ListPodNames(td.Db.Metadata.Name, "tidb")
+	pods, err = k8sutil.ListPodNames(td.Db.GetName(), "tidb")
 	if err != nil {
 		return err
 	}
@@ -70,17 +70,15 @@ func (td *Tidb) install() (err error) {
 	}
 
 	defer func() {
-		parseError(td.Db, err)
 		ph := PhaseTidbStarted
 		if err != nil {
 			ph = PhaseTidbStartFailed
 		}
 		td.Db.Status.Phase = ph
-		if uerr := td.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
-		}
+
 		e.Trace(err, fmt.Sprintf("Install tidb replicationcontrollers with %d replicas on k8s", td.Replicas))
 	}()
+
 	if err = td.createService(); err != nil {
 		return err
 	}
@@ -212,10 +210,11 @@ func (td *Tidb) uninstall() (err error) {
 	td.Db.Status.ScaleState = 0
 	td.Db.Status.OuterAddresses = nil
 	td.Db.Status.OuterStatusAddresses = nil
+
 	return nil
 }
 
-func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
+func (db *Db) reconcileTidbs(replica int, wg *sync.WaitGroup) {
 	if replica < 1 {
 		return
 	}
@@ -243,10 +242,7 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 			if err != nil {
 				db.Status.ScaleState |= tidbScaleErr
 			}
-			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %s %v", db.Metadata.Name, uerr)
-			}
-			e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas: %d -> %d", db.Metadata.Name, r, replica))
+			e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas from %d to %d", db.GetName(), r, replica))
 		}(td.Replicas)
 
 		// check replicas
@@ -278,15 +274,4 @@ func (db *Db) scaleTidbs(replica int, wg *sync.WaitGroup) {
 		}
 
 	}()
-}
-
-func (td *Tidb) isNil() bool {
-	return td.Replicas < 1
-}
-
-func (td *Tidb) isOk() bool {
-	if td.Db.Status.Phase < PhaseTidbStarted || td.Db.Status.Phase > PhaseTidbInited {
-		return false
-	}
-	return true
 }

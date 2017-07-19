@@ -51,25 +51,27 @@ func GetImageVersion(image string) string {
 }
 
 // PatchPod path pod
-func PatchPod(name string, patchdata []byte) error {
+func PatchPod(name string, patchdata []byte, timeout time.Duration) error {
 	_, err := kubecli.CoreV1().Pods(Namespace).Patch(name, types.StrategicMergePatchType, patchdata)
 	if err != nil {
 		return fmt.Errorf("fail to update the pod (%s): %v", name, err)
 	}
+	_, err = waitPodRunning(name, timeout)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// CreateAndWaitPod create and wait pod status 'running'
-func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
-	_, err := kubecli.CoreV1().Pods(Namespace).Create(pod)
-	if err != nil {
-		return nil, err
-	}
-
-	interval := time.Second
-	var retPod *v1.Pod
-	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
-		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(pod.Name, metav1.GetOptions{})
+func waitPodRunning(name string, timeout time.Duration) (*v1.Pod, error) {
+	var (
+		err      error
+		retPod   *v1.Pod
+		interval = 2 * time.Second
+	)
+	return retPod, retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
+		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -87,8 +89,25 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 			return false, fmt.Errorf("unexpected pod status.phase: %v", retPod.Status.Phase)
 		}
 	})
-	logs.Info(`Pod "%s" created`, retPod.GetName())
+}
+
+// CreateAndWaitPod create and wait pod status 'running'
+func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
+	retPod, err := kubecli.CoreV1().Pods(Namespace).Create(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	retPod, err = waitPodRunning(pod.GetName(), timeout)
+	if err != nil {
+		return nil, err
+	}
+	logs.Info("Pod '%s' created", retPod.GetName())
 	return retPod, err
+}
+
+func IsPodRunning(pod v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning
 }
 
 // ClonePod deep clone Pod

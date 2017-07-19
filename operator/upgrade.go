@@ -69,7 +69,7 @@ func upgradeOne(name, image, version string) (bool, error) {
 		return false, fmt.Errorf("error creating patch: %v", err)
 	}
 
-	if err = k8sutil.PatchPod(name, patchdata); err != nil {
+	if err = k8sutil.PatchPod(name, patchdata, waitPodRuningTimeout); err != nil {
 		return false, err
 	}
 	logs.Info("finished upgrading the pod %v", name)

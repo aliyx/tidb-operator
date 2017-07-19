@@ -33,8 +33,10 @@ func (dc *TidbController) Post() {
 	if len(b) < 1 {
 		dc.CustomAbort(403, "body is empty")
 	}
-	var err error
-	db := operator.NewDb()
+	var (
+		err error
+		db  = operator.NewDb()
+	)
 	if err = db.Unmarshal(b); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse body %v", err))
 	}
@@ -129,7 +131,7 @@ func (dc *TidbController) Patch() {
 	case "patch":
 		newDb.Update()
 	case "audit":
-		switch db.Status.Phase {
+		switch newDb.Status.Phase {
 		case operator.PhaseRefuse:
 			newDb.Update()
 		case operator.PhaseUndefined:
@@ -140,6 +142,10 @@ func (dc *TidbController) Patch() {
 			)
 		}
 	case "start":
+		// Startup means passing the audit
+		if newDb.Status.Phase == operator.PhaseAuditing {
+			newDb.Status.Phase = operator.PhaseUndefined
+		}
 		errHandler(
 			dc.Controller,
 			newDb.Install(nil),

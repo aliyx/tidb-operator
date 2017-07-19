@@ -49,7 +49,7 @@ func Run(ctx context.Context, wg *sync.WaitGroup) (err error) {
 		return err
 	}
 
-	// reconcile(ctx)
+	reconcile(ctx)
 	return nil
 }
 

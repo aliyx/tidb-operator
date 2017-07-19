@@ -72,22 +72,20 @@ func (tk *Tikv) install() (err error) {
 		return err
 	}
 
-	tk.Stores = make(map[string]*Store)
 	defer func() {
-		parseError(tk.Db, err)
 		ph := PhaseTikvStarted
 		if err != nil {
 			ph = PhaseTikvStartFailed
 		}
 		tk.Db.Status.Phase = ph
-		if uerr := tk.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
-		}
 		if err == nil {
 			logs.Info("tikv %s ok", tk.Db.GetName())
 		}
-		e.Trace(err, fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", tk.Spec.Replicas, tk.AvailableReplicas))
+		e.Trace(err,
+			fmt.Sprintf("Install tikv pods with replicas desire: %d, running: %d on k8s", tk.Spec.Replicas, tk.AvailableReplicas))
 	}()
+
+	tk.Stores = make(map[string]*Store)
 	for r := 1; r <= tk.Spec.Replicas; r++ {
 		tk.Member++
 		if err = tk._install(); err != nil {
@@ -98,7 +96,7 @@ func (tk *Tikv) install() (err error) {
 }
 
 func (tk *Tikv) _install() (err error) {
-	tk.cur = fmt.Sprintf("tikv-%s-%03d", tk.Db.Metadata.Name, tk.Member)
+	tk.cur = fmt.Sprintf("tikv-%s-%03d", tk.Db.GetName(), tk.Member)
 	tk.Stores[tk.cur] = &Store{}
 	tk.ReadyReplicas++
 	if err = tk.createPod(); err != nil {
@@ -124,7 +122,6 @@ func (tk *Tikv) createPod() (err error) {
 	s.Name = tk.cur
 	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
 	s.Node = pod.Spec.NodeName
-	s.State = StoreOnline
 	return nil
 }
 
@@ -162,7 +159,7 @@ func (tk *Tikv) waitForOk() (err error) {
 		}
 		// get all online tikvs
 		s := tk.Stores[tk.cur]
-		ret = gjson.Get(j, fmt.Sprintf("stores.#[store.address==%s]#.store.id", s.Address))
+		ret = gjson.Get(j, fmt.Sprintf("#[store.address==%s]#.store.id", s.Address))
 		if ret.Type == gjson.Null {
 			logs.Warn("cannt get store[%s]", tk.Stores[tk.cur].Address)
 			return false, nil
@@ -181,37 +178,25 @@ func (tk *Tikv) waitForOk() (err error) {
 	return err
 }
 
-func DeleteBuriedTikv(db *Db) error {
-	if db == nil {
-		return nil
-	}
-	var deleted = 0
-	defer func() {
-		if deleted > 0 {
-			if err := db.update(); err != nil {
-				logs.Error("failed to update db %v", err)
-			}
-		}
-	}()
-
-	kv := db.Tikv
-	for name, s := range kv.Stores {
-		b, err := kv.IsBuried(s)
+// delete store that status is tombstone
+func (tk *Tikv) deleteBuriedTikv() error {
+	for name, s := range tk.Stores {
+		b, err := tk.isBuried(s)
 		if err != nil {
 			return err
 		}
 		if b {
-			logs.Warn("delete tikv %s", name)
-			deleted++
-			kv.AvailableReplicas--
-			kv.ReadyReplicas--
-			delete(kv.Stores, name)
+			if err = k8sutil.DeletePods(name); err != nil {
+				return err
+			}
+			tk.ReadyReplicas--
+			delete(tk.Stores, name)
 		}
 	}
 	return nil
 }
 
-func (tk *Tikv) IsBuried(s *Store) (bool, error) {
+func (tk *Tikv) isBuried(s *Store) (bool, error) {
 	j, err := pdutil.PdStoreIDGet(tk.Db.Pd.OuterAddresses[0], s.ID)
 	if err != nil {
 		if err == httputil.ErrNotFound {
@@ -239,7 +224,7 @@ func (tk *Tikv) uninstall() (err error) {
 	return nil
 }
 
-func (db *Db) scaleTikvs(replicas int, wg *sync.WaitGroup) {
+func (db *Db) reconcileTikvs(replicas int, wg *sync.WaitGroup) {
 	if replicas < 1 {
 		return
 	}
@@ -252,16 +237,16 @@ func (db *Db) scaleTikvs(replicas int, wg *sync.WaitGroup) {
 			scaleMu.Unlock()
 		}()
 		var (
-			err   error
-			count int
+			err error
 		)
+
 		// check Available replica
+
 		if replicas == kv.AvailableReplicas {
-			count, err = kv.checkStoresStatus()
+			err = kv.checkStoresStatus()
 			if err != nil {
 				logs.Error("check tikv %s stores status %v", db.GetName(), err)
 			}
-			kv.AvailableReplicas = count
 		}
 		if replicas == kv.AvailableReplicas {
 			return
@@ -273,17 +258,19 @@ func (db *Db) scaleTikvs(replicas int, wg *sync.WaitGroup) {
 		}
 		e := NewEvent(db.Metadata.Name, "tidb/tikv", op)
 
-		defer func(r int) {
+		defer func(a, r int) {
 			parseError(db, err)
 			if err != nil {
 				db.Status.ScaleState |= tikvScaleErr
 			}
-			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %v", err)
+			if op == "scale" {
+				e.Trace(err, fmt.Sprintf("Scale tikv '%s' replicas from %d to %d", db.GetName(), r, replicas))
+			} else {
+				e.Trace(err, fmt.Sprintf("Reconcile tikv '%s' replicas from %d to %d", db.GetName(), a, replicas))
 			}
-			e.Trace(err, fmt.Sprintf("Scale tikv '%s' replicas: %d -> %d", db.GetName(), r, replicas))
-		}(kv.Spec.Replicas)
-		switch n := replicas - kv.Spec.Replicas; {
+		}(kv.AvailableReplicas, kv.Replicas)
+
+		switch n := replicas - kv.Replicas; {
 		case n > 0:
 			err = kv.increase(n)
 		case n < 0:
@@ -294,42 +281,40 @@ func (db *Db) scaleTikvs(replicas int, wg *sync.WaitGroup) {
 	}()
 }
 
-func (tk *Tikv) checkStoresStatus() (int, error) {
-	count := 0
-
+func (tk *Tikv) checkStoresStatus() error {
 	j, err := pdutil.PdStoresGet(tk.Db.Pd.OuterAddresses[0])
 	if err != nil {
-		return count, err
+		return err
 	}
 
 	ret := gjson.Get(j, "count")
 	if ret.Int() < 1 {
-		logs.Warn("current stores count: %d", ret.Int())
+		logs.Warn("current available stores count: ", 0)
 		for _, s := range tk.Stores {
-			logs.Warn("store %s offline", s.Name)
+			logs.Warn("mark store %s offline", s.Name)
 			s.State = StoreOffline
-			count++
 		}
-		return count, nil
+		tk.AvailableReplicas = 0
+		return nil
 	}
 
 	// get all non online tikvs
 	ret = gjson.Get(j, fmt.Sprintf("stores.#[store.state>%d]#.store.id", StoreOnline))
 	if ret.Type == gjson.Null {
-		return count, nil
+		return nil
 	}
 	for _, sid := range ret.Array() {
 		id := int(sid.Int())
 		for _, s := range tk.Stores {
 			if s.ID == id {
-				logs.Warn("store %s offline", s.Name)
+				logs.Warn("mark store %s offline", s.Name)
 				s.State = StoreOffline
-				count++
+				tk.AvailableReplicas--
 				break
 			}
 		}
 	}
-	return count, nil
+	return nil
 }
 
 func (tk *Tikv) decrease(replicas int) (err error) {
@@ -339,7 +324,9 @@ func (tk *Tikv) decrease(replicas int) (err error) {
 	if replicas*3 > tk.Spec.Replicas {
 		return fmt.Errorf("each scale dowm can not be less than one-third")
 	}
-	logs.Info("start scaling down tikv pods count: %d", replicas)
+
+	logs.Info("start scaling down tikv pods from %d to %d", tk.Replicas, (tk.Replicas - replicas))
+
 	tk.Replicas -= replicas
 	var names []string
 	for key := range tk.Stores {
@@ -354,7 +341,7 @@ func (tk *Tikv) decrease(replicas int) (err error) {
 		}
 		old := tk.Stores[name].State
 		tk.Stores[name].State = StoreOffline
-		tk.ReadyReplicas--
+		tk.AvailableReplicas--
 		logs.Warn("mark tikv %s state from %d to %d", name, old, StoreOffline)
 	}
 
@@ -363,13 +350,15 @@ func (tk *Tikv) decrease(replicas int) (err error) {
 
 func (tk *Tikv) increase(replicas int) (err error) {
 	md := getCachedMetadata()
-	if (replicas + tk.Spec.Replicas) > md.Spec.Tikv.Max {
+	if (replicas + tk.Replicas) > md.Spec.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Spec.Tikv.Max)
 	}
 	if replicas > tk.Spec.Replicas*2 {
-		return fmt.Errorf("each scale can not exceed 2 times")
+		return fmt.Errorf("each scale up can not exceed 2 times")
 	}
+
 	logs.Info("start scaling up tikv pods count: %d", replicas)
+
 	tk.Replicas += replicas
 	for i := 0; i < replicas; i++ {
 		tk.Member++
@@ -377,17 +366,20 @@ func (tk *Tikv) increase(replicas int) (err error) {
 			return err
 		}
 	}
-	logs.Info("end scale up tikv %s pod desire: %d, available: %d",
-		tk.Db.Metadata.Name, tk.Replicas, tk.AvailableReplicas)
-	return err
+
+	logs.Info("end scale up tikv %s pod desire: %d, ready: %d, available: %d",
+		tk.Db.GetName(), tk.Replicas, tk.ReadyReplicas, tk.AvailableReplicas)
+	return nil
 }
 
+// reconcile current available tikvs with desired
 func (tk *Tikv) reconcile() (err error) {
 	// delete all invalid tikv from tidb cluster
 	if tk.ReadyReplicas != tk.AvailableReplicas {
+
+		// delete all tikvs which has not yet been registered to tidb cluster
 		for k, s := range tk.Stores {
-			// the tikv no started ok
-			if s.Name == "" {
+			if s.ID < 1 {
 				if err = k8sutil.DeletePods(k); err != nil {
 					return err
 				}
@@ -396,29 +388,22 @@ func (tk *Tikv) reconcile() (err error) {
 				logs.Warn("delete no started tikv %s", k)
 			}
 		}
+
+		// delete buried tikv
+		if err = tk.deleteBuriedTikv(); err != nil {
+			return err
+		}
 	}
 
-	if tk.ReadyReplicas != tk.AvailableReplicas {
-		return fmt.Errorf("the current tikv %s cluster is inconsistent", tk.Db.Metadata.Name)
+	if tk.ReadyReplicas != len(tk.Stores) {
+		return fmt.Errorf("the current tikvs %s count is inconsistent", tk.Db.GetName())
 	}
 
-	for tk.ReadyReplicas < tk.Replicas {
+	for tk.AvailableReplicas < tk.Replicas {
 		tk.Member++
 		if err = tk._install(); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func isOkTikv(cell string) bool {
-	if db, err := GetDb(cell); err != nil ||
-		db == nil || db.Status.Phase < PhaseTikvStarted || db.Status.Phase > PhaseTidbInited {
-		return false
-	}
-	return true
-}
-
-func (tk *Tikv) isNil() bool {
-	return tk.Spec.Replicas < 1
 }

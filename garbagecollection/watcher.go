@@ -20,10 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const (
-	cleanInterval = 30 * time.Second
-)
-
 var (
 	supportedPVProvisioners = map[string]struct{}{
 		constants.PVProvisionerHostpath: {},
@@ -123,15 +119,6 @@ func (w *Watcher) Run() error {
 		return err
 	}
 
-	go func() {
-		for {
-			select {
-			case <-time.After(cleanInterval):
-				w.cleanClusters()
-			}
-		}
-	}()
-
 	logs.Info("starts running from watch version: %s", watchVersion)
 
 	eventCh, errCh := w.watch(watchVersion)
@@ -148,16 +135,6 @@ func (w *Watcher) Run() error {
 		}
 	}()
 	return <-errCh
-}
-
-func (w *Watcher) cleanClusters() {
-	for key := range w.dbs {
-		db := w.dbs[key]
-		err := operator.DeleteBuriedTikv(db)
-		if err != nil {
-			logs.Error("failed to delete buried tikv of %s: %v", db.GetName(), err)
-		}
-	}
 }
 
 func (w *Watcher) handleTidbEvent(event *Event) (err error) {

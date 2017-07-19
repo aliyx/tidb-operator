@@ -46,6 +46,11 @@ func (db *Db) initSchema() (err error) {
 		return fmt.Errorf("tidb '%s' no started", db.GetName())
 	}
 
+	// save savepoint
+	if err = db.update(); err != nil {
+		return nil
+	}
+
 	e := NewEvent(db.GetName(), "db", "init")
 	defer func() {
 		ph := PhaseTidbInited
@@ -55,9 +60,7 @@ func (db *Db) initSchema() (err error) {
 			db.Status.Available = true
 		}
 		db.Status.Phase = ph
-		if uerr := db.update(); uerr != nil {
-			logs.Error("failed to update db %s: %v", db.GetName(), uerr)
-		}
+
 		e.Trace(err, fmt.Sprintf("Create schema %s and set database privileges", db.Schema.Name))
 	}()
 
@@ -79,10 +82,6 @@ func (db *Db) initSchema() (err error) {
 // Install tidb
 func (db *Db) Install(ch chan int) (err error) {
 	// check status
-	// Startup means passing the audit
-	if db.Status.Phase == PhaseAuditing {
-		db.Status.Phase = PhaseUndefined
-	}
 	if db.Status.Phase < PhaseUndefined {
 		return fmt.Errorf("db %s may be in the approval or no passed", db.GetName())
 	}
@@ -90,8 +89,8 @@ func (db *Db) Install(ch chan int) (err error) {
 		return ErrRepeatOperation
 	}
 
+	hook.Add(1)
 	go func() {
-		hook.Add(1)
 		defer hook.Done()
 
 		e := NewEvent(db.GetName(), "db", "install")
@@ -99,7 +98,13 @@ func (db *Db) Install(ch chan int) (err error) {
 			if r := recover(); r != nil {
 				err = r
 			}
-			e.Trace(err, "Start installing tidb cluster on kubernete")
+			e.Trace(err, "Start installing tidb cluster on kubernetes")
+
+			parseError(db, err)
+			if err = db.update(); err != nil {
+				logs.Error("failed to update db %s: %v", db.GetName(), err)
+			}
+
 			if err != nil {
 				ch <- 1
 			} else {
@@ -327,7 +332,6 @@ func (db *Db) stopMigrator() error {
 // Scale tikv and tidb
 func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 	hook.Add(1)
-	defer hook.Done()
 
 	if !db.Status.Available {
 		return ErrUnavailable
@@ -340,13 +344,15 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 		return err
 	}
 	var wg sync.WaitGroup
-	db.scaleTikvs(kvReplica, &wg)
-	db.scaleTidbs(dbReplica, &wg)
+	db.reconcilePds(&wg)
+	db.reconcileTikvs(kvReplica, &wg)
+	db.reconcileTidbs(dbReplica, &wg)
 	go func() {
 		wg.Wait()
+		hook.Done()
 		db.Status.ScaleState ^= scaling
 		if err = db.update(); err != nil {
-			logs.Error("failed to update db %s %v", db.GetName(), err)
+			logs.Error("failed to update db %s: %v", db.GetName(), err)
 		}
 	}()
 	return nil

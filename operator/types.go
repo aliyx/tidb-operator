@@ -8,8 +8,16 @@ import (
 type StoreStatus int
 
 const (
+	PodOnline = iota
+	PodOffline
+)
+
+const (
+	// StoreOnline the store is available
 	StoreOnline StoreStatus = iota
+	// StoreOffline mark the store offline, but what will not be deleted
 	StoreOffline
+	// StoreTombstone the store' Pod will be deleted
 	StoreTombstone
 )
 
@@ -117,11 +125,14 @@ type Member struct {
 
 // Tikv 元数据存储模块
 type Tikv struct {
-	Spec              `json:",inline"`
-	Member            int               `json:"member"`
-	ReadyReplicas     int               `json:"readyReplicas"`
-	AvailableReplicas int               `json:"availableReplicas"`
-	Stores            map[string]*Store `json:"stores,omitempty"`
+	Spec   `json:",inline"`
+	Member int `json:"member"`
+	// number of tikv pods
+	ReadyReplicas int `json:"readyReplicas"`
+	// all tikvs
+	Stores map[string]*Store `json:"stores,omitempty"`
+	// number of available tikv
+	AvailableReplicas int `json:"availableReplicas"`
 
 	cur string
 	Db  *Db `json:"-"`

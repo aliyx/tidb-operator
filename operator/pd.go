@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"strings"
@@ -11,10 +12,11 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/pdutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	"github.com/ghodss/yaml"
+	"github.com/tidwall/gjson"
 	"k8s.io/client-go/pkg/api/v1"
 )
 
-func (p *Pd) upgrade() (err error) {
+func (p *Pd) upgrade() error {
 	if len(p.Members) < 1 {
 		return nil
 	}
@@ -23,6 +25,7 @@ func (p *Pd) upgrade() (err error) {
 	}
 
 	var (
+		err      error
 		upgraded bool
 		count    int
 	)
@@ -38,23 +41,86 @@ func (p *Pd) upgrade() (err error) {
 	for _, mb := range p.Members {
 		upgraded, err = upgradeOne(mb.Name, fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version), p.Version)
 		if err != nil {
+			mb.State = PodOffline
 			return err
 		}
 		if upgraded {
 			count++
-			time.Sleep(reconcileInterval)
+		}
+		if err = p.waitForOk(); err != nil {
+			mb.State = PodOffline
+			return err
 		}
 	}
 	return nil
 }
 
+func (db *Db) reconcilePds(wg *sync.WaitGroup) {
+	wg.Add(1)
+
+	go func() {
+		var (
+			p       = db.Pd
+			err     error
+			changed = 0
+		)
+		e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
+
+		defer func() {
+			wg.Done()
+			parseError(db, err)
+			if changed > 0 || err != nil {
+				logs.Error("reconcile pd %s error: %v", db.GetName(), err)
+				e.Trace(err, "Reconcile pd")
+			}
+		}()
+
+		pods, err := k8sutil.GetPods(db.GetName(), "pd")
+		if err != nil {
+			return
+		}
+
+		// check not running pd member
+
+		for _, mb := range p.Members {
+			st := PodOffline
+			for _, pod := range pods {
+				if pod.GetName() == mb.Name && k8sutil.IsPodRunning(pod) {
+					st = PodOnline
+					break
+				}
+			}
+			mb.State = st
+		}
+
+		for i, mb := range p.Members {
+			if mb.State == PodOffline {
+				changed++
+				if err = k8sutil.DeletePods(mb.Name); err != nil {
+					return
+				}
+				p.Member = i + 1
+				if err = p.createPod(); err != nil {
+					mb.State = PodOffline
+					return
+				}
+				mb.State = PodOnline
+			}
+		}
+
+		if err = p.waitForOk(); err != nil {
+			return
+		}
+	}()
+}
+
 func (p *Pd) uninstall() (err error) {
-	if err = k8sutil.DeletePodsBy(p.Db.Metadata.Name, "pd"); err != nil {
+	if err = k8sutil.DeletePodsBy(p.Db.GetName(), "pd"); err != nil {
 		return err
 	}
 	if err = k8sutil.DelSrvs(
-		fmt.Sprintf("pd-%s", p.Db.Metadata.Name),
-		fmt.Sprintf("pd-%s-srv", p.Db.Metadata.Name)); err != nil {
+		fmt.Sprintf("pd-%s", p.Db.GetName()),
+		fmt.Sprintf("pd-%s-srv", p.Db.GetName())); err != nil {
 		return err
 	}
 	p.Member = 0
@@ -72,27 +138,29 @@ func (p *Pd) install() (err error) {
 			fmt.Sprintf("Update tidb status to %d error: %v", PhasePdPending, err))
 		return err
 	}
+
 	defer func() {
-		parseError(p.Db, err)
 		ph := PhasePdStarted
 		if err != nil {
 			ph = PhasePdStartFailed
 		}
 		p.Db.Status.Phase = ph
-		if uerr := p.Db.update(); uerr != nil {
-			logs.Error("update tidb error: %v", uerr)
-		}
 		e.Trace(err,
 			fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Replicas, p.Member))
 	}()
+
 	if err = p.createServices(); err != nil {
 		return err
 	}
-	for i := 0; i < p.Spec.Replicas; i++ {
+	for i := 0; i < p.Replicas; i++ {
 		p.Member++
-		err = p.createPod()
+		st := PodOnline
+		if err = p.createPod(); err != nil {
+			st = PodOffline
+		}
 		m := &Member{
-			Name: fmt.Sprintf("pd-%s-%03d", p.Db.Metadata.Name, p.Member),
+			Name:  fmt.Sprintf("pd-%s-%03d", p.Db.GetName(), p.Member),
+			State: st,
 		}
 		p.Members = append(p.Members, m)
 		if err != nil {
@@ -136,31 +204,44 @@ func (p *Pd) createService(temp string) (*v1.Service, error) {
 	return retSrv, nil
 }
 
-func (p *Pd) createPod() (err error) {
-	var j []byte
-	if j, err = p.toJSONTemplate(pdPodYaml); err != nil {
+func (p *Pd) createPod() error {
+	var (
+		err error
+		b   []byte
+	)
+	if b, err = p.toJSONTemplate(pdPodYaml); err != nil {
 		return err
 	}
-	if _, err = k8sutil.CreateAndWaitPodByJSON(j, waitPodRuningTimeout); err != nil {
+	if _, err = k8sutil.CreateAndWaitPodByJSON(b, waitPodRuningTimeout); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (p *Pd) waitForOk() (err error) {
-	logs.Info("waiting for run pd %s ok...", p.Db.Metadata.Name)
+	logs.Info("wait for pd %s running", p.Db.GetName())
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
 		if _, err = pdutil.PdLeaderGet(p.OuterAddresses[0]); err != nil {
-			logs.Warn("get pd leader: %v", err)
+			logs.Warn("get pd %s leader error: %v", p.Db.GetName(), err)
+			return false, nil
+		}
+		js, err := pdutil.PdMembersGet(p.OuterAddresses[0])
+		ret := gjson.Get(js, "#.name")
+		if ret.Type == gjson.Null {
+			logs.Warn("cann't get pd %s members", p.Db.GetName())
+			return false, nil
+		}
+		if len(ret.Array()) != len(p.Members) {
+			logs.Warn("cann't get pd %s desired %d members", p.Db.GetName(), len(p.Members))
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait pd %s available: %v", p.Db.Metadata.Name, err)
+		logs.Error("wait for pd %s available: %v", p.Db.GetName(), err)
 	} else {
-		logs.Info("pd %s ok", p.Db.Metadata.Name)
+		logs.Info("pd %s ok", p.Db.GetName())
 	}
 	return err
 }
@@ -183,16 +264,4 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		return nil, err
 	}
 	return j, nil
-}
-
-func isOkPd(cell string) bool {
-	if db, err := GetDb(cell); err != nil ||
-		db == nil || db.Status.Phase < PhasePdStarted || db.Status.Phase > PhaseTidbInited {
-		return false
-	}
-	return true
-}
-
-func (p *Pd) isNil() bool {
-	return p.Spec.Replicas < 1
 }
