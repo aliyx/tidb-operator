@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"sync"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/storage"
@@ -59,6 +61,8 @@ func (db *Db) Save() error {
 	if err := dbS.Create(db); err != nil {
 		return err
 	}
+	mu.Lock()
+	lockers[db.GetName()] = new(sync.Mutex)
 	return nil
 }
 
