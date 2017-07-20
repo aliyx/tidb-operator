@@ -63,6 +63,7 @@ func (db *Db) Save() error {
 	}
 	mu.Lock()
 	lockers[db.GetName()] = new(sync.Mutex)
+	mu.Unlock()
 	return nil
 }
 

@@ -100,6 +100,7 @@ func (db *Db) Install(ch chan int) (err error) {
 
 	go func() {
 		if !db.TryLock() {
+			logs.Error("failed to try lock db", db.GetName())
 			return
 		}
 		defer func() {
@@ -166,6 +167,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 	// aync waiting for all pods deleted from k8s
 	go func() {
 		if !db.TryLock() {
+			logs.Error("failed to try lock db", db.GetName())
 			return
 		}
 		defer db.Unlock()
@@ -371,6 +373,7 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 
 	go func() {
 		if !db.TryLock() {
+			logs.Error("failed to try lock db", db.GetName())
 			return
 		}
 		defer db.Unlock()
