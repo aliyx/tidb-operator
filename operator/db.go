@@ -60,7 +60,6 @@ func (db *Db) initSchema() (err error) {
 		return
 	}
 
-	logs.Info("start init tidb cluster")
 	e := NewEvent(db.GetName(), "db", "init")
 	defer func() {
 		ph := PhaseTidbInited
@@ -86,7 +85,6 @@ func (db *Db) initSchema() (err error) {
 	if err = my.CreateDatabaseAndGrant(); err != nil {
 		return
 	}
-	logs.Info("end init tidb cluster")
 	return
 }
 
@@ -131,6 +129,7 @@ func (db *Db) Install(ch chan int) (err error) {
 					ch <- 0
 				}
 			}
+			logs.Info("end install db", db.GetName())
 		}()
 		if err = db.Pd.install(); err != nil {
 			return
@@ -199,6 +198,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			if ch != nil {
 				ch <- stoped
 			}
+			logs.Info("end uninstall db", db.GetName())
 		}()
 		if err = db.stopMigrator(); err != nil {
 			return
@@ -436,9 +436,7 @@ func Delete(cell string) error {
 
 	// async wait
 	go func() {
-		db.TryLock()
-		defer db.Recycle()
-
+		logs.Info("start delete db", db.GetName())
 		ch := make(chan int, 1)
 		if err = db.Uninstall(ch); err != nil {
 			return
@@ -458,6 +456,7 @@ func Delete(cell string) error {
 			logs.Error("delete event error: %v", err)
 			return
 		}
+		logs.Info("end delete db", db.GetName())
 	}()
 	return nil
 }
