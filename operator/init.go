@@ -45,11 +45,11 @@ func Init() {
 // Run operator check
 func Run(ctx context.Context) (err error) {
 	if err = undo(); err != nil {
-		return err
+		return
 	}
 
-	reconcile(ctx)
-	return nil
+	go reconcile(ctx)
+	return
 }
 
 func undo() error {
@@ -79,36 +79,34 @@ func undo() error {
 }
 
 func reconcile(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				logs.Warn("reconcile cancled")
-				return
-			default:
-				time.Sleep(reconcileInterval)
-			}
-			logs.Debug("reconcile all tidb clusters")
+	for {
+		select {
+		case <-ctx.Done():
+			logs.Warn("reconcile cancled")
+			return
+		default:
+			time.Sleep(reconcileInterval)
+		}
+		logs.Debug("reconcile all tidb clusters")
 
-			dbs, err := GetDbs("admin")
-			if err != nil {
-				logs.Error("failed to get all tidb clusters")
+		dbs, err := GetDbs("admin")
+		if err != nil {
+			logs.Error("failed to get all tidb clusters")
+		}
+		for i := range dbs {
+			db := &dbs[i]
+			db.AfterPropertiesSet()
+			if db.Doing() {
+				continue
 			}
-			for i := range dbs {
-				db := &dbs[i]
-				db.AfterPropertiesSet()
-				if db.Doing() {
-					continue
-				}
-				if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
-					switch err {
-					case ErrScaling, ErrUnavailable:
-						logs.Warn("%s %v", db.GetName(), err)
-					default:
-						logs.Error("failed to reconcile db %s: %v", db.GetName(), err)
-					}
+			if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
+				switch err {
+				case ErrScaling, ErrUnavailable:
+					logs.Warn("%s %v", db.GetName(), err)
+				default:
+					logs.Error("failed to reconcile db %s: %v", db.GetName(), err)
 				}
 			}
 		}
-	}()
+	}
 }

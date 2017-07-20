@@ -57,9 +57,10 @@ func (db *Db) initSchema() (err error) {
 
 	// save savepoint
 	if err = db.update(); err != nil {
-		return nil
+		return
 	}
 
+	logs.Info("start init tidb cluster")
 	e := NewEvent(db.GetName(), "db", "init")
 	defer func() {
 		ph := PhaseTidbInited
@@ -78,14 +79,15 @@ func (db *Db) initSchema() (err error) {
 		p string
 	)
 	if h, p, err = net.SplitHostPort(db.Status.OuterAddresses[0]); err != nil {
-		return err
+		return
 	}
 	port, _ := strconv.Atoi(p)
 	my := tsql.NewMysql(db.Schema.Name, h, port, db.Schema.User, db.Schema.Password)
 	if err = my.CreateDatabaseAndGrant(); err != nil {
-		return err
+		return
 	}
-	return nil
+	logs.Info("end init tidb cluster")
+	return
 }
 
 // Install tidb
@@ -102,13 +104,15 @@ func (db *Db) Install(ch chan int) (err error) {
 		if !db.TryLock() {
 			return
 		}
-		defer db.Unlock()
+		defer func() {
+			db.Unlock()
+		}()
 		// double-check
 		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseUndefined {
 			logs.Error("db %s was modified before install", db.GetName())
 			return
 		}
-
+		logs.Info("start install db", db.GetName())
 		e := NewEvent(db.GetName(), "db", "install")
 		defer func() {
 			parseError(db, err)
@@ -120,10 +124,12 @@ func (db *Db) Install(ch chan int) (err error) {
 			if err = db.update(); err != nil {
 				logs.Error("failed to update db %s: %v", db.GetName(), err)
 			}
-			if err != nil {
-				ch <- 1
-			} else {
-				ch <- 0
+			if ch != nil {
+				if err != nil {
+					ch <- 1
+				} else {
+					ch <- 0
+				}
 			}
 		}()
 		if err = db.Pd.install(); err != nil {
@@ -169,7 +175,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			logs.Error("db %s was modified before uninstall", db.GetName())
 			return
 		}
-		logs.Info("start uninstall db ", db.GetName())
+		logs.Info("start uninstall db", db.GetName())
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
 			stoped := 0
