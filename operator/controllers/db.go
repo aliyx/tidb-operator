@@ -43,7 +43,7 @@ func (dc *TidbController) Post() {
 	errHandler(
 		dc.Controller,
 		db.Save(),
-		fmt.Sprintf("Create tidb %s", db.Schema.Name),
+		fmt.Sprintf("save tidb %s", db.Schema.Name),
 	)
 
 	// start is async
@@ -68,12 +68,12 @@ func (dc *TidbController) Post() {
 func (dc *TidbController) Delete() {
 	cell := dc.GetString(":cell")
 	if len(cell) < 1 {
-		dc.CustomAbort(403, "tidb name is nil")
+		dc.CustomAbort(403, "db name is nil")
 	}
 	errHandler(
 		dc.Controller,
 		operator.Delete(cell),
-		fmt.Sprintf("delete tidb %s", cell),
+		"delete db "+cell,
 	)
 	dc.Data["json"] = 1
 	dc.ServeJSON()

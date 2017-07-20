@@ -21,7 +21,6 @@ var (
 	forceInitMd   bool
 	imageRegistry string
 	onInitHooks   servenv.Hooks
-	hook          *sync.WaitGroup
 )
 
 // ParseConfig parse all config
@@ -44,10 +43,8 @@ func Init() {
 }
 
 // Run operator check
-func Run(ctx context.Context, wg *sync.WaitGroup) (err error) {
-	hook = wg
-
-	if err = recover(); err != nil {
+func Run(ctx context.Context) (err error) {
+	if err = undo(); err != nil {
 		return err
 	}
 
@@ -55,7 +52,7 @@ func Run(ctx context.Context, wg *sync.WaitGroup) (err error) {
 	return nil
 }
 
-func recover() error {
+func undo() error {
 	dbs, err := GetDbs("admin")
 	if err != nil {
 		return err
@@ -65,7 +62,9 @@ func recover() error {
 		db.AfterPropertiesSet()
 
 		// init locker
+		mu.Lock()
 		lockers[db.GetName()] = new(sync.Mutex)
+		mu.Unlock()
 
 		// recover scaling to normal
 		if db.Status.ScaleState&scaling > 0 {

@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/astaxie/beego"
@@ -77,9 +76,8 @@ func main() {
 
 	operator.Init()
 
-	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	err := operator.Run(ctx, &wg)
+	err := operator.Run(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -95,8 +93,6 @@ func main() {
 	sig := <-sc
 	logs.Info("Got signal [%d] to exit.", sig)
 	cancel()
-	wg.Wait()
-	logs.Info("exit.")
 	switch sig {
 	case syscall.SIGTERM:
 		os.Exit(0)

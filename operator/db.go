@@ -169,12 +169,9 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			logs.Error("db %s was modified before uninstall", db.GetName())
 			return
 		}
-
+		logs.Info("start uninstall db ", db.GetName())
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
-			if r := recover(); r != nil {
-				err = r
-			}
 			stoped := 0
 			ph := PhaseUndefined
 			if started(db.GetName()) {
@@ -481,7 +478,7 @@ func (db *Db) TryLock() (locked bool) {
 	if rw != nil {
 		rw.Lock()
 		// double-check
-		if rw = db.Locker(); rw != nil {
+		if n := db.Locker(); n != nil {
 			doings[db.GetName()] = struct{}{}
 			locked = true
 		} else {

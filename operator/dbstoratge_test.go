@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 
+	"sync"
+
 	"github.com/astaxie/beego"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -15,6 +17,7 @@ func TestMain(m *testing.M) {
 	beego.AppConfig.Set("dockerRegistry", "10.209.224.13:10500/ffan/rds")
 	ParseConfig()
 	Init()
+	lockers["006-xinyang1"] = new(sync.Mutex)
 	os.Exit(m.Run())
 }
 
