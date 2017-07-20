@@ -2,7 +2,6 @@ package operator
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"strings"
@@ -45,74 +44,74 @@ func (p *Pd) upgrade() error {
 			return err
 		}
 		if upgraded {
+			if err = p.waitForOk(); err != nil {
+				mb.State = PodOffline
+				return err
+			}
 			count++
+			time.Sleep(upgradeInterval)
 		}
-		if err = p.waitForOk(); err != nil {
-			mb.State = PodOffline
-			return err
-		}
-		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
 
-func (db *Db) reconcilePds(wg *sync.WaitGroup) {
-	wg.Add(1)
+func (db *Db) reconcilePds() error {
 
-	go func() {
-		var (
-			p       = db.Pd
-			err     error
-			changed = 0
-		)
-		e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
+	var (
+		err     error
+		p       = db.Pd
+		changed = 0
+	)
 
-		defer func() {
-			wg.Done()
-			parseError(db, err)
-			if changed > 0 || err != nil {
+	e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
+	defer func() {
+		parseError(db, err)
+		if changed > 0 || err != nil {
+			if err != nil {
 				logs.Error("reconcile pd %s error: %v", db.GetName(), err)
-				e.Trace(err, "Reconcile pd")
 			}
-		}()
-
-		pods, err := k8sutil.GetPods(db.GetName(), "pd")
-		if err != nil {
-			return
-		}
-
-		// check not running pd member
-
-		for _, mb := range p.Members {
-			st := PodOffline
-			for _, pod := range pods {
-				if pod.GetName() == mb.Name && k8sutil.IsPodRunning(pod) {
-					st = PodOnline
-					break
-				}
-			}
-			mb.State = st
-		}
-
-		for i, mb := range p.Members {
-			if mb.State == PodOffline {
-				changed++
-				if err = k8sutil.DeletePods(mb.Name); err != nil {
-					return
-				}
-				p.Member = i + 1
-				if err = p.createPod(); err != nil {
-					mb.State = PodOffline
-					return
-				}
-				mb.State = PodOnline
-			}
-		}
-
-		if err = p.waitForOk(); err != nil {
-			return
+			e.Trace(err, "Reconcile pd")
 		}
 	}()
+
+	pods, err := k8sutil.GetPods(db.GetName(), "pd")
+	if err != nil {
+		return err
+	}
+
+	// check not running pd member
+	for _, mb := range p.Members {
+		st := PodOffline
+		for _, pod := range pods {
+			if pod.GetName() == mb.Name && k8sutil.IsPodRunning(pod) {
+				st = PodOnline
+				break
+			}
+		}
+		mb.State = st
+	}
+
+	// delete offline pd and create a new pd
+	for i, mb := range p.Members {
+		if mb.State == PodOffline {
+			changed++
+			if err = k8sutil.DeletePods(mb.Name); err != nil {
+				return err
+			}
+			p.Member = i + 1
+			if err = p.createPod(); err != nil {
+				mb.State = PodOffline
+				return err
+			}
+			mb.State = PodOnline
+		}
+	}
+
+	if err = p.waitForOk(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Pd) uninstall() (err error) {
@@ -136,7 +135,7 @@ func (p *Pd) install() (err error) {
 	p.Db.Status.Phase = PhasePdPending
 	if err = p.Db.update(); err != nil {
 		e.Trace(err,
-			fmt.Sprintf("Update tidb status to %d error: %v", PhasePdPending, err))
+			fmt.Sprintf("Update db status to %d error: %v", PhasePdPending, err))
 		return err
 	}
 

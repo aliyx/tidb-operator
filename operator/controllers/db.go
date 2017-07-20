@@ -100,7 +100,7 @@ func (dc *TidbController) Limit() {
 	if err := json.Unmarshal(b, ac); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
-	limit := operator.Limit(user, ac.KvReplicas, ac.DbReplicas)
+	limit := operator.NeedApproval(user, ac.KvReplicas, ac.DbReplicas)
 	dc.Data["json"] = limit
 	dc.ServeJSON()
 }
@@ -177,7 +177,7 @@ func (dc *TidbController) Patch() {
 			fmt.Sprintf("Start scaling db %s", cell),
 		)
 	case "syncMigrateStat":
-		db.SyncMigrateStat()
+		newDb.SyncMigrateStat()
 		errHandler(dc.Controller, err, "sync db migrate status")
 	default:
 		dc.CustomAbort(403, "unsupport operation")

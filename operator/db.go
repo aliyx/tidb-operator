@@ -5,13 +5,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ghodss/yaml"
+
+	"sync"
 
 	tsql "github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
@@ -30,9 +31,7 @@ const (
 	scaling      = 1 << 8
 	tikvScaleErr = 1
 	tidbScaleErr = 1 << 1
-)
 
-const (
 	// ScaleUndefined no scale request
 	ScaleUndefined int = iota
 	// ScalePending wait for the admin to scale
@@ -41,6 +40,13 @@ const (
 	ScaleFailure
 	// Scaled scale success
 	Scaled
+)
+
+var (
+	// protect locks
+	mu      sync.Mutex
+	lockers = make(map[string]*sync.Mutex)
+	doings  = make(map[string]struct{})
 )
 
 // create user specify schema and set database privileges
@@ -92,22 +98,28 @@ func (db *Db) Install(ch chan int) (err error) {
 		return ErrRepeatOperation
 	}
 
-	hook.Add(1)
 	go func() {
-		defer hook.Done()
+		if !db.TryLock() {
+			return
+		}
+		defer db.Unlock()
+		// double-check
+		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseUndefined {
+			logs.Error("db %s was modified before install", db.GetName())
+			return
+		}
 
 		e := NewEvent(db.GetName(), "db", "install")
 		defer func() {
-			if r := recover(); r != nil {
-				err = r
+			parseError(db, err)
+			if err != nil {
+				logs.Error("failed to install db %s on k8s: %v", db.GetName(), err)
 			}
 			e.Trace(err, "Start installing tidb cluster on kubernetes")
 
-			parseError(db, err)
 			if err = db.update(); err != nil {
 				logs.Error("failed to update db %s: %v", db.GetName(), err)
 			}
-
 			if err != nil {
 				ch <- 1
 			} else {
@@ -115,19 +127,15 @@ func (db *Db) Install(ch chan int) (err error) {
 			}
 		}()
 		if err = db.Pd.install(); err != nil {
-			logs.Error("failed to install pd %s on k8s: %v", db.GetName(), err)
 			return
 		}
 		if err = db.Tikv.install(); err != nil {
-			logs.Error("failed to install tikv %s on k8s: %v", db.GetName(), err)
 			return
 		}
 		if err = db.Tidb.install(); err != nil {
-			logs.Error("failed to install tidb %s on k8s: %v", db.GetName(), err)
 			return
 		}
 		if err = db.initSchema(); err != nil {
-			logs.Error("failed to init db %s privileges: %v", db.GetName(), err)
 			return
 		}
 	}()
@@ -152,8 +160,15 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 	}
 	// aync waiting for all pods deleted from k8s
 	go func() {
-		hook.Add(1)
-		defer hook.Done()
+		if !db.TryLock() {
+			return
+		}
+		defer db.Unlock()
+		// double-check
+		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseTidbUninstalling {
+			logs.Error("db %s was modified before uninstall", db.GetName())
+			return
+		}
 
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
@@ -170,6 +185,10 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			db.Status.Phase = ph
 			db.Status.Reason = ""
 			db.Status.Message = ""
+			db.Status.MigrateState = ""
+			db.Status.UpgradeState = ""
+			db.Status.ScaleState = 0
+			db.Status.ScaleCount = 0
 			if uerr := db.update(); uerr != nil {
 				logs.Error("failed to update db %s: %v", db.GetName(), uerr)
 			}
@@ -205,10 +224,11 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 // Reinstall first uninstall tidb, second install tidb
 func (db *Db) Reinstall(cell string) (err error) {
 	go func() {
-		e := NewEvent(cell, "db", "restart")
+		e := NewEvent(cell, "db", "reinstall")
 		defer func(ph Phase) {
-			e.Trace(err, fmt.Sprintf("Restart db status from %d -> %d", ph, db.Status.Phase))
+			e.Trace(err, fmt.Sprintf("Reinstall db status from %d to %d", ph, db.Status.Phase))
 		}(db.Status.Phase)
+
 		ch := make(chan int, 1)
 		if err = db.Uninstall(ch); err != nil {
 			logs.Error("delete db %s error: %v", cell, err)
@@ -220,6 +240,7 @@ func (db *Db) Reinstall(cell string) (err error) {
 			logs.Error("Uninstall db %s timeout", cell)
 			return
 		}
+
 		if err = db.Install(ch); err != nil {
 			logs.Error("Install db %s error: %v", cell, err)
 			return
@@ -334,8 +355,6 @@ func (db *Db) stopMigrator() error {
 
 // Scale tikv and tidb
 func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
-	hook.Add(1)
-
 	if !db.Status.Available {
 		return ErrUnavailable
 	}
@@ -346,45 +365,61 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 	if err = db.update(); err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	db.reconcilePds(&wg)
-	db.reconcileTikvs(kvReplica, &wg)
-	db.reconcileTidbs(dbReplica, &wg)
+
 	go func() {
-		wg.Wait()
-		hook.Done()
-		db.Status.ScaleState ^= scaling
-		if err = db.update(); err != nil {
-			logs.Error("failed to update db %s: %v", db.GetName(), err)
+		if !db.TryLock() {
+			return
 		}
+		defer db.Unlock()
+		// double-check
+		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available || db.Status.ScaleState&scaling == 0 ||
+			db.Tikv.Replicas != new.Tikv.Replicas || db.Tidb.Replicas != new.Tidb.Replicas {
+			logs.Error("db %s was modified before scale", db.GetName())
+			return
+		}
+
+		defer func() {
+			parseError(db, err)
+			db.Status.ScaleState ^= scaling
+			if err = db.update(); err != nil {
+				logs.Error("failed to update db %s: %v", db.GetName(), err)
+			}
+		}()
+
+		if err = db.reconcilePds(); err != nil {
+			return
+		}
+		if err = db.reconcileTikvs(kvReplica); err != nil {
+			return
+		}
+		if err = db.reconcileTidbs(dbReplica); err != nil {
+			return
+		}
+
 	}()
 	return nil
 }
 
-// Limit whether the user creates tidb for approval
-func Limit(ID string, kvr, dbr uint) bool {
+// NeedApproval whether the user creates tidb for approval
+func NeedApproval(ID string, kvr, dbr uint) bool {
 	if len(ID) < 1 {
 		return true
 	}
 	dbs, err := GetDbs(ID)
 	if err != nil {
-		logs.Error("cant get user %s dbs: %v", ID, err)
+		logs.Error("cann't get user %s db: %v", ID, err)
+		return true
 	}
 	for _, db := range dbs {
 		kvr = kvr + uint(db.Tikv.Spec.Replicas)
 		dbr = dbr + uint(db.Tidb.Spec.Replicas)
 	}
 	md := getCachedMetadata()
-	if kvr > md.Spec.AC.KvReplicas {
-		return true
-	}
-	if dbr > md.Spec.AC.DbReplicas {
+	if kvr > md.Spec.AC.KvReplicas || dbr > md.Spec.AC.DbReplicas {
 		return true
 	}
 	return false
 }
-
-type clear func()
 
 // Delete tidb
 func Delete(cell string) error {
@@ -395,20 +430,24 @@ func Delete(cell string) error {
 	if db, err = GetDb(cell); err != nil {
 		return err
 	}
-	ch := make(chan int, 1)
-	if err = db.Uninstall(ch); err != nil {
-		return err
-	}
 
 	// async wait
 	go func() {
+		db.TryLock()
+		defer db.Recycle()
+
+		ch := make(chan int, 1)
+		if err = db.Uninstall(ch); err != nil {
+			return
+		}
+
 		// wait uninstalled
 		stoped := <-ch
 		if stoped != 0 {
 			// fail to uninstall tidb, so quit
 			return
 		}
-		if err := db.delete(); err != nil && err != storage.ErrNoNode {
+		if err = db.delete(); err != nil && err != storage.ErrNoNode {
 			logs.Error("delete tidb error: %v", err)
 			return
 		}
@@ -423,7 +462,60 @@ func Delete(cell string) error {
 func started(cell string) bool {
 	pods, err := k8sutil.ListPodNames(cell, "")
 	if err != nil {
-		logs.Warn("Get %s pods error: %v", cell, err)
+		logs.Error("Get %s pods error: %v", cell, err)
 	}
 	return len(pods) > 0
+}
+
+// Locker get rwlocker
+func (db *Db) Locker() *sync.Mutex {
+	mu.Lock()
+	defer mu.Unlock()
+	rw, _ := lockers[db.GetName()]
+	return rw
+}
+
+// TryLock try lock db
+func (db *Db) TryLock() (locked bool) {
+	rw := db.Locker()
+	if rw != nil {
+		rw.Lock()
+		// double-check
+		if rw = db.Locker(); rw != nil {
+			doings[db.GetName()] = struct{}{}
+			locked = true
+		} else {
+			locked = false
+			rw.Unlock()
+		}
+	} else {
+		locked = false
+	}
+	return
+}
+
+// Unlock db
+func (db *Db) Unlock() {
+	rw := db.Locker()
+	if rw == nil {
+		panic(fmt.Sprintf("cann't get db %s locker", db.GetName()))
+	}
+	delete(doings, db.GetName())
+	rw.Unlock()
+}
+
+// Doing whether some operations are being performed
+func (db *Db) Doing() bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, ok := doings[db.GetName()]
+	return ok
+}
+
+// Recycle db
+func (db *Db) Recycle() {
+	mu.Lock()
+	defer mu.Unlock()
+	delete(lockers, db.GetName())
+	delete(doings, db.GetName())
 }

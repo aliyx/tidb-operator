@@ -52,12 +52,12 @@ func (td *Tidb) upgrade() (err error) {
 			return err
 		}
 		if upgraded {
-			count++
 			if err = td.waitForOk(); err != nil {
 				return err
 			}
+			count++
+			time.Sleep(upgradeInterval)
 		}
-		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
@@ -215,64 +215,53 @@ func (td *Tidb) uninstall() (err error) {
 	return nil
 }
 
-func (db *Db) reconcileTidbs(replica int, wg *sync.WaitGroup) {
-	if replica < 1 {
-		return
+func (db *Db) reconcileTidbs(replica int) error {
+	if replica < 1 || replica == db.Tidb.Replicas {
+		return nil
 	}
-	td := db.Tidb
-	wg.Add(1)
-	go func() {
-		scaleMu.Lock()
-		defer func() {
-			wg.Done()
-			scaleMu.Unlock()
-		}()
 
-		var (
-			err error
-		)
-		if replica == td.Replicas {
-			return
+	var (
+		err error
+		td  = db.Tidb
+	)
+
+	// update status
+
+	e := NewEvent(db.GetName(), "tidb/tidb", "scale")
+	defer func(r int) {
+		if err != nil {
+			db.Status.ScaleState |= tidbScaleErr
 		}
+		e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas from %d to %d", db.GetName(), r, replica))
+	}(td.Replicas)
 
-		// update status
+	// check replicas
 
-		e := NewEvent(db.GetName(), "tidb/tidb", "scale")
-		defer func(r int) {
-			parseError(db, err)
-			if err != nil {
-				db.Status.ScaleState |= tidbScaleErr
-			}
-			e.Trace(err, fmt.Sprintf("Scale tidb '%s' replicas from %d to %d", db.GetName(), r, replica))
-		}(td.Replicas)
+	md := getCachedMetadata()
+	if replica > md.Spec.Tidb.Max {
+		err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
+		return err
+	}
+	if replica > td.Replicas*3 || td.Replicas > replica*3 {
+		err = fmt.Errorf("each scale can not more or less then 2 times")
+		return err
+	}
+	if replica < 1 {
+		err = fmt.Errorf("replicas must be greater than 1")
+		return err
+	}
 
-		// check replicas
+	// scale
 
-		md := getCachedMetadata()
-		if replica > md.Spec.Tidb.Max {
-			err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
-			return
-		}
-		if replica > td.Replicas*3 || td.Replicas > replica*3 {
-			err = fmt.Errorf("each scale can not more or less then 2 times")
-			return
-		}
-		if replica < 1 {
-			err = fmt.Errorf("replicas must be greater than 1")
-			return
-		}
+	logs.Info("start scaling tidb count of the db '%s' from %d to %d",
+		db.GetName(), td.Replicas, replica)
+	td.Replicas = replica
+	if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.GetName()), replica); err != nil {
+		return err
+	}
+	if err = td.waitForOk(); err != nil {
+		return err
+	}
 
-		// scale
-
-		logs.Info("start scaling tidb count of the db '%s' from %d to %d",
-			db.Metadata.Name, td.Replicas, replica)
-		td.Replicas = replica
-		if err = k8sutil.ScaleReplicationController(fmt.Sprintf("tidb-%s", db.GetName()), replica); err != nil {
-			return
-		}
-		if err = td.waitForOk(); err != nil {
-			return
-		}
-
-	}()
+	return nil
 }

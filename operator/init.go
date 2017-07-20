@@ -32,6 +32,7 @@ func ParseConfig() {
 	logs.Debug("image registrey: ", imageRegistry)
 }
 
+// Init operator
 func Init() {
 	rand.Seed(time.Now().Unix())
 	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
@@ -42,6 +43,7 @@ func Init() {
 
 }
 
+// Run operator check
 func Run(ctx context.Context, wg *sync.WaitGroup) (err error) {
 	hook = wg
 
@@ -61,6 +63,10 @@ func recover() error {
 	for i := range dbs {
 		db := &dbs[i]
 		db.AfterPropertiesSet()
+
+		// init locker
+		lockers[db.GetName()] = new(sync.Mutex)
+
 		// recover scaling to normal
 		if db.Status.ScaleState&scaling > 0 {
 			db.Status.ScaleState ^= scaling
@@ -92,6 +98,9 @@ func reconcile(ctx context.Context) {
 			for i := range dbs {
 				db := &dbs[i]
 				db.AfterPropertiesSet()
+				if db.Doing() {
+					continue
+				}
 				if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
 					switch err {
 					case ErrScaling, ErrUnavailable:

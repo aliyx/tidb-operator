@@ -3,7 +3,6 @@ package operator
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"k8s.io/client-go/pkg/api/v1"
 
@@ -57,10 +56,10 @@ func (tk *Tikv) upgrade() (err error) {
 			return err
 		}
 		if upgraded {
+			// wait
 			count++
-			time.Sleep(reconcileInterval)
+			time.Sleep(upgradeInterval)
 		}
-		time.Sleep(upgradeInterval)
 	}
 	return nil
 }
@@ -222,61 +221,59 @@ func (tk *Tikv) uninstall() (err error) {
 	return nil
 }
 
-func (db *Db) reconcileTikvs(replicas int, wg *sync.WaitGroup) {
+func (db *Db) reconcileTikvs(replicas int) error {
 	if replicas < 1 {
-		return
+		return nil
 	}
-	kv := db.Tikv
-	wg.Add(1)
-	go func() {
-		scaleMu.Lock()
-		defer func() {
-			wg.Done()
-			scaleMu.Unlock()
-		}()
-		var (
-			err error
-		)
 
-		// check Available replica
+	var (
+		err  error
+		kv   = db.Tikv
+		op   = "scale"
+		flag = true
+	)
 
-		if replicas == kv.AvailableReplicas {
-			err = kv.checkStoresStatus()
-			if err != nil {
-				logs.Error("check tikv %s stores status %v", db.GetName(), err)
-			}
+	if kv.Replicas == replicas {
+		op = "reconcile"
+	}
+	e := NewEvent(db.GetName(), "tidb/tikv", op)
+	defer func(a, r int) {
+		if err != nil {
+			db.Status.ScaleState |= tikvScaleErr
 		}
-		if replicas == kv.AvailableReplicas {
-			return
-		}
-
-		op := "scale"
-		if kv.Replicas == replicas {
-			op = "reconcile"
-		}
-		e := NewEvent(db.Metadata.Name, "tidb/tikv", op)
-
-		defer func(a, r int) {
-			parseError(db, err)
-			if err != nil {
-				db.Status.ScaleState |= tikvScaleErr
-			}
+		if flag {
 			if op == "scale" {
 				e.Trace(err, fmt.Sprintf("Scale tikv '%s' replicas from %d to %d", db.GetName(), r, replicas))
 			} else {
 				e.Trace(err, fmt.Sprintf("Reconcile tikv '%s' replicas from %d to %d", db.GetName(), a, replicas))
 			}
-		}(kv.AvailableReplicas, kv.Replicas)
-
-		switch n := replicas - kv.Replicas; {
-		case n > 0:
-			err = kv.increase(n)
-		case n < 0:
-			err = kv.decrease(-n)
-		default:
-			err = kv.reconcile()
 		}
-	}()
+	}(kv.AvailableReplicas, kv.Replicas)
+
+	// check Available replica
+
+	if replicas == kv.AvailableReplicas {
+		err = kv.checkStoresStatus()
+		if err != nil {
+			logs.Error("check tikv %s stores status %v", db.GetName(), err)
+			return err
+		}
+	}
+	if replicas == kv.AvailableReplicas {
+		flag = false
+		return nil
+	}
+
+	switch n := replicas - kv.Replicas; {
+	case n > 0:
+		err = kv.increase(n)
+	case n < 0:
+		err = kv.decrease(-n)
+	default:
+		err = kv.reconcile()
+	}
+
+	return err
 }
 
 func (tk *Tikv) checkStoresStatus() error {

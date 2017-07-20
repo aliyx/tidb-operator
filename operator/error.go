@@ -22,7 +22,6 @@ func parseError(db *Db, err error) {
 	if err == nil || db == nil {
 		return
 	}
-
 	msg := err.Error()
 	switch {
 	case strings.HasPrefix(msg, v1.PodReasonUnschedulable):
