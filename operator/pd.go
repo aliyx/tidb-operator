@@ -61,6 +61,7 @@ func (db *Db) reconcilePds() error {
 		err     error
 		p       = db.Pd
 		changed = 0
+		pods    []v1.Pod
 	)
 
 	e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
@@ -71,10 +72,20 @@ func (db *Db) reconcilePds() error {
 				logs.Error("reconcile pd %s error: %v", db.GetName(), err)
 			}
 			e.Trace(err, "Reconcile pd")
+		} else {
+			// check version
+			for i := range pods {
+				pod := pods[i]
+				if needUpgrade(&pod, p.Version) {
+					if err = p.upgrade(); err != nil {
+						return
+					}
+				}
+			}
 		}
 	}()
 
-	pods, err := k8sutil.GetPods(db.GetName(), "pd")
+	pods, err = k8sutil.GetPods(db.GetName(), "pd")
 	if err != nil {
 		return err
 	}
@@ -83,7 +94,7 @@ func (db *Db) reconcilePds() error {
 	for _, mb := range p.Members {
 		st := PodOffline
 		for _, pod := range pods {
-			if pod.GetName() == mb.Name && k8sutil.IsPodRunning(pod) {
+			if pod.GetName() == mb.Name && k8sutil.IsPodOk(pod) {
 				st = PodOnline
 				break
 			}

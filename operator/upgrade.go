@@ -63,25 +63,35 @@ func upgradeOne(name, image, version string) (bool, error) {
 		return false, nil
 	}
 
-	oldversion := k8sutil.GetTidbVersion(pod)
-	oldpod := k8sutil.ClonePod(pod)
+	logs.Info("start upgrading %v from %s to %s", name, k8sutil.GetTidbVersion(pod), version)
 
-	logs.Info("start upgrading the %v from %s to %s", name, oldversion, version)
-	pod.Spec.Containers[0].Image = image
-	k8sutil.SetTidbVersion(pod, version)
-
-	patchdata, err := k8sutil.CreatePatch(oldpod, pod, v1.Pod{})
-	if err != nil {
-		return false, fmt.Errorf("error creating patch: %v", err)
-	}
-
-	if err = k8sutil.PatchPod(name, patchdata, waitPodRuningTimeout); err != nil {
+	if err = k8sutil.PatchPod(pod, func(np *v1.Pod) {
+		np.Spec.Containers[0].Image = image
+		k8sutil.SetTidbVersion(np, version)
+	}, waitPodRuningTimeout); err != nil {
 		return false, err
 	}
-	logs.Info("end upgrading the pod %v", name)
+	logs.Info("end upgrading %v", name)
 	return true, nil
 }
 
-func needUpgrade(pod *v1.Pod, version string) bool {
-	return k8sutil.GetImageVersion(pod.Spec.Containers[0].Image) != version
+func upgradeRC(name, image, version string) error {
+	err := k8sutil.PatchRc(name, func(rc *v1.ReplicationController) {
+		logs.Info("start upgrading replicationcontroller(%s) from %s to %s", name, k8sutil.GetTidbVersion(rc), version)
+		k8sutil.SetTidbVersion(rc, version)
+		rc.Spec.Template.Spec.Containers[0].Image = image
+	})
+	logs.Info("end upgrading %s", name)
+	return err
+}
+
+func needUpgrade(i interface{}, version string) bool {
+	image := ""
+	switch v := i.(type) {
+	case *v1.Pod:
+		image = k8sutil.GetImageVersion(v.Spec.Containers[0].Image)
+	case *v1.ReplicationController:
+		image = v.Spec.Template.Spec.Containers[0].Image
+	}
+	return k8sutil.GetImageVersion(image) != version
 }

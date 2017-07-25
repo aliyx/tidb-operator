@@ -135,6 +135,7 @@ func (dc *TidbController) Patch() {
 		case operator.PhaseRefuse:
 			newDb.Update()
 		case operator.PhaseUndefined:
+			newDb.Update()
 			errHandler(
 				dc.Controller,
 				newDb.Install(nil),

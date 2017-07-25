@@ -65,8 +65,8 @@ type Tidb struct {
 type Owner struct {
 	ID     string `json:"userId"` //user
 	Name   string `json:"userName"`
-	Desc   string `json:"desc,omitempty"`
-	Reason string `json:"reason,omitempty"`
+	Desc   string `json:"desc"`
+	Reason string `json:"reason"`
 }
 
 // Schema database schema

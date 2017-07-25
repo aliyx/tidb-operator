@@ -2,10 +2,8 @@ package controllers
 
 import jsonpatch "github.com/evanphx/json-patch"
 import "encoding/json"
-import "github.com/astaxie/beego/logs"
 
 func patch(b []byte, v interface{}) error {
-	logs.Info(string(b))
 	patch, err := jsonpatch.DecodePatch(b)
 	if err != nil {
 		return err

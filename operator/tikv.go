@@ -40,6 +40,7 @@ func (tk *Tikv) upgrade() (err error) {
 	var (
 		upgraded bool
 		count    int
+		image    = fmt.Sprintf("%s/tikv:%s", imageRegistry, tk.Version)
 	)
 
 	e := NewEvent(tk.Db.Metadata.Name, "tidb/tikv", "upgrate")
@@ -50,8 +51,9 @@ func (tk *Tikv) upgrade() (err error) {
 		}
 	}()
 
-	for _, st := range tk.Stores {
-		upgraded, err = upgradeOne(st.Name, fmt.Sprintf("%s/tikv:%s", imageRegistry, tk.Version), tk.Version)
+	names := tk.getStoresKey()
+	for _, name := range names {
+		upgraded, err = upgradeOne(name, image, tk.Version)
 		if err != nil {
 			return err
 		}
@@ -261,6 +263,20 @@ func (db *Db) reconcileTikvs(replicas int) error {
 	}
 	if replicas == kv.AvailableReplicas {
 		flag = false
+
+		// check version
+		pods, err := k8sutil.GetPods(db.GetName(), "tikv")
+		if err != nil {
+			return err
+		}
+		for i := range pods {
+			pod := pods[i]
+			if needUpgrade(&pod, kv.Version) {
+				if err = kv.upgrade(); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	}
 
@@ -401,4 +417,13 @@ func (tk *Tikv) reconcile() (err error) {
 		}
 	}
 	return nil
+}
+
+func (tk *Tikv) getStoresKey() []string {
+	var keys []string
+	for k := range tk.Stores {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

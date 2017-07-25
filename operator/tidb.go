@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/pkg/api/v1"
-
 	"github.com/astaxie/beego/logs"
 
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -22,41 +20,43 @@ var (
 	scaleMu sync.Mutex
 )
 
-func (td *Tidb) upgrade() (err error) {
+func (td *Tidb) upgrade() error {
 	if td.Db.Status.Phase < PhaseTidbStarted {
-		return fmt.Errorf("the db %s tidb unavailable", td.Db.Metadata.Name)
+		return fmt.Errorf("the db %s tidb unavailable", td.Db.GetName())
 	}
 
 	var (
-		upgraded bool
-		count    int
-		pods     []string
+		err      error
+		newImage = fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version)
 	)
 
-	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "upgrate")
+	e := NewEvent(td.Db.GetName(), "tidb/tidb", "upgrate")
 	defer func() {
-		// have upgrade
-		if count > 0 || err != nil {
-			e.Trace(err, fmt.Sprintf("upgrate tidb to version: %s", td.Version))
-		}
+		e.Trace(err, fmt.Sprintf("upgrate tidb to version: %s", td.Version))
+		logs.Info("end upgrading", td.Db.GetName())
 	}()
 
-	// get tidb pods name
-	pods, err = k8sutil.ListPodNames(td.Db.GetName(), "tidb")
+	err = upgradeRC(fmt.Sprintf("tidb-%s", td.Db.GetName()), newImage, td.Version)
 	if err != nil {
 		return err
 	}
-	for _, podName := range pods {
-		upgraded, err = upgradeOne(podName, fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version), td.Version)
-		if err != nil {
-			return err
-		}
-		if upgraded {
+	// get tidb pods
+	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
+	}
+	for i := range pods {
+		pod := pods[i]
+		if needUpgrade(&pod, td.Version) {
+			// delete pod, rc will create a new version pod
+			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
+				return err
+			}
+			// FIXME: cann't get tidb status
+			time.Sleep(waitTidbComponentAvailableTimeout)
 			if err = td.waitForOk(); err != nil {
 				return err
 			}
-			count++
-			time.Sleep(upgradeInterval)
 		}
 	}
 	return nil
@@ -122,8 +122,6 @@ func (td *Tidb) createService() (err error) {
 	}
 	td.Db.Status.OuterStatusAddresses =
 		append(td.Db.Status.OuterStatusAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[1].NodePort))
-	logs.Info("tidb %s mysql address: %s, status address: %s",
-		td.Db.Metadata.Name, td.Db.Status.OuterAddresses, td.Db.Status.OuterStatusAddresses)
 	return nil
 }
 
@@ -169,12 +167,12 @@ func (td *Tidb) waitForOk() (err error) {
 		}
 		count := 0
 		for _, pod := range pods {
-			if pod.Status.Phase == v1.PodRunning {
+			if k8sutil.IsPodOk(pod) {
 				count++
 			}
 		}
 		if count != td.Replicas {
-			logs.Warn("some tidb pods not running yet")
+			logs.Warn("some tidb %s pods not running yet", td.Db.GetName())
 			return false, nil
 		}
 
@@ -216,14 +214,17 @@ func (td *Tidb) uninstall() (err error) {
 }
 
 func (db *Db) reconcileTidbs(replica int) error {
-	if replica < 1 || replica == db.Tidb.Replicas {
-		return nil
-	}
-
 	var (
 		err error
 		td  = db.Tidb
 	)
+
+	if replica < 1 || replica == db.Tidb.Replicas {
+		if err = td.checkStatus(); err != nil {
+			return err
+		}
+		return nil
+	}
 
 	// update status
 
@@ -242,13 +243,16 @@ func (db *Db) reconcileTidbs(replica int) error {
 		err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
 		return err
 	}
-	if replica > td.Replicas*3 || td.Replicas > replica*3 {
-		err = fmt.Errorf("each scale can not more or less then 2 times")
+	if replica < 2 {
+		err = fmt.Errorf("replicas must be greater than 2")
 		return err
 	}
-	if replica < 1 {
-		err = fmt.Errorf("replicas must be greater than 1")
+	if replica > td.Replicas*3 {
+		err = fmt.Errorf("each scale out can not more then 2 times")
 		return err
+	}
+	if replica*3 > td.Spec.Replicas {
+		return fmt.Errorf("each scale dowm can not be less than one-third")
 	}
 
 	// scale
@@ -263,5 +267,32 @@ func (db *Db) reconcileTidbs(replica int) error {
 		return err
 	}
 
+	return nil
+}
+
+func (td *Tidb) checkStatus() error {
+	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+	if err != nil {
+		return err
+	}
+	need := false
+	for i := range pods {
+		pod := pods[i]
+		if !k8sutil.IsPodOk(pod) {
+			err = k8sutil.DeletePods(pod.GetName())
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if needUpgrade(&pod, td.Version) {
+			need = true
+		}
+	}
+	if need {
+		if err = td.upgrade(); err != nil {
+			return err
+		}
+	}
 	return nil
 }

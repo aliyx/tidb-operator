@@ -32,7 +32,7 @@ func Post(url string, body []byte) (string, error) {
 	case 409:
 		return "", ErrAlreadyExists
 	default:
-		return "", fmt.Errorf("create server %s error: %v", url, resp.String())
+		return "", fmt.Errorf("post %s error: %v", url, resp.String())
 	}
 }
 

@@ -383,12 +383,14 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 			logs.Error("db %s was modified before scale", db.GetName())
 			return
 		}
-
+		logs.Debug("start scaling db", db.GetName())
 		defer func() {
 			parseError(db, err)
 			db.Status.ScaleState ^= scaling
 			if err = db.update(); err != nil {
 				logs.Error("failed to update db %s: %v", db.GetName(), err)
+			} else {
+				logs.Debug("end scaling db", db.GetName())
 			}
 		}()
 
@@ -401,7 +403,6 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 		if err = db.reconcileTidbs(dbReplica); err != nil {
 			return
 		}
-
 	}()
 	return nil
 }

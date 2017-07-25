@@ -33,14 +33,18 @@ func CreateRcByJSON(j []byte, timeout time.Duration) (*v1.ReplicationController,
 	if err := json.Unmarshal(j, rc); err != nil {
 		return nil, err
 	}
+
+	version := GetImageVersion(rc.Spec.Template.Spec.Containers[0].Image)
+	SetTidbVersion(rc, version)
 	if rc.Spec.Template.Annotations == nil {
 		rc.Spec.Template.Annotations = make(map[string]string)
 	}
-	rc.Spec.Template.Annotations[tidbVersionAnnotationKey] = GetImageVersion(rc.Spec.Template.Spec.Containers[0].Image)
+	rc.Spec.Template.Annotations[tidbVersionAnnotationKey] = version
 	retRc, err := kubecli.CoreV1().ReplicationControllers(Namespace).Create(rc)
 	if err != nil {
 		return nil, err
 	}
+	logs.Info("ReplicationController '%s' created", rc.GetName())
 	return retRc, nil
 }
 
