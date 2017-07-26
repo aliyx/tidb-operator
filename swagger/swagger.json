@@ -200,7 +200,7 @@
                     "tidbs"
                 ],
                 "description": "get all events",
-                "operationId": "TidbController.Get all events",
+                "operationId": "TidbController.GetEvents",
                 "parameters": [
                     {
                         "in": "path",
@@ -228,12 +228,6 @@
                 "operationId": "TidbController.Migrate",
                 "parameters": [
                     {
-                        "in": "query",
-                        "name": "sync",
-                        "description": "increment sync",
-                        "type": "string"
-                    },
-                    {
                         "in": "path",
                         "name": "cell",
                         "description": "The database name for tidb",
@@ -246,7 +240,7 @@
                         "description": "Body for src mysql",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/.Mysql"
+                            "$ref": "#/definitions/controllers.Migrator"
                         }
                     }
                 ],
@@ -263,8 +257,8 @@
                 "tags": [
                     "tidbs"
                 ],
-                "description": "whether the user creates tidb for approval",
-                "operationId": "TidbController.CheckResources",
+                "description": "Whether the user creates tidb for approval",
+                "operationId": "TidbController.Limit",
                 "parameters": [
                     {
                         "in": "path",
@@ -349,6 +343,16 @@
                 }
             }
         },
+        "controllers.Migrator": {
+            "title": "Migrator",
+            "type": "object",
+            "properties": {
+                "sync": {
+                    "type": "boolean"
+                },
+                "tables": {}
+            }
+        },
         "operator.ApprovalConditions": {
             "title": "ApprovalConditions",
             "type": "object",
@@ -399,6 +403,10 @@
             "properties": {
                 "cell": {
                     "type": "string"
+                },
+                "count": {
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "first": {
                     "type": "string",
@@ -555,9 +563,6 @@
                 "tidbdata_volume": {
                     "type": "string"
                 },
-                "upgradeState": {
-                    "type": "string"
-                },
                 "version": {
                     "type": "string"
                 }
@@ -663,9 +668,19 @@
                 "phase": {
                     "$ref": "#/definitions/operator.Phase"
                 },
+                "reason": {
+                    "type": "string"
+                },
+                "scaleCount": {
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "scaleState": {
                     "type": "integer",
                     "format": "int64"
+                },
+                "upgradeState": {
+                    "type": "string"
                 }
             }
         },
@@ -710,14 +725,17 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/operator.Member"
+                    }
+                },
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
                 },
                 "tidbdata_volume": {
-                    "type": "string"
-                },
-                "upgradeState": {
                     "type": "string"
                 },
                 "version": {
@@ -761,12 +779,9 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/57291.Store"
+                    "$ref": "#/definitions/46197.Store"
                 },
                 "tidbdata_volume": {
-                    "type": "string"
-                },
-                "upgradeState": {
                     "type": "string"
                 },
                 "version": {

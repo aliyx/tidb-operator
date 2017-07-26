@@ -12,7 +12,7 @@ import (
 	"github.com/ffan/tidb-operator/pkg/servenv"
 )
 
-const (
+var (
 	BIN_DIR = fmt.Sprintf("%s/pkg/util/mysqlutil/bin/", servenv.Root())
 	CHECKER = BIN_DIR + "checker -L error -host %s -port %d -user %s -password %s %s"
 
