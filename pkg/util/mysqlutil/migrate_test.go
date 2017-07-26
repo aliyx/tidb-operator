@@ -12,8 +12,9 @@ func Test_execShell(t *testing.T) {
 
 func TestMigration_Checker(t *testing.T) {
 	m := Migration{
-		Src:        *NewMysql("cqjtest0", "10.213.127.30", 13306, "cqjtest0", "cqjtest0"),
-		ToggleSync: true,
+		Src:     *NewMysql("xinyang1", "10.213.125.4", 13306, "xinyang1", "xinyang1"),
+		Include: false,
+		Tables:  []string{"t_error"},
 	}
 	err := m.Check()
 	if err != nil {

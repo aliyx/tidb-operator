@@ -237,7 +237,9 @@ func (dc *TidbController) Migrate() {
 	if len(b) < 1 {
 		dc.CustomAbort(403, "Body is empty")
 	}
-	m := &Migrator{}
+	m := &Migrator{
+		Include: true,
+	}
 	if err := json.Unmarshal(b, m); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
@@ -255,6 +257,7 @@ func (dc *TidbController) Migrate() {
 // Migrator a migrated target
 type Migrator struct {
 	mysqlutil.Mysql `json:",inline"`
+	Include         bool     `json:"include,omitempty"`
 	Tables          []string `json:"tables,omitempty"`
 	Sync            bool     `json:"sync,omitempty"`
 }
