@@ -347,6 +347,9 @@
             "title": "Migrator",
             "type": "object",
             "properties": {
+                "include": {
+                    "type": "boolean"
+                },
                 "sync": {
                     "type": "boolean"
                 },
