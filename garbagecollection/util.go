@@ -123,9 +123,9 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 
 	// delete all mitric by job
 	if n == nil {
-		// if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-		// 	return err
-		// }
+		if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -157,14 +157,19 @@ func gcTidb(o, n *operator.Db) error {
 	}
 	for _, name := range deleted {
 		// all tidb job is 'tidb'
+
 		if err := prometheusutil.DeleteMetrics("tidb", name); err != nil {
+			return err
+		}
+		// with port metrics
+		if err := prometheusutil.DeleteMetrics("tidb", fmt.Sprintf("%s_%d", name, 4000)); err != nil {
 			return err
 		}
 	}
 	if n == nil {
-		// if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-		// 	return err
-		// }
+		if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
