@@ -28,7 +28,7 @@ FLUSH PRIVILEGES;
 	grants   = "SHOW GRANTS FOR '{{user}}'@'%'"
 )
 
-// Mysql 代表一个mysql实例
+// Mysql a mysql instance
 type Mysql struct {
 	Database string `json:"database"`
 	IP       string `json:"ip"`

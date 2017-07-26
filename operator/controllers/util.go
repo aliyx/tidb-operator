@@ -1,7 +1,10 @@
 package controllers
 
-import jsonpatch "github.com/evanphx/json-patch"
-import "encoding/json"
+import (
+	"encoding/json"
+
+	jsonpatch "github.com/evanphx/json-patch"
+)
 
 func patch(b []byte, v interface{}) error {
 	patch, err := jsonpatch.DecodePatch(b)

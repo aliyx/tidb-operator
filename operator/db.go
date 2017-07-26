@@ -256,8 +256,9 @@ func (db *Db) Reinstall(cell string) (err error) {
 	return nil
 }
 
-// Migrate the mysql data to the current tidb
-func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
+// Migrate migrate the mysql data to the current tidb.
+// if 'sync' is true, then starting incremental sync after import all data
+func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool, tables []string) error {
 	if !db.Status.Available {
 		return fmt.Errorf("tidb is not available")
 	}
@@ -277,16 +278,19 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 	}
 	port, _ := strconv.Atoi(p)
 	my := &tsql.Migration{
-		Src:  src,
-		Dest: *tsql.NewMysql(sch.Name, h, port, sch.User, sch.Password),
-
+		Src:        src,
+		Dest:       *tsql.NewMysql(sch.Name, h, port, sch.User, sch.Password),
+		Tables:     tables,
 		ToggleSync: sync,
 		NotifyAPI:  notify,
 	}
 	logs.Debug("migrator object: %v", my)
 	if err := my.Check(); err != nil {
-		return fmt.Errorf(`schema "%s" does not support migration error: %v`, db.Metadata.Name, err)
+		return fmt.Errorf("schema '%s' does not support migration error: %v", db.GetName(), err)
 	}
+	NewEvent(db.GetName(), "db", "migrator").
+		Trace(err, fmt.Sprintf("migrate mysql(%s) to tidb: %s", src.Dsn(), tables))
+	db.Operator = "migrate"
 	db.Status.MigrateState = migrating
 	if err := db.update(); err != nil {
 		return err
@@ -297,6 +301,7 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool) error {
 // SyncMigrateStat update tidb migrate stat
 func (db *Db) SyncMigrateStat() (err error) {
 	var e *Event
+	db.Operator = "migrator"
 	if err := db.update(); err != nil {
 		return err
 	}

@@ -88,7 +88,7 @@ class Config:
 
     def toDumper(self):
         cmds = '/usr/local/mydumper-linux-amd64/bin/mydumper '
-        cmds += '-t 2 -F 128 --no-views --skip-tz-utc --no-locks --less-locking --verbose 3'
+        cmds += '-t 9 -F 64 --no-views --skip-tz-utc --no-locks --less-locking --verbose 3'
         cmds += ' -h ' + self.host
         cmds += ' -P ' + str(self.port)
         cmds += ' -u ' + self.user
@@ -99,7 +99,7 @@ class Config:
 
     def toLoader(self):
         cmds = '/usr/local/tidb-enterprise-tools-latest-linux-amd64/bin/loader '
-        cmds += '-t 2'
+        cmds += '-t 9'
         cmds += ' -h ' + self.host
         cmds += ' -P ' + str(self.port)
         cmds += ' -u ' + self.user

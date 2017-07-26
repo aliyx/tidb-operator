@@ -43,7 +43,7 @@ func (dc *TidbController) Post() {
 	errHandler(
 		dc.Controller,
 		db.Save(),
-		fmt.Sprintf("save tidb %s", db.Schema.Name),
+		fmt.Sprintf("create tidb(%s)", db.Schema.Name),
 	)
 
 	// start is async
@@ -223,9 +223,8 @@ func (dc *TidbController) GetEvents() {
 
 // @Title Migrate
 // @Description migrate mysql data to tidb
-// @Param   sync	query	string	false	"increment sync"
 // @Param 	cell 	path	string	true	"The database name for tidb"
-// @Param	body	body	mysqlutil.Mysql	true	"Body for src mysql"
+// @Param	body	body	controllers.Migrator	true	"Body for src mysql"
 // @Success 200
 // @Failure 403 body is empty
 // @router /:cell/migrate [post]
@@ -234,24 +233,30 @@ func (dc *TidbController) Migrate() {
 	if len(cell) < 1 {
 		dc.CustomAbort(403, "cell is nil")
 	}
-	sync := dc.GetString("sync")
 	b := dc.Ctx.Input.RequestBody
 	if len(b) < 1 {
 		dc.CustomAbort(403, "Body is empty")
 	}
-	src := &mysqlutil.Mysql{}
-	if err := json.Unmarshal(b, src); err != nil {
+	m := &Migrator{}
+	if err := json.Unmarshal(b, m); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
 	db, err := operator.GetDb(cell)
-	errHandler(dc.Controller, err, fmt.Sprintf("get db %s", cell))
+	errHandler(dc.Controller, err, "get db "+cell)
 
 	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
 	errHandler(
 		dc.Controller,
-		db.Migrate(*src, api, sync == "true"),
-		fmt.Sprintf(`Migrate mysql "%s" to tidb `, cell),
+		db.Migrate(m.Mysql, api, m.Sync, m.Tables),
+		fmt.Sprintf("migrate mysql to tidb %s", cell),
 	)
+}
+
+// Migrator a migrated target
+type Migrator struct {
+	mysqlutil.Mysql `json:",inline"`
+	Tables          []string `json:"tables,omitempty"`
+	Sync            bool     `json:"sync,omitempty"`
 }
 
 func errHandler(c beego.Controller, err error, msg string) {

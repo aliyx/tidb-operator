@@ -12,9 +12,9 @@ import (
 	"github.com/ffan/tidb-operator/pkg/servenv"
 )
 
-var (
-	binDir  = fmt.Sprintf("%s/pkg/util/mysqlutil/bin/", servenv.Root())
-	checker = binDir + "checker -L error -host %s -port %d -user %s -password %s %s"
+const (
+	BIN_DIR = fmt.Sprintf("%s/pkg/util/mysqlutil/bin/", servenv.Root())
+	CHECKER = BIN_DIR + "checker -L error -host %s -port %d -user %s -password %s %s"
 
 	errNoReplicationClientPri = errors.New("No replication client privilege or no super user")
 )
@@ -37,7 +37,10 @@ func (m *Migration) Check() error {
 	if err != nil {
 		return fmt.Errorf("ping mysql %s timeout: %v", dsn, err)
 	}
-	cmd := fmt.Sprintf(checker, m.Src.IP, m.Src.Port, m.Src.User, m.Src.Password, m.Src.Database)
+	cmd := fmt.Sprintf(CHECKER, m.Src.IP, m.Src.Port, m.Src.User, m.Src.Password, m.Src.Database)
+	if len(m.Tables) > 0 {
+		cmd += (" " + strings.TrimRight(strings.TrimLeft(fmt.Sprintf("%s", m.Tables), "["), "]"))
+	}
 	o, err := execShell(cmd)
 	if err != nil {
 		return fmt.Errorf("%s", o)
