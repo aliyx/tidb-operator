@@ -40,7 +40,7 @@ k8s:
   proxys: ""
 approvalConditions:
   kvReplicas: 3
-  dbReplicas: 1
+  dbReplicas: 2
 specifications:
 - name: "2核 4GB"
   desc: ""
@@ -49,7 +49,7 @@ specifications:
     replicas: 
     - 3
     - 3
-    - 1
+    - 2
 - name: "4核 8GB"
   desc: ""
   preferences:
