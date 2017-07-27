@@ -7,7 +7,11 @@ import (
 
 	"time"
 
+	"encoding/json"
+
+	"github.com/ffan/tidb-operator/operator/controllers"
 	"github.com/ffan/tidb-operator/pkg/util/httputil"
+	"github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
 
 const (
@@ -15,6 +19,8 @@ const (
 
 	createDBAPI = "%s/tidb/api/v1/tidbs/"
 	deleteDBAPI = "%s/tidb/api/v1/tidbs/%s"
+	migrateAPI  = "%s/tidb/api/v1/tidbs/%s/migrate"
+	eventsAPI   = "%s/tidb/api/v1/tidbs/%s/events"
 	limitAPI    = "%s/tidb/api/v1/tidbs/%s/limit"
 )
 
@@ -118,4 +124,32 @@ func Test_DeleteDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func Test_Migrate(t *testing.T) {
+	m := controllers.Migrator{
+		Mysql: mysqlutil.Mysql{
+			Database: "xinyang1",
+			IP:       "10.213.125.4",
+			Port:     13306,
+			User:     "xinyang1",
+			Password: "xinyang1",
+		},
+		Include: true,
+		Tables:  []string{"t1", "t2"},
+		Sync:    false,
+	}
+	body, _ := json.Marshal(m)
+	_, err := httputil.Post(fmt.Sprintf(migrateAPI, host, "006-xinyang1"), body)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Test_GetEvents(t *testing.T) {
+	b, err := httputil.Get(fmt.Sprintf(eventsAPI, host, "006-xinyang1"), 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%s\n", b)
 }

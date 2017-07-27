@@ -1,10 +1,12 @@
 import logs
+import string
 from os import path
 
+ROOT = "/data/"
 
 class Config:
 
-    def __init__(self, db, host, port, user, password):
+    def __init__(self, db, host, port, user, password, tables=None):
         if db == None or host == None or port == None or user == None or password == None:
             logs.critical("db or host or port... is nil.")
         self.db = db
@@ -12,9 +14,10 @@ class Config:
         self.port = port
         self.user = user
         self.password = password
+        self.tables = tables
 
     def getDataDir(self):
-        return '/data/' + self.db
+        return ROOT + "/" + self.db
 
     def getDumpedMeta(self):
         return self.getDataDir() + "/metadata"
@@ -24,9 +27,6 @@ class Config:
 
     def getMeta(self):
         return self.getDataDir() + "/syncer.meta"
-
-    def getCheckpoint(self):
-        return self.getDataDir() + "/loader.checkpoint"
 
     def genSyncMetaFile(self):
         f = self.getMeta()
@@ -58,7 +58,7 @@ class Config:
     def genSyncConfigFile(self, to):
         if to == None:
             raise NameError("to db is nil")
-        
+
         if path.isfile(self.getConfig()):
             return
 
@@ -71,6 +71,14 @@ class Config:
         f.write('worker-count = 1\n')
         f.write('batch = 1\n')
         f.write('\n')
+
+        if self.tables is not None:
+            ts = string.split(to.tables, ",")
+            for t in ts:
+                f.write('[[replicate-do-table]]\n')
+                f.write('db-name = "' + to.db + '"\n')
+                f.write('tbl-name = "' + t + '"\n')
+                f.write('\n')
 
         f.write('[from]\n')
         f.write('host = "' + self.host + '"\n')
@@ -88,12 +96,14 @@ class Config:
 
     def toDumper(self):
         cmds = '/usr/local/mydumper-linux-amd64/bin/mydumper '
-        cmds += '-t 9 -F 64 --no-views --skip-tz-utc --no-locks --less-locking --verbose 3'
+        cmds += '-t 4 -F 64 --no-views --skip-tz-utc --no-locks --less-locking --verbose 3'
         cmds += ' -h ' + self.host
         cmds += ' -P ' + str(self.port)
         cmds += ' -u ' + self.user
         cmds += ' -p ' + self.password
         cmds += ' -B ' + self.db
+        if self.tables is not None:
+            cmds += ' -T ' + self.tables
         cmds += ' -o ' + self.getDataDir()
         return cmds
 
@@ -105,7 +115,6 @@ class Config:
         cmds += ' -u ' + self.user
         cmds += ' -p ' + self.password
         # will save checkpoint tidb tidb_loader
-        # cmds += ' -checkpoint ' + self.getCheckpoint()
         cmds += ' -d ' + self.getDataDir()
         return cmds
 

@@ -89,6 +89,14 @@ func (db *Db) check() (err error) {
 	if err = db.Tidb.check(); err != nil {
 		return err
 	}
+	// db share Volume
+	md := getCachedMetadata()
+	db.Volume = strings.Trim(md.Spec.K8s.Volume, " ")
+	if len(db.Volume) == 0 {
+		db.Volume = "emptyDir: {}"
+	} else {
+		db.Volume = fmt.Sprintf("hostPath: {path: %s}", db.Volume)
+	}
 	return nil
 }
 
