@@ -178,8 +178,11 @@ func (dc *TidbController) Patch() {
 			fmt.Sprintf("Start scaling db %s", cell),
 		)
 	case "syncMigrateStat":
-		newDb.SyncMigrateStat()
-		errHandler(dc.Controller, err, "sync db migrate status")
+		errHandler(
+			dc.Controller,
+			db.SyncMigrateStat(newDb.Status.MigrateState, newDb.Status.Reason),
+			"sync db migrate status",
+		)
 	default:
 		dc.CustomAbort(403, "unsupport operation")
 	}
@@ -249,7 +252,7 @@ func (dc *TidbController) Migrate() {
 	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
 	errHandler(
 		dc.Controller,
-		db.Migrate(m.Mysql, api, m.Sync, m.Tables),
+		db.Migrate(m.Mysql, api, m.Sync, m.Include, m.Tables),
 		fmt.Sprintf("migrate mysql to tidb %s", cell),
 	)
 }

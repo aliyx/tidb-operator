@@ -66,7 +66,7 @@ func (m *Migration) Check() error {
 				}
 			}
 		}
-		cmd += (" " + strings.TrimRight(strings.TrimLeft(fmt.Sprintf("%s", tables), "["), "]"))
+		cmd += (" " + strings.Join(tables, " "))
 	}
 	o, err := execShell(cmd)
 	if err != nil {

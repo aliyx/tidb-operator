@@ -51,6 +51,8 @@ type Db struct {
 
 	Operator string `json:"operator"`
 	Status   Status `json:"status"`
+
+	Volume string `json:"tidbdata_volume,omitempty"`
 }
 
 // Tidb tidb module
@@ -88,10 +90,13 @@ type Spec struct {
 
 // Status tidb status
 type Status struct {
-	Available    bool   `json:"available"`
-	Phase        Phase  `json:"phase"`
-	Reason       string `json:"reason"`
-	MigrateState string `json:"migrateState"`
+	Available bool   `json:"available"`
+	Phase     Phase  `json:"phase"`
+	Reason    string `json:"reason"`
+
+	MigrateState      string `json:"migrateState"`
+	MigrateRetryCount int    `json:"migrateRetryCount,omitempty"`
+
 	UpgradeState string `json:"upgradeState"`
 	ScaleState   int    `json:"scaleState"`
 	ScaleCount   int    `json:"scaleCount"`

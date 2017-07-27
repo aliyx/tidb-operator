@@ -13,6 +13,16 @@ import (
 	v1 "k8s.io/client-go/pkg/apis/batch/v1"
 )
 
+// CreateJobByJSON create and wait job status 'running'
+func CreateJobByJSON(j []byte, timeout time.Duration, updateFunc func(*v1.Job)) (*v1.Job, error) {
+	job := &v1.Job{}
+	if err := json.Unmarshal(j, job); err != nil {
+		return nil, err
+	}
+	updateFunc(job)
+	return CreateAndWaitJob(job, timeout)
+}
+
 // CreateAndWaitJobByJSON create and wait job status 'running'
 func CreateAndWaitJobByJSON(j []byte, timeout time.Duration) (*v1.Job, error) {
 	job := &v1.Job{}
@@ -53,4 +63,9 @@ func DeleteJob(name string) error {
 		return err
 	}
 	return DeletePodsByLabel(map[string]string{"job-name": name})
+}
+
+// GetJob get a job by name
+func GetJob(name string) (*v1.Job, error) {
+	return kubecli.BatchV1().Jobs(Namespace).Get(name, metav1.GetOptions{})
 }

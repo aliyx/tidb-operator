@@ -101,7 +101,11 @@ func reconcile(ctx context.Context) {
 			}
 			if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
 				switch err {
-				case ErrScaling, ErrUnavailable:
+				case ErrUnavailable:
+					if db.Status.Phase > PhaseUndefined {
+						logs.Warn("%s %v", db.GetName(), err)
+					}
+				case ErrScaling:
 					logs.Warn("%s %v", db.GetName(), err)
 				default:
 					logs.Error("failed to reconcile db %s: %v", db.GetName(), err)

@@ -4,23 +4,17 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
-	"github.com/ghodss/yaml"
+	tsql "github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 
 	"sync"
-
-	tsql "github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 )
 
 const (
-	migrating          = "Migrating"
-	migStartMigrateErr = "StartMigrationTaskError"
-
 	stopTidbTimeout                   = 60 // 60s
 	waitPodRuningTimeout              = 180 * time.Second
 	waitTidbComponentAvailableTimeout = 180 * time.Second
@@ -193,6 +187,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			db.Status.UpgradeState = ""
 			db.Status.ScaleState = 0
 			db.Status.ScaleCount = 0
+			db.Status.MigrateRetryCount = 0
 			if uerr := db.update(); uerr != nil {
 				logs.Error("failed to update db %s: %v", db.GetName(), uerr)
 			}
@@ -202,7 +197,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			}
 			logs.Info("end uninstall db", db.GetName())
 		}()
-		if err = db.stopMigrator(); err != nil {
+		if err = db.StopMigrator(); err != nil {
 			return
 		}
 		if err = db.Tidb.uninstall(); err != nil {
@@ -254,113 +249,6 @@ func (db *Db) Reinstall(cell string) (err error) {
 		<-ch
 	}()
 	return nil
-}
-
-// Migrate migrate the mysql data to the current tidb.
-// if 'sync' is true, then starting incremental sync after import all data
-func (db *Db) Migrate(src tsql.Mysql, notify string, sync bool, tables []string) error {
-	if !db.Status.Available {
-		return fmt.Errorf("tidb is not available")
-	}
-	// if db.MigrateState != "" {
-	// 	return errors.New("can not migrate multiple times")
-	// }
-	if len(src.IP) < 1 || src.Port < 1 || len(src.User) < 1 || len(src.Password) < 1 || len(src.Database) < 1 {
-		return fmt.Errorf("invalid database %+v", src)
-	}
-	if db.Schema.Name != src.Database {
-		return fmt.Errorf("both schemas must be the same")
-	}
-	sch := db.Schema
-	h, p, err := net.SplitHostPort(db.Status.OuterAddresses[0])
-	if err != nil {
-		return err
-	}
-	port, _ := strconv.Atoi(p)
-	my := &tsql.Migration{
-		Src:        src,
-		Dest:       *tsql.NewMysql(sch.Name, h, port, sch.User, sch.Password),
-		Tables:     tables,
-		ToggleSync: sync,
-		NotifyAPI:  notify,
-	}
-	logs.Debug("migrator object: %v", my)
-	if err := my.Check(); err != nil {
-		return fmt.Errorf("schema '%s' does not support migration error: %v", db.GetName(), err)
-	}
-	NewEvent(db.GetName(), "db", "migrator").
-		Trace(err, fmt.Sprintf("migrate mysql(%s) to tidb: %s", src.Dsn(), tables))
-	db.Operator = "migrate"
-	db.Status.MigrateState = migrating
-	if err := db.update(); err != nil {
-		return err
-	}
-	return db.startMigrator(my)
-}
-
-// SyncMigrateStat update tidb migrate stat
-func (db *Db) SyncMigrateStat() (err error) {
-	var e *Event
-	db.Operator = "migrator"
-	if err := db.update(); err != nil {
-		return err
-	}
-	logs.Info("Current tidb %s migrate status: %s", db.GetName(), db.Status.MigrateState)
-	switch db.Status.MigrateState {
-	case "Finished":
-		e = NewEvent(db.GetName(), "db/migrator", "stop")
-		err = db.stopMigrator()
-		e.Trace(err, "End the full migrate and delete migrator from k8s")
-	case "Syncing":
-		e = NewEvent(db.GetName(), "db/migrator", "sync")
-		e.Trace(nil, "Finished load and start incremental syncing mysql data to tidb")
-	default:
-		return fmt.Errorf("unknow status")
-	}
-	return nil
-}
-
-func (db *Db) startMigrator(my *tsql.Migration) (err error) {
-	sync := "load"
-	if my.ToggleSync {
-		sync = "sync"
-	}
-	r := strings.NewReplacer(
-		"{{namespace}}", getNamespace(),
-		"{{cell}}", db.GetName(),
-		"{{image}}", fmt.Sprintf("%s/migrator:latest", imageRegistry),
-		"{{sh}}", my.Src.IP, "{{sP}}", fmt.Sprintf("%v", my.Src.Port),
-		"{{su}}", my.Src.User, "{{sp}}", my.Src.Password,
-		"{{db}}", my.Src.Database,
-		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
-		"{{du}}", my.Dest.User, "{{dp}}", my.Dest.Password,
-		"{{op}}", sync,
-		"{{api}}", my.NotifyAPI)
-	s := r.Replace(mysqlMigrateYaml)
-	var j []byte
-	if j, err = yaml.YAMLToJSON([]byte(s)); err != nil {
-		return err
-	}
-
-	go func() {
-		e := NewEvent(db.GetName(), "db/migrator", "start")
-		defer func() {
-			e.Trace(err, "Startup migrator on k8s")
-		}()
-		if _, err = k8sutil.CreateAndWaitJobByJSON(j, waitPodRuningTimeout); err != nil {
-			db.Status.MigrateState = migStartMigrateErr
-			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %s error: %v", db.GetName(), uerr)
-			}
-			return
-		}
-	}()
-
-	return nil
-}
-
-func (db *Db) stopMigrator() error {
-	return k8sutil.DeleteJob("migrator-" + db.GetName())
 }
 
 // Scale tikv and tidb
