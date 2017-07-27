@@ -178,10 +178,9 @@ func (dc *TidbController) Patch() {
 			fmt.Sprintf("Start scaling db %s", cell),
 		)
 	case "syncMigrateStat":
-		newDb.Operator = "migrator"
 		errHandler(
 			dc.Controller,
-			newDb.SyncMigrateStat(),
+			db.SyncMigrateStat(newDb.Status.MigrateState, newDb.Status.Reason),
 			"sync db migrate status",
 		)
 	default:
