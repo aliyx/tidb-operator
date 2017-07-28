@@ -56,7 +56,7 @@ func (db *Db) Migrate(src tsql.Mysql, notify string, sync, include bool, tables 
 		return fmt.Errorf("schema '%s' does not support migration error: %v", db.GetName(), err)
 	}
 
-	db.Operator = "migrator"
+	db.Operator = "migrate"
 	if db.Status.MigrateState != "" {
 		db.Status.MigrateState = migStarting
 	}

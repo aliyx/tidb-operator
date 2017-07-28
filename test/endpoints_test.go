@@ -140,6 +140,7 @@ func Test_Migrate(t *testing.T) {
 		Sync:    false,
 	}
 	body, _ := json.Marshal(m)
+	fmt.Printf("%s", body)
 	_, err := httputil.Post(fmt.Sprintf(migrateAPI, host, "006-xinyang1"), body)
 	if err != nil {
 		t.Fatal(err)

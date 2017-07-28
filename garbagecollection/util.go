@@ -108,8 +108,9 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 	}
 
 	// recycle
-
-	logs.Info("tikv %v to be recycled", reflect.ValueOf(deleted).MapKeys())
+	if len(deleted) > 0 {
+		logs.Info("tikv %v to be recycled", reflect.ValueOf(deleted).MapKeys())
+	}
 
 	for _, s := range deleted {
 		if err = pv.Recycling(s); err != nil {
