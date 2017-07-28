@@ -251,8 +251,9 @@ func (db *Db) reconcileTidbs(replica int) error {
 		err = fmt.Errorf("each scale out can not more then 2 times")
 		return err
 	}
-	if replica*3 > td.Spec.Replicas {
-		return fmt.Errorf("each scale dowm can not be less than one-third")
+	if (td.Spec.Replicas-replica)*3 > td.Spec.Replicas {
+		err = fmt.Errorf("each scale dowm can not be less than one-third")
+		return err
 	}
 
 	// scale

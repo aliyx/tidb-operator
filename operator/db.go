@@ -271,7 +271,8 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 		}
 		defer db.Unlock()
 		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available || db.Status.ScaleState&scaling == 0 ||
+		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available || 
+			new.Status.ScaleState&scaling == 0 ||
 			db.Tikv.Replicas != new.Tikv.Replicas || db.Tidb.Replicas != new.Tidb.Replicas {
 			logs.Error("db %s was modified before scale", db.GetName())
 			return

@@ -41,6 +41,11 @@ func SetTidbVersion(i interface{}, version string) {
 		}
 		v.Annotations[tidbVersionAnnotationKey] = version
 	case *v1.ReplicationController:
+		if len(v.Annotations) < 1 {
+			v.Annotations = make(map[string]string)
+		}
+		v.Annotations[tidbVersionAnnotationKey] = version
+
 		if len(v.Spec.Template.Annotations) < 1 {
 			v.Spec.Template.Annotations = make(map[string]string)
 		}
