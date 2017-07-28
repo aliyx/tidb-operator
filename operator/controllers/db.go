@@ -172,6 +172,7 @@ func (dc *TidbController) Patch() {
 		)
 	case "scale":
 		db.Status.ScaleCount++
+		db.Operator = "scale"
 		errHandler(
 			dc.Controller,
 			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
