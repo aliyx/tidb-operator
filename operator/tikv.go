@@ -47,7 +47,7 @@ func (tk *Tikv) upgrade() (err error) {
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
-			e.Trace(err, fmt.Sprintf("upgrate tikv to version: %s", tk.Version))
+			e.Trace(err, fmt.Sprintf("Upgrate tikv to version: %s", tk.Version))
 		}
 	}()
 

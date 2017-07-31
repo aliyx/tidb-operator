@@ -9,7 +9,7 @@ namespace=$NS
 version=latest
 registry=${REGISTRY}
 env=${runMode:-'dev'}
-initMd=${runMode:-'false'}
+initMd=${initMd:-'false'}
 
 echo "****************************"
 echo "*Creating tidb-operator namespace: $NS"

@@ -33,7 +33,7 @@ func (p *Pd) upgrade() error {
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
-			e.Trace(err, fmt.Sprintf("upgrate pd to version: %s", p.Version))
+			e.Trace(err, fmt.Sprintf("Upgrate pd to version: %s", p.Version))
 		}
 	}()
 

@@ -166,15 +166,16 @@ func metaInit() {
 
 	go func() {
 		for {
+			time.Sleep(syncMetadataInterval)
 			m, err := GetMetadata()
 			if err != nil {
-				logs.Critical("sync metadata error: %", err)
+				logs.Critical("sync metadata error: %v", err)
+				continue
 			}
 			md = m
 			if md.Spec.K8s.Volume == "" || md.Spec.K8s.Volume == "/tmp" {
 				logs.Warn("Please specify PV hostpath")
 			}
-			time.Sleep(syncMetadataInterval)
 		}
 	}()
 }
@@ -194,7 +195,8 @@ func initMetadataIfNot() {
 		"node-role.proxy": "",
 	})
 	if err != nil {
-		panic(fmt.Sprintf("get proxys error: %v", err))
+		logs.Critical("could not get proxys: %v", err)
+		panic("could not get proxys")
 	}
 	ms.K8s.Proxys = strings.Join(ps, ",")
 

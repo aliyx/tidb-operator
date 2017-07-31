@@ -2,7 +2,7 @@
 
 # This is an example script that stops tidb-operator.
 
-export NS="kube-system"
+export NS="default"
 
 #set -e
 
