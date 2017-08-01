@@ -14,17 +14,17 @@ Build all docker images and push to your private docker registry, default versio
 
 ## Preparedness
 
-### Install kubernetes if have already installed, skip this step
+#### Install kubernetes if have already installed, skip this step
 
 Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes `./kubernetes/deploy` directory.
 
 Access kubernetes dashboard: `http://<NodeIP>:10281`
 
-### Download
+#### Download
 
 Git clone the project to `$GOPATH/src/github/ffan` dir
 
-### Deploy prometheus/grafana on kubernetes
+#### Deploy prometheus/grafana on kubernetes
 
 ```bash
 make install-grafana # run this shell on kubernetes master
@@ -32,7 +32,7 @@ make install-grafana # run this shell on kubernetes master
 
 Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
 
-### Deploy tidb-gc on kubernetes
+#### Deploy tidb-gc on kubernetes
 
 ```bash
 make install-tidb-gc # run this shell on kubernetes master
