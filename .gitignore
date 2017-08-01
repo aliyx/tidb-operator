@@ -15,7 +15,7 @@ operator/operator
 
 *.tar.gz
 
-# docker/migrator/pkg/*.pyc
+*.pyc
 
 # swagger lib
 swagger/css
