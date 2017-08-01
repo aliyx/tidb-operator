@@ -1,8 +1,5 @@
 #!/bin/bash
 
-script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/../../dev.env
-
 rm -rf base
 
 set -e
@@ -12,16 +9,16 @@ VERSION=${VERSION:-'latest'}
 echo "****************************"
 echo "*Starting build tikv image..."
 echo "*  Proxy: $DPROXY"
-echo "*  Image: $REGISTRY/ffan/rds/tikv:$VERSION"
+echo "*  Image: ${REGISTRY}tikv:$VERSION"
 echo "****************************" 
-(docker build $DPROXY --build-arg VERSION=$VERSION -t $REGISTRY/ffan/rds/tikv:$VERSION-base -f dockerfile ./)
+(docker build $DPROXY --build-arg VERSION=$VERSION -t ${REGISTRY}tikv:$VERSION-base -f dockerfile ./)
 
-# Extract files from ffan/rds/tikv image
+# Extract files from tikv image
 mkdir base
-docker run -ti --rm -v $PWD/base:/base -u $UID --entrypoint sh $REGISTRY/ffan/rds/tikv:$VERSION-base -c 'cp -f /tikv-server /base/tikv-server'
+docker run -ti --rm -v $PWD/base:/base -u $UID --entrypoint sh ${REGISTRY}tikv:$VERSION-base -c 'cp -f /tikv-server /base/tikv-server'
 
-# Build ffan/rds/tikv image
-docker build -t $REGISTRY/ffan/rds/tikv:$VERSION -f dockerfile_lite ./
+# Build tikv image
+docker build -t ${REGISTRY}tikv:$VERSION -f dockerfile_lite ./
 
 # Clean up temporary files
 rm -rf base

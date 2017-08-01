@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../env.sh
 

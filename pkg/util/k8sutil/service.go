@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 
 	"github.com/astaxie/beego/logs"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
-
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateServiceByJSON create a service by json
@@ -32,7 +31,7 @@ func CreateService(srv *v1.Service) (*v1.Service, error) {
 // DelSrvs delete services
 func DelSrvs(names ...string) error {
 	for _, name := range names {
-		kubecli.CoreV1().Services(Namespace).Delete(name, &meta_v1.DeleteOptions{})
+		kubecli.CoreV1().Services(Namespace).Delete(name, &metav1.DeleteOptions{})
 		logs.Warn(`Service "%s" deleted`, name)
 	}
 	return nil

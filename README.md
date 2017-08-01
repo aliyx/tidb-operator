@@ -6,26 +6,11 @@ Note: **Currently only support kubernetes version is `1.6`, all port ranges `[10
 
 ## Build images
 
-Build all the images needed by the project and push to yourself private docker registry.
-* Please modify docker private register or set http proxy if need in `./dev.env`.
-* Build all docker images, default version is `latest`:
-  ```bash
-  # Build tidb-gc image, for recyling tikvs deleted and delete prometheus metrics, etc.
-  ./docker/tidb-gc/build.sh
-  # Build tidb-operator image, for create/delete/scale/upgrade tidb cluster.
-  ./docker/tidb-operator/build.sh
-  # Build prom-server image, for adding prometheus config to image
-  ./docker/prom-server/build.sh
-  # Build migrator image, for supporting full/incremental migrate mysql data to tidb cluster
-  ./docker/migrator/build.sh
+Build all docker images and push to your private docker registry, default version is `latest`:
 
-  # Build pd/tikv/tidb images, such as add some config.toml to image.
-  # The official image on docker.com doesn't have
-  ./docker/pd/build.sh
-  ./docker/tikv/build.sh
-  ./docker/tidb/build.sh
+  ```bash
+  make build && make push
   ```
-* Push pd/tikv/tidb... all images builded to your private docker registry.
 
 ## Preparedness
 
@@ -33,7 +18,7 @@ Build all the images needed by the project and push to yourself private docker r
 
 Note: Due to GFW reasons, some installation packages and images can not be obtained, you need to download to the local upload to the specified server and then install. See: kubernetes `./kubernetes/deploy` directory.
 
-Access kubernetes dashboard: `http://{masterIP}:10281`
+Access kubernetes dashboard: `http://<NodeIP>:10281`
 
 ### Download
 
@@ -42,25 +27,23 @@ Git clone the project to `$GOPATH/src/github/ffan` dir
 ### Deploy prometheus/grafana on kubernetes
 
 ```bash
-./kubernetes/prometheus/deploy.sh # run this shell on kubernetes master
+make deploy-prometheus # run this shell on kubernetes master
 ```
 
-Access grafana: `http://{masterIP}:12802`, user/password is admin/admin.
+Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
 
 ### Deploy tidb-gc on kubernetes
 
 ```bash
-./kubernetes/manager/gc-up.sh # run this shell on kubernetes master
+make deploy-tidb-gc # run this shell on kubernetes master
 ```
 
 ## Startup tidb-operator
 
 ### Kubernetes
 
-Please set your environment variable in `./kubernetes/env.sh` and run.
-
 ```bash
-./kubernetes/manager/op.sh # deploy tidb-operator on kubernetes
+make deploy-tidb-operator # run this shell on kubernetes master
 ```
 
 ### Development

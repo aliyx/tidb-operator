@@ -7,7 +7,6 @@ import:
   - config
   - context
   - grace
-  - session
   - toolbox
   - utils
 - package: github.com/ghodss/yaml
@@ -16,21 +15,36 @@ import:
   version: v1.3
 - package: github.com/tidwall/gjson
 - package: github.com/tidwall/match
-- package: google.golang.org/grpc
-  version: v1.2.1
-  subpackages:
-  - codes
 - package: gopkg.in/yaml.v2
 - package: k8s.io/client-go
-  version: v3.0.0-beta.0
+  version: v3.0.0
+  subpackages:
+  - kubernetes
+  - kubernetes/typed/core/v1
+  - rest
+  - tools/cache
+  - tools/clientcmd
+  - tools/record
 - package: k8s.io/apimachinery
   subpackages:
-  - '...'
+  - pkg/api/errors
+  - pkg/api/resource
+  - pkg/apis/meta/v1
+  - pkg/runtime
+  - pkg/types
+  - pkg/util/runtime
+  - pkg/util/uuid
+  - pkg/util/validation
+  - pkg/util/validation/field
+  - pkg/util/wait
+  - pkg/watch
 - package: github.com/howeyc/gopass
 - package: github.com/imdario/mergo
-  version: ^0.2.2
 - package: github.com/Sirupsen/logrus
   version: ^1.0.0
 - package: gopkg.in/resty.v0
   version: ^0.12.0
 - package: github.com/evanphx/json-patch
+  subpackages:
+  - proto
+  - sortkeys
