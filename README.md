@@ -27,7 +27,7 @@ Git clone the project to `$GOPATH/src/github/ffan` dir
 ### Deploy prometheus/grafana on kubernetes
 
 ```bash
-make deploy-prometheus # run this shell on kubernetes master
+make install-grafana # run this shell on kubernetes master
 ```
 
 Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
@@ -35,7 +35,7 @@ Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
 ### Deploy tidb-gc on kubernetes
 
 ```bash
-make deploy-tidb-gc # run this shell on kubernetes master
+make install-tidb-gc # run this shell on kubernetes master
 ```
 
 ## Startup tidb-operator
@@ -43,7 +43,7 @@ make deploy-tidb-gc # run this shell on kubernetes master
 ### Kubernetes
 
 ```bash
-make deploy-tidb-operator # run this shell on kubernetes master
+make install-tidb-operator # run this shell on kubernetes master
 ```
 
 ### Development
