@@ -66,6 +66,7 @@ func (m *Migration) Check() error {
 				}
 			}
 		}
+		m.Tables = tables
 		cmd += (" " + strings.Join(tables, " "))
 	}
 	o, err := execShell(cmd)

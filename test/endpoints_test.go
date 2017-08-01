@@ -126,11 +126,20 @@ func Test_DeleteDB(t *testing.T) {
 	}
 }
 
+/*
+CREATE TABLE t1 (id INT, age INT, PRIMARY KEY(id)) ENGINE=InnoDB;
+CREATE TABLE t2 (id INT, name VARCHAR(256), PRIMARY KEY(id)) ENGINE=InnoDB;
+CREATE TABLE t_error (
+  c timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
+INSERT INTO t2 VALUES (1, "a"), (2, "b"), (3, "c");
+*/
 func Test_Migrate(t *testing.T) {
 	m := controllers.Migrator{
 		Mysql: mysqlutil.Mysql{
 			Database: "xinyang1",
-			IP:       "10.213.125.4",
+			IP:       "10.213.125.85",
 			Port:     13306,
 			User:     "xinyang1",
 			Password: "xinyang1",
@@ -138,6 +147,7 @@ func Test_Migrate(t *testing.T) {
 		Include: true,
 		Tables:  []string{"t1", "t2"},
 		Sync:    false,
+		Notify:  false,
 	}
 	body, _ := json.Marshal(m)
 	fmt.Printf("%s", body)

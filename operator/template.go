@@ -322,6 +322,7 @@ spec:
               --dest-user {{du}} \
               --dest-password {{dp}} \
               --operator {{op}} \
+              --tables "{{tables}}" \
               --notice "{{api}}"
         env: 
         - name: TZ

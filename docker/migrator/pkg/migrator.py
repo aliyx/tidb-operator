@@ -44,7 +44,7 @@ class Migrator:
     # load local data to tidb
     def load(self):
         if not path.isfile(self.src.getDumpedMeta()):
-            self.dump(self.notice)
+            self.dump()
 
         rest.sync_stat(self.notice, 'Loading')
         cmds = self.dest.toLoader()
@@ -56,9 +56,6 @@ class Migrator:
             logs.critical("load error")
 
     def sync(self):
-        if not path.isfile(self.src.getCheckpoint()):
-            self.load(self.notice)
-
         self.src.genSyncConfigFile(self.dest)
         if not path.isfile(self.src.getMeta()):
             self.src.genSyncMetaFile()
@@ -151,4 +148,4 @@ def main(argv):
 if __name__ == "__main__":
     main(sys.argv[1:])
 
-# migrator.py --database xinyang1 --src-host 10.213.125.4 --src-port 13306 --src-user root --src-password EJq4dspojdY3FmVF?TYVBkEMB --dest-host 10.213.44.128 --dest-port 14051 --dest-user xinyang1 --dest-password xinyang1 --operator sync --notice http://10.213.44.128:12808/tidb/api/v1/tidbs/006-xinyang1 --tables t1,t2
+# migrator.py --database xinyang1 --src-host 10.213.125.85 --src-port 13306 --src-user root --src-password EJq4dspojdY3FmVF?TYVBkEMB --dest-host 10.213.44.128 --dest-port 14988 --dest-user xinyang1 --dest-password xinyang1 --operator sync --notice http://10.213.44.128:12808/tidb/api/v1/tidbs/006-xinyang1 --tables t1,t2

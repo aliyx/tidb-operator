@@ -15,7 +15,7 @@ func TestDb_Migrate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = db.stopMigrator(); err != nil {
+	if err = db.StopMigrator(); err != nil {
 		t.Error(err)
 	}
 	time.Sleep(6 * time.Second)
@@ -26,7 +26,7 @@ func TestDb_Migrate(t *testing.T) {
 		User:     "root",
 		Password: "EJq4dspojdY3FmVF?TYVBkEMB",
 	}
-	if err = db.Migrate(src, "", true); err != nil {
+	if err = db.Migrate(src, "", true, true, nil); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(10 * time.Second)

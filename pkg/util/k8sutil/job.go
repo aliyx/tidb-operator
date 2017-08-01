@@ -59,10 +59,14 @@ func CreateAndWaitJob(job *v1.Job, timeout time.Duration) (*v1.Job, error) {
 // DeleteJob delete a job by name
 func DeleteJob(name string) error {
 	err := kubecli.BatchV1().Jobs(Namespace).Delete(name, &metav1.DeleteOptions{})
-	if !apierrors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	return DeletePodsByLabel(map[string]string{"job-name": name})
+	err = DeletePodsByLabel(map[string]string{"job-name": name})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetJob get a job by name

@@ -243,14 +243,17 @@ func (dc *TidbController) Migrate() {
 	}
 	m := &Migrator{
 		Include: true,
+		Notify:  true,
 	}
 	if err := json.Unmarshal(b, m); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("Parse body error: %v", err))
 	}
 	db, err := operator.GetDb(cell)
 	errHandler(dc.Controller, err, "get db "+cell)
-
-	api := fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
+	api := ""
+	if m.Notify {
+		api = fmt.Sprintf(statAPI, beego.BConfig.Listen.HTTPAddr, beego.BConfig.Listen.HTTPPort, cell)
+	}
 	errHandler(
 		dc.Controller,
 		db.Migrate(m.Mysql, api, m.Sync, m.Include, m.Tables),
@@ -261,9 +264,10 @@ func (dc *TidbController) Migrate() {
 // Migrator a migrated target
 type Migrator struct {
 	mysqlutil.Mysql `json:",inline"`
-	Include         bool     `json:"include,omitempty"`
+	Include         bool     `json:"include"`
 	Tables          []string `json:"tables,omitempty"`
 	Sync            bool     `json:"sync,omitempty"`
+	Notify          bool     `json:"notify"`
 }
 
 func errHandler(c beego.Controller, err error, msg string) {

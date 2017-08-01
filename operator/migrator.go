@@ -138,6 +138,7 @@ func (db *Db) startMigrator(my *tsql.Migration) (err error) {
 		"{{dh}}", my.Dest.IP, "{{dP}}", fmt.Sprintf("%v", my.Dest.Port),
 		"{{du}}", my.Dest.User, "{{dp}}", my.Dest.Password,
 		"{{op}}", sync,
+		"{{tables}}", strings.Join(my.Tables, ","),
 		"{{api}}", my.NotifyAPI)
 	s := r.Replace(mysqlMigrateYaml)
 	var j []byte

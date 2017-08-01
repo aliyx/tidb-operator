@@ -17,7 +17,7 @@ class Config:
         self.tables = tables
 
     def getDataDir(self):
-        return ROOT + "/" + self.db
+        return ROOT + self.db
 
     def getDumpedMeta(self):
         return self.getDataDir() + "/metadata"
