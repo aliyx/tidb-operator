@@ -170,7 +170,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			logs.Error("db %s was modified before uninstall", db.GetName())
 			return
 		}
-		logs.Info("start uninstall db", db.GetName())
+		logs.Warn("start uninstall db", db.GetName())
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
 			stoped := 0
@@ -195,7 +195,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 			if ch != nil {
 				ch <- stoped
 			}
-			logs.Info("end uninstall db", db.GetName())
+			logs.Warn("end uninstall db", db.GetName())
 		}()
 		if err = db.StopMigrator(); err != nil {
 			return
@@ -271,7 +271,7 @@ func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
 		}
 		defer db.Unlock()
 		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available || 
+		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available ||
 			new.Status.ScaleState&scaling == 0 ||
 			db.Tikv.Replicas != new.Tikv.Replicas || db.Tidb.Replicas != new.Tidb.Replicas {
 			logs.Error("db %s was modified before scale", db.GetName())
@@ -334,7 +334,7 @@ func Delete(cell string) error {
 
 	// async wait
 	go func() {
-		logs.Info("start delete db", db.GetName())
+		logs.Warn("start delete db", db.GetName())
 		ch := make(chan int, 1)
 		if err = db.Uninstall(ch); err != nil {
 			return
@@ -354,7 +354,7 @@ func Delete(cell string) error {
 			logs.Error("delete event error: %v", err)
 			return
 		}
-		logs.Info("end delete db", db.GetName())
+		logs.Warn("end delete db", db.GetName())
 	}()
 	return nil
 }

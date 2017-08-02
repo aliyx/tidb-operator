@@ -160,8 +160,6 @@ spec:
       hostPath: {path: /dev/log}
     - name: datadir
       {{tidbdata_volume}}
-    - name: zone
-      hostPath: {path: /etc/localtime}
   terminationGracePeriodSeconds: 5
   containers:
   - name: tikv
@@ -178,14 +176,14 @@ spec:
     - containerPort: 20160
     volumeMounts:
       - name: datadir
-        mountPath: /data
+        mountPath: /host
     command:
       - bash
       - "-c"
       - |
-        p = $(mountpath /host {{mount}})
-        export TIKV_DATA_DIR = $p
-        echo "Mount path:$TIKV_DATA_DIR"
+        p=$(mountpath /host {{mount}})
+        export TIKV_DATA_DIR=$p
+        echo "Current data mount path:$TIKV_DATA_DIR"
 
         /tikv-server \
         --store="$TIKV_DATA_DIR/tikv-{{cell}}-{{id}}" \

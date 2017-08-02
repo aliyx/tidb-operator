@@ -79,11 +79,11 @@ func main() {
 
 func defaultPath(hostPath, mount string) {
 	if len(mount) < 1 {
-		fmt.Printf("%s", hostPath)
+		fmt.Printf("%s\n", hostPath)
 	} else if hostPath == "/" {
-		fmt.Printf("/%s", mount)
+		fmt.Printf("/%s\n", mount)
 	} else {
-		fmt.Printf("%s/%s", hostPath, mount)
+		fmt.Printf("%s/%s\n", hostPath, mount)
 	}
 }
 

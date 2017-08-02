@@ -19,12 +19,13 @@ tidbdata_volume='emptyDir: {}'
 if [ -n "$DATA_VOLUME" ]; then
   tidbdata_volume="hostPath: {path: ${DATA_VOLUME}}"
 fi
+mount=''
 
 for id in `seq 1 $replicas`; do
   echo "Creating tikv pod $id for $cell cell..."
   id=$(printf "%03d" $id)
   sed_script=""
-  for var in cell id cpu mem capacity version tidbdata_volume namespace registry; do
+  for var in cell id cpu mem capacity version tidbdata_volume mount namespace registry; do
     sed_script+="s,{{$var}},${!var},g;"
   done
   # echo "Creating tikv deployment $id for $cell cell..."

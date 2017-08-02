@@ -40,6 +40,11 @@ func (dc *TidbController) Post() {
 	if err = db.Unmarshal(b); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse body %v", err))
 	}
+
+	if !operator.NeedApproval(db.Owner.ID, uint(db.Tikv.Replicas), uint(db.Tidb.Replicas)) {
+		db.Status.Phase = operator.PhaseUndefined
+	}
+
 	errHandler(
 		dc.Controller,
 		db.Save(),

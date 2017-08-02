@@ -1,13 +1,20 @@
 package garbagecollection
 
 import (
+	"errors"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"io/ioutil"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/operator"
+)
+
+var (
+	found = errors.New("found")
 )
 
 // PVProvisioner persistent volumes provisioner
@@ -19,32 +26,82 @@ type PVProvisioner interface {
 
 // HostPathPVProvisioner local storage
 type HostPathPVProvisioner struct {
-	HostName     string
-	Dir          string
+	Node         string
+	HostPath     string
+	Mount        string
 	ExcludeFiles []string
 }
 
 // Recycling implement PVProvisioner#Recycling
 func (hp *HostPathPVProvisioner) Recycling(s *operator.Store) error {
-	if s.Node == hp.HostName {
-		logs.Info("recycling tikv: %s", s.Name)
-		p := path.Join(hp.Dir, s.Name)
-		return os.RemoveAll(p)
+	if s.Node != hp.Node {
+		return nil
+	}
+	if len(s.Name) < 1 {
+		return nil
+	}
+
+	logs.Info("start recycling tikv: %s", s.Name)
+	err := filepath.Walk(hp.HostPath, func(path string, info os.FileInfo, err error) error {
+		// end
+		if err != nil {
+			return err
+		}
+		// continue
+		if !info.IsDir() {
+			return nil
+		}
+
+		if path == hp.HostPath {
+			return nil
+		}
+		// end if found
+		if strings.HasSuffix(path, s.Name) {
+			os.RemoveAll(path)
+			logs.Info("%s is deleted", path)
+			return found
+		}
+		// Only handle with the 'mount' suffix directory
+		if strings.Contains(path, "/"+hp.Mount) {
+			return nil
+		}
+		return filepath.SkipDir
+	})
+	if err != found {
+		return err
 	}
 	return nil
 }
 
 // Clean implement PVProvisioner#Clean
 func (hp *HostPathPVProvisioner) Clean(all []*operator.Store) error {
-	files, err := ioutil.ReadDir(hp.Dir)
+	var tikvs []string
+	mnts, err := ioutil.ReadDir(hp.HostPath)
 	if err != nil {
 		return err
 	}
+	if len(hp.Mount) > 0 {
+		for _, p := range mnts {
+			if p.IsDir() && strings.HasPrefix(p.Name(), hp.Mount) {
+				fs, err := ioutil.ReadDir(path.Join(hp.HostPath, p.Name()))
+				if err != nil {
+					return err
+				}
+				for _, f := range fs {
+					tikvs = append(tikvs, path.Join(hp.HostPath, p.Name(), f.Name()))
+				}
+			}
+		}
+	} else {
+		for _, f := range mnts {
+			tikvs = append(tikvs, path.Join(hp.HostPath, f.Name()))
+		}
+	}
 
-	for _, file := range files {
+	for _, file := range tikvs {
 		exist := false
 		for _, s := range all {
-			if file.Name() == s.Name {
+			if strings.HasSuffix(file, s.Name) {
 				exist = true
 				break
 			}
@@ -53,16 +110,15 @@ func (hp *HostPathPVProvisioner) Clean(all []*operator.Store) error {
 		// fileter excluded files
 		if exist == false {
 			for _, ef := range hp.ExcludeFiles {
-				if file.Name() == ef {
+				if strings.HasSuffix(file, ef) {
 					exist = true
 					break
 				}
 			}
 		}
 		if !exist {
-			p := path.Join(hp.Dir, file.Name())
-			logs.Info("delete local file %s", p)
-			if err = os.RemoveAll(p); err != nil {
+			logs.Info("file %s is deleted", file)
+			if err = os.RemoveAll(file); err != nil {
 				return err
 			}
 		}

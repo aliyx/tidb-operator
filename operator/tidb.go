@@ -172,7 +172,7 @@ func (td *Tidb) waitForOk() (err error) {
 			}
 		}
 		if count != td.Replicas {
-			logs.Warn("some tidb %s pods not running yet", td.Db.GetName())
+			logs.Warn("some pods(tidb-%s-*) not running yet", td.Db.GetName())
 			return false, nil
 		}
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"time"
 
 	"encoding/json"
@@ -208,10 +209,18 @@ func (w *Watcher) initResource() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		logs.Info("current pv provisioner is hostpath, path: %s", md.Spec.K8s.Volume)
+		if !md.Spec.K8s.Available() {
+			return "", fmt.Errorf("metadata is unavailable")
+		}
+		// tidb-gc hostPath is root('/'), mountPath is '/host'
+		// so tikv hostPath is '/host' + tikv hostPath(md.Spec.K8s.HostPath)
+		hostPath := path.Join("/host", md.Spec.K8s.HostPath)
+		logs.Info("current pv provisioner is hostPath, hostPath: %q, mount: %q",
+			hostPath, md.Spec.K8s.Mount)
 		pvProvisioner = &HostPathPVProvisioner{
-			HostName:     w.HostName,
-			Dir:          md.Spec.K8s.Volume,
+			Node:         w.HostName,
+			HostPath:     hostPath,
+			Mount:        md.Spec.K8s.Mount,
 			ExcludeFiles: w.ExcludeFiles,
 		}
 	}

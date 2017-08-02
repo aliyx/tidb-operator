@@ -33,7 +33,7 @@ spec:
       volumes:
       - name: datadir
         hostPath:
-          path: /data
+          path: /
       serviceAccountName: tidb-gc
       containers:
       - name: tidb-gc
@@ -50,7 +50,7 @@ spec:
             tidb-gc
         volumeMounts:
         - name: datadir
-          mountPath: /data
+          mountPath: /host
         env: 
         - name: TZ
           value: "Asia/Shanghai"
