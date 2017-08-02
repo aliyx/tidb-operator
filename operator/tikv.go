@@ -134,6 +134,7 @@ func (tk *Tikv) toJSONTemplate(temp string) ([]byte, error) {
 		"{{id}}", fmt.Sprintf("%03v", tk.Member),
 		"{{registry}}", imageRegistry,
 		"{{cell}}", tk.Db.Metadata.Name,
+		"{{mount}}", tk.Spec.Mount,
 		"{{namespace}}", getNamespace())
 	str := r.Replace(temp)
 	j, err := yaml.YAMLToJSON([]byte(str))

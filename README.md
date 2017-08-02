@@ -40,7 +40,7 @@ make install-tidb-gc # run this shell on kubernetes master
 
 ## Startup tidb-operator
 
-### Kubernetes
+### To start on kubernetes cluster
 
 ```bash
 make install-tidb-operator # run this shell on kubernetes master

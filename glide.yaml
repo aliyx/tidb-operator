@@ -48,3 +48,4 @@ import:
   subpackages:
   - proto
   - sortkeys
+- package: github.com/nightlyone/lockfile

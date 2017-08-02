@@ -59,6 +59,7 @@ go version 2>&1 >/dev/null || fail "Go is not installed or is not on \$PATH"
 
 set -e
 
+echo "Start building tidb-operator..."
 CGO_ENABLED=0 go build -ldflags '-d -w -s'
 
 if ! [ -f tidb-operator ]; then

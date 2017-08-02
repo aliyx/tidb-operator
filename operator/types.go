@@ -85,6 +85,7 @@ type Spec struct {
 	Version  string `json:"version"`
 	Replicas int    `json:"replicas"`
 	Volume   string `json:"tidbdata_volume,omitempty"`
+	Mount    string `json:"mount,omitempty"`
 	Capatity int    `json:"capatity,omitempty"`
 }
 

@@ -12,9 +12,9 @@ var (
 
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
 	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")
-
+	// ErrScaling be scaling
 	ErrScaling = errors.New("be scaling")
-
+	// ErrUnavailable ...
 	ErrUnavailable = errors.New("unavailable")
 )
 

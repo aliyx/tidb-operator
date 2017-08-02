@@ -183,8 +183,12 @@ spec:
       - bash
       - "-c"
       - |
+        p = $(mountpath /host {{mount}})
+        export TIKV_DATA_DIR = $p
+        echo "Mount path:$TIKV_DATA_DIR"
+
         /tikv-server \
-        --store="/data/tikv-{{cell}}-{{id}}" \
+        --store="$TIKV_DATA_DIR/tikv-{{cell}}-{{id}}" \
         --addr="0.0.0.0:20160" \
         --capacity={{capacity}}GB \
         --advertise-addr="$POD_IP:20160" \

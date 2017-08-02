@@ -91,7 +91,7 @@ func (db *Db) check() (err error) {
 	}
 	// db share Volume
 	md := getCachedMetadata()
-	db.Volume = strings.Trim(md.Spec.K8s.Volume, " ")
+	db.Volume = strings.Trim(md.Spec.K8s.HostPath, " ")
 	if len(db.Volume) == 0 {
 		db.Volume = "emptyDir: {}"
 	} else {
@@ -150,12 +150,13 @@ func (tk *Tikv) check() error {
 	if tk.Spec.Replicas < 3 || tk.Spec.Replicas > max {
 		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
-	tk.Spec.Volume = strings.Trim(md.Spec.K8s.Volume, " ")
+	tk.Volume = strings.Trim(md.Spec.K8s.HostPath, " ")
 	if len(tk.Spec.Volume) == 0 {
-		tk.Spec.Volume = "emptyDir: {}"
+		tk.Volume = "emptyDir: {}"
 	} else {
-		tk.Spec.Volume = fmt.Sprintf("hostPath: {path: %s}", tk.Spec.Volume)
+		tk.Volume = fmt.Sprintf("hostPath: {path: %s}", tk.Volume)
 	}
+	tk.Mount = md.Spec.K8s.Mount
 	return nil
 }
 
@@ -224,12 +225,14 @@ func GetDb(cell string) (*Db, error) {
 	return db, nil
 }
 
+// AfterPropertiesSet ...
 func (db *Db) AfterPropertiesSet() {
 	db.Pd.Db = db
 	db.Tikv.Db = db
 	db.Tidb.Db = db
 }
 
+//Clone ...
 func (db *Db) Clone() *Db {
 	c := *db
 	var nD = &c
@@ -243,6 +246,7 @@ func (db *Db) Clone() *Db {
 	return nD
 }
 
+// Unmarshal ...
 func (db *Db) Unmarshal(data []byte) error {
 	if err := json.Unmarshal(data, db); err != nil {
 		return err

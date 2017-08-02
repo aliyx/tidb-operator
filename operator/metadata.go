@@ -36,7 +36,8 @@ tidb:
   memory: 1024
   max: 10
 k8s:
-  volume: "/data"
+  hostPath: "/"
+  mount: "data"
   proxys: ""
 approvalConditions:
   kvReplicas: 3
@@ -83,8 +84,19 @@ type Unit struct {
 
 // K8s config
 type K8s struct {
-	Volume string `json:"volume"`
-	Proxys string `json:"proxys"`
+	HostPath string `json:"hostPath" yaml:"hostPath"`
+	Mount    string `json:"mount" yaml:"mount"`
+	Proxys   string `json:"proxys"`
+}
+
+// Path real host path
+func (k K8s) Path() string {
+	return k.HostPath + k.Mount
+}
+
+// Available path eg: /mmt/data0, /mmt/data1...
+func (k K8s) Available() bool {
+	return len(k.Path()) > 2 && strings.HasPrefix(k.Path(), "/")
 }
 
 // ApprovalConditions Tikv and tidb more than the number of replicas of the conditions,
@@ -173,7 +185,7 @@ func metaInit() {
 				continue
 			}
 			md = m
-			if md.Spec.K8s.Volume == "" || md.Spec.K8s.Volume == "/tmp" {
+			if !md.Spec.K8s.Available() {
 				logs.Warn("Please specify PV hostpath")
 			}
 		}
@@ -225,13 +237,13 @@ func NewMetadata() *Metadata {
 // CreateOrUpdate create if no exist, else update
 func (m *Metadata) CreateOrUpdate() (err error) {
 	if err = m.adjust(); err != nil {
-		return err
+		return
 	}
-	tmp := NewMetadata()
-	if err = metaS.Get(m.Metadata.Name, tmp); err == storage.ErrNoNode {
-		return metaS.Create(m)
+	err = metaS.Delete(m.Metadata.Name)
+	if err != nil && err != storage.ErrNoNode {
+		return
 	}
-	return metaS.Update(m.Metadata.Name, m)
+	return metaS.Create(m)
 }
 
 // Update update metadata

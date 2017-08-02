@@ -20,7 +20,7 @@ func Test_UnmarshalMetadata(t *testing.T) {
 func TestGetMetadata(t *testing.T) {
 	md, err := GetMetadata()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	fmt.Printf("%+v\n", *md)
+	fmt.Printf("%+v\n", *md.Spec)
 }

@@ -1,5 +1,5 @@
-hash: fa157b1f57201ffc70a8014dfda7627dad005aca73c6a2ecac362eecc5ff476a
-updated: 2017-08-01T09:46:11.922448986+08:00
+hash: 7c52a350d1deef2a28d71eed18d47df76d0d861b08e69aa5046a01025d8344f1
+updated: 2017-08-01T17:28:09.263748956+08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -73,6 +73,8 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/nightlyone/lockfile
+  version: e83dc5e7bba095e8d32fb2124714bf41f2a30cb5
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
