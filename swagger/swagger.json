@@ -350,6 +350,9 @@
                 "include": {
                     "type": "boolean"
                 },
+                "notify": {
+                    "type": "boolean"
+                },
                 "sync": {
                     "type": "boolean"
                 },
@@ -394,6 +397,9 @@
                 },
                 "tidb": {
                     "$ref": "#/definitions/operator.Tidb"
+                },
+                "tidbdata_volume": {
+                    "type": "string"
                 },
                 "tikv": {
                     "$ref": "#/definitions/operator.Tikv"
@@ -452,10 +458,13 @@
             "title": "K8s",
             "type": "object",
             "properties": {
-                "proxys": {
+                "hostPath": {
                     "type": "string"
                 },
-                "volume": {
+                "mount": {
+                    "type": "string"
+                },
+                "proxys": {
                     "type": "string"
                 }
             }
@@ -558,6 +567,9 @@
                         "$ref": "#/definitions/operator.Member"
                     }
                 },
+                "mount": {
+                    "type": "string"
+                },
                 "outerAddresses": {},
                 "replicas": {
                     "type": "integer",
@@ -623,6 +635,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "mount": {
+                    "type": "string"
+                },
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
@@ -662,6 +677,10 @@
                 },
                 "message": {
                     "type": "string"
+                },
+                "migrateRetryCount": {
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "migrateState": {
                     "type": "string"
@@ -734,6 +753,9 @@
                         "$ref": "#/definitions/operator.Member"
                     }
                 },
+                "mount": {
+                    "type": "string"
+                },
                 "replicas": {
                     "type": "integer",
                     "format": "int64"
@@ -773,6 +795,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "mount": {
+                    "type": "string"
+                },
                 "readyReplicas": {
                     "type": "integer",
                     "format": "int64"
@@ -782,7 +807,7 @@
                     "format": "int64"
                 },
                 "stores": {
-                    "$ref": "#/definitions/46197.Store"
+                    "$ref": "#/definitions/59473.Store"
                 },
                 "tidbdata_volume": {
                     "type": "string"

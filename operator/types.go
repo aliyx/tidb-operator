@@ -187,6 +187,7 @@ const (
 	PhaseTidbUninstalling
 )
 
+// GetName ...
 func (db *Db) GetName() string {
 	return db.Metadata.Name
 }

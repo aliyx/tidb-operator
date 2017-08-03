@@ -232,6 +232,8 @@ definitions:
     properties:
       include:
         type: boolean
+      notify:
+        type: boolean
       sync:
         type: boolean
       tables: {}
@@ -263,6 +265,8 @@ definitions:
         $ref: '#/definitions/operator.Status'
       tidb:
         $ref: '#/definitions/operator.Tidb'
+      tidbdata_volume:
+        type: string
       tikv:
         $ref: '#/definitions/operator.Tikv'
   operator.Event:
@@ -302,9 +306,11 @@ definitions:
     title: K8s
     type: object
     properties:
-      proxys:
+      hostPath:
         type: string
-      volume:
+      mount:
+        type: string
+      proxys:
         type: string
   operator.Member:
     title: Member
@@ -375,6 +381,8 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/operator.Member'
+      mount:
+        type: string
       outerAddresses: {}
       replicas:
         type: integer
@@ -420,6 +428,8 @@ definitions:
       mem:
         type: integer
         format: int64
+      mount:
+        type: string
       replicas:
         type: integer
         format: int64
@@ -447,6 +457,9 @@ definitions:
         type: boolean
       message:
         type: string
+      migrateRetryCount:
+        type: integer
+        format: int64
       migrateState:
         type: string
       outerAddresses: {}
@@ -497,6 +510,8 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/operator.Member'
+      mount:
+        type: string
       replicas:
         type: integer
         format: int64
@@ -525,6 +540,8 @@ definitions:
       member:
         type: integer
         format: int64
+      mount:
+        type: string
       readyReplicas:
         type: integer
         format: int64
@@ -532,7 +549,7 @@ definitions:
         type: integer
         format: int64
       stores:
-        $ref: '#/definitions/46197.Store'
+        $ref: '#/definitions/59473.Store'
       tidbdata_volume:
         type: string
       version:
