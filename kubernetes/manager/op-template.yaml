@@ -72,7 +72,9 @@ spec:
             tidb-operator \
               -runmode={{runMode}} \
               -http-addr=${POD_IP} \
-              -init-md={{initMd}}
+              -init-md={{initMd}} \
+              -host-path={{hostPath}} \
+              -mount={{mount}}
         image: {{registry}}/tidb-operator:{{version}}
         imagePullPolicy: Always
         env:

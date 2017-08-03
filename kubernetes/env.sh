@@ -14,19 +14,23 @@ KUBERNETES_API_SERVER=${KUBERNETES_API_SERVER:-'127.0.0.1:8080'}
 # Kubernetes namespace for tidb and components.
 NS=${NS:-'default'}
 
-# Docker registry for rds images
-REGISTRY=${REGISTRY-'10.209.224.13:10500/ffan/rds'}
-
 # Kubernetes options config
 KUBECTL_OPTIONS="--namespace=$NS --server=$KUBERNETES_API_SERVER"
 
-# CELLS should be a comma separated list of cells
+# Tidb cluster name
 CELL=${CELL:-'test'}
 
+# Docker registry for rds images
+REGISTRY=${REGISTRY-'10.209.224.13:10500/ffan/rds'}
+
+# Docker image version
+VERSION=${VERSION:-'latest'}
+
+# The volume of pod host path
 DATA_VOLUME=${DATA_VOLUME:-'/data'}
 
-# image version
-VERSION=${VERSION:-'latest'}
+# The prefix of pod mount path
+MOUNT=${MOUNT:-''}
 
 #---------------------------------------------------------------------
 

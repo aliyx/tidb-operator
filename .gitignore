@@ -25,3 +25,5 @@ swagger/lang
 swagger/lib
 swagger/swagger-ui*
 swagger/*.html
+
+logs

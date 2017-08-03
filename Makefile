@@ -23,16 +23,16 @@ push: push-pd push-tikv push-tidb push-migrator push-prom-server push-tidb-gc pu
 .PHONY: push
 
 # uninstall apps from k8s
-clean: clean-prometheus clean-tidb-gc clean-tidb-operator
+clean: clean-grafana clean-tidb-gc clean-tidb-operator
 .PHONY: clean
 
 # install apps to k8s
 install: install-grafana install-tidb-gc install-tidb-operator
 .PHONY: install
 
-clean-prometheus:
+clean-grafana:
 	cd kubernetes/prometheus; \
-	./deploy.sh d
+	./deploy.sh -d
 .PHONY: clean-prometheus
 
 clean-tidb-gc:
@@ -47,7 +47,7 @@ clean-tidb-operator:
 
 install-grafana:
 	cd kubernetes/prometheus; \
-	./deploy.sh
+	./deploy.sh -c
 .PHONY: install-grafana
 
 install-tidb-gc:

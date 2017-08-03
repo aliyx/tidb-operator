@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"flag"
+
 	yaml "gopkg.in/yaml.v2"
 
 	"fmt"
@@ -35,10 +37,6 @@ tidb:
   cpu: 500
   memory: 1024
   max: 10
-k8s:
-  hostPath: "/"
-  mount: "data"
-  proxys: ""
 approvalConditions:
   kvReplicas: 3
   dbReplicas: 2
@@ -73,6 +71,19 @@ specifications:
     - 3
     - 5
 `
+
+var (
+	hostPath string
+	mount    string
+
+	defaultHostPath = "/"
+	defaultMount    = "data"
+)
+
+func init() {
+	flag.StringVar(&hostPath, "host-path", defaultHostPath, "The tikv hostPath volume.")
+	flag.StringVar(&mount, "mount", defaultMount, "The path prefix of tikv mount.")
+}
 
 // Unit container spec
 type Unit struct {
@@ -193,8 +204,11 @@ func metaInit() {
 }
 
 func initMetadataIfNot() {
-	if !forceInitMd {
-		return
+	m, _ := GetMetadata()
+	if m != nil {
+		if !forceInitMd {
+			return
+		}
 	}
 	ms := &MetaSpec{}
 	if err := yaml.Unmarshal([]byte(initData), ms); err != nil {
@@ -202,17 +216,20 @@ func initMetadataIfNot() {
 	}
 
 	// get proxys ip
-
 	ps, err := k8sutil.GetNodesExternalIP(map[string]string{
 		"node-role.proxy": "",
 	})
 	if err != nil {
-		logs.Critical("could not get proxys: %v", err)
-		panic("could not get proxys")
+		panic(fmt.Sprintf("could not get proxys: %v", err))
 	}
-	ms.K8s.Proxys = strings.Join(ps, ",")
 
-	m := &Metadata{
+	ms.K8s = K8s{
+		HostPath: hostPath,
+		Mount:    mount,
+		Proxys:   strings.Join(ps, ","),
+	}
+
+	m = &Metadata{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       spec.TPRKindMetadata,
 			APIVersion: spec.APIVersion,

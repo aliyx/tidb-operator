@@ -6,7 +6,7 @@ script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/../env.sh
 
 namespace=$NS
-version=latest
+version=$VERSION
 
 echo "Creating tidb gc daemonset..."
 sed_script=""

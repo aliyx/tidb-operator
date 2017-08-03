@@ -1,11 +1,23 @@
 #!/bin/bash
 
-script_root=`dirname "${BASH_SOURCE}"`
-source $script_root/../env.sh
+usage="Usage: `basename $0` -(c|d) -- manage prometheus, grafana monitoring system."
 
-c=create
-if [ "$1" == "d" ]; then
+if [ "$1" == "-h" ]; then
+  echo "$usage"
+  exit 0
+fi
+
+script_root=`dirname "${BASH_SOURCE}"`
+source $script_root/../../env.sh
+
+c=''
+if [ "$1" == "-c" ]; then
+  c=create
+elif [ "$1" == "-d" ]; then
 	c=delete
+else
+  echo "$usage"
+  exit 0
 fi
 
 cIp=''

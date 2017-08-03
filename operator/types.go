@@ -4,13 +4,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StoreStatus tikv store status
-type StoreStatus int
-
 const (
 	PodOnline = iota
 	PodOffline
 )
+
+// StoreStatus tikv store status
+type StoreStatus int
 
 const (
 	// StoreOnline the store is available

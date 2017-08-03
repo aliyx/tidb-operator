@@ -36,7 +36,7 @@ func init() {
 	flag.IntVar(&logLevel, "log-level", logs.LevelInfo, "Beego logs level.")
 	flag.StringVar(&k8sAddress, "k8s-address", os.Getenv("K8S_ADDRESS"), "Kubernetes api address, if deployed in kubernetes, do not need to set, eg: 'http://127.0.0.1:8080'")
 	flag.StringVar(&dockerRegistry, "docker-registry", "10.209.224.13:10500/ffan/rds", "private docker registry.")
-	flag.BoolVar(&forceInitMd, "init-md", false, "force init metadata.")
+	flag.BoolVar(&forceInitMd, "init-md", false, "Force init metadata.")
 
 	flag.Parse()
 
