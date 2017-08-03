@@ -2,6 +2,7 @@ package operator
 
 import (
 	"flag"
+	"reflect"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -95,9 +96,9 @@ type Unit struct {
 
 // K8s config
 type K8s struct {
-	HostPath string `json:"hostPath" yaml:"hostPath"`
-	Mount    string `json:"mount" yaml:"mount"`
-	Proxys   string `json:"proxys"`
+	HostPath string   `json:"hostPath" yaml:"hostPath"`
+	Mount    string   `json:"mount" yaml:"mount"`
+	Proxys   []string `json:"proxys"`
 }
 
 // Path real host path
@@ -105,16 +106,16 @@ func (k K8s) Path() string {
 	return k.HostPath + k.Mount
 }
 
-// Available path eg: /mmt/data0, /mmt/data1...
-func (k K8s) Available() bool {
+// AvailableVolume path eg: /mmt/data0, /mmt/data1...
+func (k K8s) AvailableVolume() bool {
 	return len(k.Path()) > 2 && strings.HasPrefix(k.Path(), "/")
 }
 
 // ApprovalConditions Tikv and tidb more than the number of replicas of the conditions,
 // you need admin approval
 type ApprovalConditions struct {
-	KvReplicas uint `json:"kvr" yaml:"kvReplicas"`
-	DbReplicas uint `json:"dbr" yaml:"dbReplicas"`
+	KvReplicas uint `json:"kvReplicas" yaml:"kvReplicas"`
+	DbReplicas uint `json:"dbReplicas" yaml:"dbReplicas"`
 }
 
 // Replicas controller
@@ -132,7 +133,7 @@ func (r Replicas) getTidb() int {
 	return r[2]
 }
 
-// Preference 数据库偏好
+// Preference database preferences
 type Preference struct {
 	Name     string   `json:"name"`
 	Desc     string   `json:"desc"`
@@ -152,9 +153,9 @@ type MetaSpec struct {
 	Pd       Unit     `json:"pd"`
 	Tikv     Unit     `json:"tikv"`
 	Tidb     Unit     `json:"tidb"`
-	K8s      K8s      `json:"k8s"`
+	K8s      K8s      `json:"kubernetesConfig"`
 
-	AC             ApprovalConditions `json:"ac" yaml:"approvalConditions"`
+	AC             ApprovalConditions `json:"approvalConditions" yaml:"approvalConditions"`
 	Specifications []*Specification   `json:"specifications"`
 }
 
@@ -167,7 +168,7 @@ type Metadata struct {
 }
 
 const (
-	syncMetadataInterval = 5 * time.Second
+	syncMetadataInterval = 10 * time.Second
 )
 
 var (
@@ -192,12 +193,21 @@ func metaInit() {
 			time.Sleep(syncMetadataInterval)
 			m, err := GetMetadata()
 			if err != nil {
-				logs.Critical("sync metadata error: %v", err)
+				logs.Critical("sync metadata  cache error: %v", err)
 				continue
 			}
 			md = m
-			if !md.Spec.K8s.Available() {
-				logs.Warn("Please specify PV hostpath")
+
+			// sync proxys
+			ps, _ := k8sutil.GetNodesExternalIP(map[string]string{
+				"node-role.proxy": "",
+			})
+			if len(ps) > 0 && !reflect.DeepEqual(ps, m.Spec.K8s.Proxys) {
+				logs.Warn("cluster proxy has changed, from %v to %v")
+				m.Spec.K8s.Proxys = ps
+				if err = m.Update(); err != nil {
+					logs.Error("failed to update metadta: %v", err)
+				}
 			}
 		}
 	}()
@@ -226,7 +236,11 @@ func initMetadataIfNot() {
 	ms.K8s = K8s{
 		HostPath: hostPath,
 		Mount:    mount,
-		Proxys:   strings.Join(ps, ","),
+		Proxys:   ps,
+	}
+	if !ms.K8s.AvailableVolume() {
+		panic(fmt.Sprintf("please specify PV hostpath and mount, hostPath: %q, mount:%q",
+			ms.K8s.HostPath, ms.K8s.Mount))
 	}
 
 	m = &Metadata{
@@ -265,6 +279,13 @@ func (m *Metadata) CreateOrUpdate() (err error) {
 
 // Update update metadata
 func (m *Metadata) Update() (err error) {
+	if !m.Spec.K8s.AvailableVolume() {
+		return fmt.Errorf("please specify PV hostpath and mount, hostPath: %q, mount:%q",
+			m.Spec.K8s.HostPath, m.Spec.K8s.Mount)
+	}
+	if len(m.Spec.K8s.Proxys) < 1 {
+		return fmt.Errorf("unavailable proxys: %v", m.Spec.K8s.Proxys)
+	}
 	return metaS.Update(m.Metadata.Name, m)
 }
 
@@ -294,7 +315,7 @@ func getNamespace() string {
 func getProxys() []string {
 	hosts := make([]string, 2)
 	m := getCachedMetadata()
-	ps := strings.Split(m.Spec.K8s.Proxys, ",")
+	ps := m.Spec.K8s.Proxys
 	if len(ps) < 3 {
 		return ps
 	}

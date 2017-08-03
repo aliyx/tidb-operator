@@ -15,7 +15,7 @@ mount=${MOUNT}
 
 echo "****************************"
 echo "*Creating tidb-operator namespace: $NS"
-echo "*  Run mode: $env"
+echo "*Run mode: $env"
 echo "****************************"
 
 # Create the tidb-operator service and deployment.

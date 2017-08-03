@@ -2,9 +2,9 @@
 
 # This is an example script that creates a fully functional tidb cluster.
 # It performs the following steps:
-# 1. Create pd clusters
-# 2. Create tikv clusters
-# 3. Create tidb clusters
+# 1.Create pd clusters
+# 2.Create tikv clusters
+# 3.Create tidb clusters
 
 script_root=`dirname "${BASH_SOURCE}"`
 source $script_root/env.sh
@@ -18,17 +18,18 @@ TIKV_TEMPLATE=${TIKV_TEMPLATE:-'tikv-pod.yaml'}
 TIDB_TEMPLATE=${TIDB_TEMPLATE:-'tidb-template.yaml'}
 MAX_TASK_WAIT_RETRIES=${MAX_TASK_WAIT_RETRIES:-300}
 
-# export for other scripts
-export NS=$NS
-
 cell=`echo $CELL`
 
 echo "****************************"
 echo "*Creating tidb cluster namespace: $NS"
-echo "*  Cell: $cell"
-echo "*  PD count: $pd_replicas"
-echo "*  Tikv count: $kv_replicas"
-echo "*  Tidb count: $db_replicas"
+echo "*  Name: $cell"
+echo "*  PD replica count: $pd_replicas"
+echo "*  Tikv replica count: $kv_replicas"
+echo "*  Tidb replica count: $db_replicas"
+echo "*  Volume host path: $DATA_VOLUME"
+echo "*  Pod mount path prefix: $MOUNT"
+echo "*  Docker registry server address: $REGISTRY"
+echo "*  Image version: $VERSION"
 echo "****************************"
 
 # echo 'Running namespace-up.sh' && ./namespace-up.sh

@@ -209,7 +209,7 @@ func (w *Watcher) initResource() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if !md.Spec.K8s.Available() {
+		if !md.Spec.K8s.AvailableVolume() {
 			return "", fmt.Errorf("metadata is unavailable")
 		}
 		// tidb-gc hostPath is root('/'), mountPath is '/host'
