@@ -76,10 +76,11 @@ func PdMembersGetName(host string) ([]string, error) {
 	return mems, nil
 }
 
+// PdMemberDelete delete member from pd cluster
 func PdMemberDelete(host string, name string) error {
 	if err := httputil.Delete(fmt.Sprintf(pdAPIV1MembersGet+"/%s", host, name), pdReqTimeout); err != nil {
 		return err
 	}
-	logs.Warn(`pd:%d deleted`, name)
+	logs.Info("Pd member %q deleted", name)
 	return nil
 }

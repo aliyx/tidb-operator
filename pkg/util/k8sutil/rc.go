@@ -28,30 +28,30 @@ func ScaleReplicationController(name string, replicas int) error {
 }
 
 // CreateRcByJSON create a rc
-func CreateRcByJSON(j []byte, timeout time.Duration) (*v1.ReplicationController, error) {
+func CreateRcByJSON(
+	j []byte,
+	timeout time.Duration,
+	updateFunc func(*v1.ReplicationController)) (*v1.ReplicationController, error) {
 	rc := &v1.ReplicationController{}
 	if err := json.Unmarshal(j, rc); err != nil {
 		return nil, err
 	}
+	updateFunc(rc)
+	retRc, err := CreateAndWaitRc(rc, timeout)
+	if err != nil {
+		return nil, err
+	}
+	logs.Info("ReplicationController %q created", rc.GetName())
+	return retRc, nil
+}
 
-	version := GetImageVersion(rc.Spec.Template.Spec.Containers[0].Image)
-	SetTidbVersion(rc, version)
+// CreateAndWaitRc create a rc and wait all pod is running
+func CreateAndWaitRc(rc *v1.ReplicationController, timeout time.Duration) (*v1.ReplicationController, error) {
 	retRc, err := kubecli.CoreV1().ReplicationControllers(Namespace).Create(rc)
 	if err != nil {
 		return nil, err
 	}
-	logs.Info("ReplicationController '%s' created", rc.GetName())
-	return retRc, nil
-}
-
-// CreateAndwaitRc create a rc and wait all pod is running
-func CreateAndwaitRc(rc *v1.ReplicationController, timeout time.Duration) (*v1.ReplicationController, error) {
-	_, err := kubecli.CoreV1().ReplicationControllers(Namespace).Create(rc)
-	if err != nil {
-		return nil, err
-	}
 	interval := 3 * time.Second
-	var retRc *v1.ReplicationController
 	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
 		retRc, err = kubecli.CoreV1().ReplicationControllers(Namespace).Get(rc.GetName(), meta_v1.GetOptions{})
 		if err != nil {
@@ -62,7 +62,7 @@ func CreateAndwaitRc(rc *v1.ReplicationController, timeout time.Duration) (*v1.R
 		}
 		return true, nil
 	})
-	logs.Info(`ReplicationController "%s" created`, rc.GetName())
+	logs.Info("ReplicationController %q created", rc.GetName())
 	return retRc, nil
 }
 

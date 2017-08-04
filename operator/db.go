@@ -97,15 +97,13 @@ func (db *Db) Install(ch chan int) (err error) {
 			logs.Error("failed to try lock db", db.GetName())
 			return
 		}
-		defer func() {
-			db.Unlock()
-		}()
+		defer db.Unlock()
 		// double-check
 		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseUndefined {
 			logs.Error("db %s was modified before install", db.GetName())
 			return
 		}
-		logs.Info("start install db", db.GetName())
+		logs.Info("start installing db", db.GetName())
 		e := NewEvent(db.GetName(), "db", "install")
 		defer func() {
 			parseError(db, err)
@@ -167,10 +165,10 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 		defer db.Unlock()
 		// double-check
 		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseTidbUninstalling {
-			logs.Error("db %s was modified before uninstall", db.GetName())
+			logs.Error("db %q was modified before uninstall", db.GetName())
 			return
 		}
-		logs.Warn("start uninstall db", db.GetName())
+		logs.Warn("start uninstalling db", db.GetName())
 		e := NewEvent(db.GetName(), "db", "uninstall")
 		defer func() {
 			stoped := 0
@@ -251,56 +249,6 @@ func (db *Db) Reinstall(cell string) (err error) {
 	return nil
 }
 
-// Scale tikv and tidb
-func (db *Db) Scale(kvReplica, dbReplica int) (err error) {
-	if !db.Status.Available {
-		return ErrUnavailable
-	}
-	if db.Status.ScaleState&scaling > 0 {
-		return ErrScaling
-	}
-	db.Status.ScaleState |= scaling
-	if err = db.update(); err != nil {
-		return err
-	}
-
-	go func() {
-		if !db.TryLock() {
-			logs.Error("failed to try lock db", db.GetName())
-			return
-		}
-		defer db.Unlock()
-		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available ||
-			new.Status.ScaleState&scaling == 0 ||
-			db.Tikv.Replicas != new.Tikv.Replicas || db.Tidb.Replicas != new.Tidb.Replicas {
-			logs.Error("db %s was modified before scale", db.GetName())
-			return
-		}
-		logs.Debug("start scaling db", db.GetName())
-		defer func() {
-			parseError(db, err)
-			db.Status.ScaleState ^= scaling
-			if err = db.update(); err != nil {
-				logs.Error("failed to update db %s: %v", db.GetName(), err)
-			} else {
-				logs.Debug("end scaling db", db.GetName())
-			}
-		}()
-
-		if err = db.reconcilePds(); err != nil {
-			return
-		}
-		if err = db.reconcileTikvs(kvReplica); err != nil {
-			return
-		}
-		if err = db.reconcileTidbs(dbReplica); err != nil {
-			return
-		}
-	}()
-	return nil
-}
-
 // NeedApproval whether the user creates tidb for approval
 func NeedApproval(ID string, kvr, dbr uint) bool {
 	if len(ID) < 1 {
@@ -334,7 +282,7 @@ func Delete(cell string) error {
 
 	// async wait
 	go func() {
-		logs.Warn("start delete db", db.GetName())
+		logs.Warn("start deleting db", db.GetName())
 		ch := make(chan int, 1)
 		if err = db.Uninstall(ch); err != nil {
 			return

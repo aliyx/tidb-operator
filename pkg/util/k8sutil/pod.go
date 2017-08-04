@@ -3,13 +3,13 @@ package k8sutil
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"time"
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,40 +17,14 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 )
 
-var (
-	tidbVersionAnnotationKey = "tidb.version"
-)
-
-// GetTidbVersion get tidb image version
-func GetTidbVersion(i interface{}) string {
-	switch v := i.(type) {
-	case *v1.Pod:
-		return v.Annotations[tidbVersionAnnotationKey]
-	case *v1.ReplicationController:
-		return v.Annotations[tidbVersionAnnotationKey]
+// CreatePodByJSON create and wait pod status 'running'
+func CreatePodByJSON(j []byte, timeout time.Duration, updateFunc func(*v1.Pod)) (*v1.Pod, error) {
+	pod := &v1.Pod{}
+	if err := json.Unmarshal(j, pod); err != nil {
+		return nil, err
 	}
-	return ""
-}
-
-// SetTidbVersion set tidb image version
-func SetTidbVersion(i interface{}, version string) {
-	switch v := i.(type) {
-	case *v1.Pod:
-		if len(v.Annotations) < 1 {
-			v.Annotations = make(map[string]string)
-		}
-		v.Annotations[tidbVersionAnnotationKey] = version
-	case *v1.ReplicationController:
-		if len(v.Annotations) < 1 {
-			v.Annotations = make(map[string]string)
-		}
-		v.Annotations[tidbVersionAnnotationKey] = version
-
-		if len(v.Spec.Template.Annotations) < 1 {
-			v.Spec.Template.Annotations = make(map[string]string)
-		}
-		v.Spec.Template.Annotations[tidbVersionAnnotationKey] = version
-	}
+	updateFunc(pod)
+	return CreateAndWaitPod(pod, timeout)
 }
 
 // CreateAndWaitPodByJSON create and wait pod status 'running'
@@ -59,18 +33,11 @@ func CreateAndWaitPodByJSON(j []byte, timeout time.Duration) (*v1.Pod, error) {
 	if err := json.Unmarshal(j, pod); err != nil {
 		return nil, err
 	}
-	SetTidbVersion(pod, GetImageVersion(pod.Spec.Containers[0].Image))
 	return CreateAndWaitPod(pod, timeout)
 }
 
-// GetImageVersion get version in image
-func GetImageVersion(image string) string {
-	sp := strings.Split(image, ":")
-	return sp[len(sp)-1]
-}
-
 // PatchPod path pod
-func PatchPod(op *v1.Pod, updateFunc func(*v1.Pod), timeout time.Duration) error {
+func PatchPod(op *v1.Pod, timeout time.Duration, updateFunc func(*v1.Pod)) error {
 	np := clonePod(op)
 	updateFunc(np)
 	patchData, err := CreatePatch(op, np, v1.Pod{})
@@ -81,13 +48,12 @@ func PatchPod(op *v1.Pod, updateFunc func(*v1.Pod), timeout time.Duration) error
 	if err != nil {
 		return err
 	}
-	// wait restart the pod
-	time.Sleep(3 * time.Second)
+	// check pod status after old pod killed, time is 'TerminationGracePeriodSeconds'
+	time.Sleep(time.Duration(*op.Spec.TerminationGracePeriodSeconds+3) * time.Second)
 	_, err = waitPodRunning(op.GetName(), timeout)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -95,7 +61,7 @@ func waitPodRunning(name string, timeout time.Duration) (*v1.Pod, error) {
 	var (
 		err      error
 		retPod   *v1.Pod
-		interval = 2 * time.Second
+		interval = 3 * time.Second
 	)
 	return retPod, retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
 		retPod, err = kubecli.CoreV1().Pods(Namespace).Get(name, metav1.GetOptions{})
@@ -107,6 +73,7 @@ func waitPodRunning(name string, timeout time.Duration) (*v1.Pod, error) {
 			return true, nil
 		case v1.PodPending:
 			for _, c := range retPod.Status.Conditions {
+				// No free memery or cpu etc.
 				if c.Reason == v1.PodReasonUnschedulable {
 					return false, fmt.Errorf("%s:%s", c.Reason, c.Message)
 				}
@@ -129,7 +96,7 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	logs.Info("Pod '%s' created", retPod.GetName())
+	logs.Info("Pod %q created", retPod.GetName())
 	return retPod, err
 }
 
@@ -162,7 +129,8 @@ func clonePod(p *v1.Pod) *v1.Pod {
 // DeletePods delete the specified names pod
 func DeletePods(podNames ...string) error {
 	for _, pName := range podNames {
-		if err := kubecli.CoreV1().Pods(Namespace).Delete(pName, metav1.NewDeleteOptions(0)); err != nil {
+		err := kubecli.CoreV1().Pods(Namespace).Delete(pName, metav1.NewDeleteOptions(0))
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 		logs.Info(`Pod "%s" deleted`, pName)
@@ -223,6 +191,7 @@ func GetPods(cell, component string) ([]v1.Pod, error) {
 	if component != "" {
 		set["component"] = component
 	}
+	set["app"] = "tidb"
 	opts := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(set).String(),
 	}

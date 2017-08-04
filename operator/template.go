@@ -54,31 +54,28 @@ metadata:
     cell: {{cell}}
     app: tidb
 spec:
-  volumes:
-  - name: tidb-data
-    {{tidbdata_volume}}
   # default is 30s
   terminationGracePeriodSeconds: 5
-  restartPolicy: Always
+  restartPolicy: OnFailure
   # DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
   # For example, pd-test-001 in default namesapce will have DNS name
   # 'pd-test-001.test.default.svc.cluster.local'.
   hostname: pd-{{cell}}-{{id}}
   subdomain: pd-{{cell}}-srv
+  volumes:
+  - name: datadir
+    emptyDir: {}
   containers:
     - name: pd
       image: {{registry}}/pd:{{version}}
-      # imagePullPolicy: IfNotPresent
-      volumeMounts:
-      - name: tidb-data
-        mountPath: /var/pd
+      imagePullPolicy: IfNotPresent
       resources:
         limits:
           memory: "{{mem}}Mi"
           cpu: "{{cpu}}m"
-      env: 
-      - name: M_INTERVAL
-        value: "15"
+      volumeMounts:
+      - name: datadir
+        mountPath: /data
       command:
         - bash
         - "-c"
@@ -90,7 +87,7 @@ spec:
           advertise_peer_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380"
 
           export PD_NAME=$HOSTNAME
-          export PD_DATA_DIR=/var/pd/$HOSTNAME/data
+          export PD_DATA_DIR=/data/pd
 
           export CLIENT_URLS=$client_urls
           export ADVERTISE_CLIENT_URLS=$advertise_client_urls

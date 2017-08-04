@@ -66,9 +66,17 @@ func undo() error {
 		lockers[db.GetName()] = new(sync.Mutex)
 		mu.Unlock()
 
+		changed := false
 		// recover scaling to normal
 		if db.Status.ScaleState&scaling > 0 {
 			db.Status.ScaleState ^= scaling
+			changed = true
+		}
+		if db.Status.UpgradeState == upgrading {
+			db.Status.UpgradeState = ""
+			changed = true
+		}
+		if changed {
 			if err = db.update(); err != nil {
 				return err
 			}
@@ -99,7 +107,7 @@ func reconcile(ctx context.Context) {
 			if db.Doing() {
 				continue
 			}
-			if err = db.Scale(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
+			if err = db.Reconcile(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
 				switch err {
 				case ErrUnavailable:
 					if db.Status.Phase > PhaseUndefined {

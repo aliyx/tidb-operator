@@ -172,15 +172,20 @@ func (dc *TidbController) Patch() {
 	case "upgrade":
 		errHandler(
 			dc.Controller,
-			newDb.Upgrade(),
+			newDb.Update(),
 			fmt.Sprintf("upgrade db %s", cell),
 		)
 	case "scale":
-		db.Status.ScaleCount++
-		db.Operator = "scale"
+		newDb.Status.ScaleCount++
+		newDb.Operator = "scale"
 		errHandler(
 			dc.Controller,
-			db.Scale(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
+			newDb.Update(),
+			fmt.Sprintf("update db %s", cell),
+		)
+		errHandler(
+			dc.Controller,
+			db.Reconcile(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
 			fmt.Sprintf("Start scaling db %s", cell),
 		)
 	case "syncMigrateStat":

@@ -33,11 +33,16 @@ var (
 	defaultk8sReqTimeout = 3 * time.Second
 	defaultImageRegistry = "10.209.224.13:10500/ffan/rds"
 
+	tidbVersionAnnotationKey = "tidb.version"
+
 	masterHost string
 	// Namespace all tidb namespace
 	Namespace string
 
 	kubecli kubernetes.Interface
+
+	// InCluster is in kubernetes
+	InCluster = false
 )
 
 func init() {
@@ -78,6 +83,7 @@ func ClusterConfig() (*rest.Config, error) {
 }
 
 func inClusterConfig() (*rest.Config, error) {
+	InCluster = true
 	// Work around https://github.com/kubernetes/kubernetes/issues/40973
 	// See https://github.com/coreos/etcd-operator/issues/731#issuecomment-283804819
 	if len(os.Getenv("KUBERNETES_SERVICE_HOST")) == 0 {
@@ -217,4 +223,36 @@ func GetEtcdIP() (string, error) {
 		return "", fmt.Errorf("get multi etcd %s", GetPodNames(pods))
 	}
 	return pods[0].Status.PodIP, nil
+}
+
+// GetTidbVersion get tidb image version from annotations
+func GetTidbVersion(i interface{}) string {
+	switch v := i.(type) {
+	case *v1.Pod:
+		return v.Annotations[tidbVersionAnnotationKey]
+	case *v1.ReplicationController:
+		return v.Annotations[tidbVersionAnnotationKey]
+	}
+	return ""
+}
+
+// SetTidbVersion set tidb image version
+func SetTidbVersion(i interface{}, version string) {
+	switch v := i.(type) {
+	case *v1.Pod:
+		if len(v.Annotations) < 1 {
+			v.Annotations = make(map[string]string)
+		}
+		v.Annotations[tidbVersionAnnotationKey] = version
+	case *v1.ReplicationController:
+		if len(v.Annotations) < 1 {
+			v.Annotations = make(map[string]string)
+		}
+		v.Annotations[tidbVersionAnnotationKey] = version
+
+		if len(v.Spec.Template.Annotations) < 1 {
+			v.Spec.Template.Annotations = make(map[string]string)
+		}
+		v.Spec.Template.Annotations[tidbVersionAnnotationKey] = version
+	}
 }

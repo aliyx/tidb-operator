@@ -12,7 +12,7 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
-	"k8s.io/client-go/pkg/api/v1"
+	apiv1 "k8s.io/client-go/pkg/api/v1"
 )
 
 func (p *Pd) upgrade() error {
@@ -20,7 +20,7 @@ func (p *Pd) upgrade() error {
 		return nil
 	}
 	if p.Db.Status.Phase < PhasePdStarted {
-		return fmt.Errorf("the tidb %s pd unavailable", p.Db.Metadata.Name)
+		return fmt.Errorf("the tidb %q pd unavailable", p.Db.GetName())
 	}
 
 	var (
@@ -38,17 +38,20 @@ func (p *Pd) upgrade() error {
 	}()
 
 	for _, mb := range p.Members {
-		upgraded, err = upgradeOne(mb.Name, fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version), p.Version)
+		if mb.State == PodFailed {
+			continue
+		}
+		upgraded, err = upgradeOne(mb.Name, p.getImage(), p.Version)
 		if err != nil {
-			mb.State = PodOffline
+			mb.State = PodFailed
 			return err
 		}
 		if upgraded {
+			count++
 			if err = p.waitForOk(); err != nil {
-				mb.State = PodOffline
+				mb.State = PodFailed
 				return err
 			}
-			count++
 			time.Sleep(upgradeInterval)
 		}
 	}
@@ -56,12 +59,11 @@ func (p *Pd) upgrade() error {
 }
 
 func (db *Db) reconcilePds() error {
-
 	var (
 		err     error
 		p       = db.Pd
 		changed = 0
-		pods    []v1.Pod
+		pods    []apiv1.Pod
 	)
 
 	e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
@@ -69,19 +71,9 @@ func (db *Db) reconcilePds() error {
 		parseError(db, err)
 		if changed > 0 || err != nil {
 			if err != nil {
-				logs.Error("reconcile pd %s error: %v", db.GetName(), err)
+				logs.Error("reconcile pd %q error: %v", db.GetName(), err)
 			}
-			e.Trace(err, "Reconcile pd")
-		} else {
-			// check version
-			for i := range pods {
-				pod := pods[i]
-				if needUpgrade(&pod, p.Version) {
-					if err = p.upgrade(); err != nil {
-						return
-					}
-				}
-			}
+			e.Trace(err, "Reconcile pd cluster")
 		}
 	}()
 
@@ -90,31 +82,62 @@ func (db *Db) reconcilePds() error {
 		return err
 	}
 
-	// check not running pd member
+	// check not running pod
 	for _, mb := range p.Members {
-		st := PodOffline
+		st := PodFailed
 		for _, pod := range pods {
 			if pod.GetName() == mb.Name && k8sutil.IsPodOk(pod) {
-				st = PodOnline
+				st = PodRunning
 				break
 			}
 		}
 		mb.State = st
 	}
 
-	// delete offline pd and create a new pd
+	// check not in pd cluster member
+	js, err := pdutil.PdMembersGet(p.OuterAddresses[0])
+	if err != nil {
+		return err
+	}
+	ret := gjson.Get(js, "members.#.name")
+	if ret.Type == gjson.Null {
+		logs.Warn("could not get pd %q members", p.Db.GetName())
+		for _, mb := range p.Members {
+			logs.Warn("mark pd %q status PodFailed")
+			mb.State = PodFailed
+		}
+	}
+	for _, mb := range p.Members {
+		ok := false
+		for _, r := range ret.Array() {
+			if r.String() == mb.Name {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			logs.Warn("mark pd %q status PodFailed")
+			mb.State = PodFailed
+		}
+	}
+
+	// delete failed pd and create a new pd
 	for i, mb := range p.Members {
-		if mb.State == PodOffline {
+		if mb.State == PodFailed {
 			changed++
+			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err != nil {
+				logs.Error("failed to delete member %q from pd cluster", mb.Name)
+			}
 			if err = k8sutil.DeletePods(mb.Name); err != nil {
 				return err
 			}
+			// sleep terminationGracePeriodSeconds
+			time.Sleep(8 * time.Second)
 			p.Member = i + 1
 			if err = p.createPod(); err != nil {
-				mb.State = PodOffline
 				return err
 			}
-			mb.State = PodOnline
+			mb.State = PodRunning
 		}
 	}
 
@@ -143,13 +166,6 @@ func (p *Pd) uninstall() (err error) {
 
 func (p *Pd) install() (err error) {
 	e := NewEvent(p.Db.GetName(), "tidb/pd", "install")
-	p.Db.Status.Phase = PhasePdPending
-	if err = p.Db.update(); err != nil {
-		e.Trace(err,
-			fmt.Sprintf("Update db status to %d error: %v", PhasePdPending, err))
-		return err
-	}
-
 	defer func() {
 		ph := PhasePdStarted
 		if err != nil {
@@ -160,14 +176,21 @@ func (p *Pd) install() (err error) {
 			fmt.Sprintf("Install pd services and pods with replicas desire: %d, running: %d on k8s", p.Replicas, p.Member))
 	}()
 
+	// savepoint for page show
+	p.Db.Status.Phase = PhasePdPending
+	if err = p.Db.update(); err != nil {
+		return err
+	}
+
 	if err = p.createServices(); err != nil {
 		return err
 	}
+
 	for i := 0; i < p.Replicas; i++ {
 		p.Member++
-		st := PodOnline
+		st := PodRunning
 		if err = p.createPod(); err != nil {
-			st = PodOffline
+			st = PodFailed
 		}
 		m := &Member{
 			Name:  fmt.Sprintf("pd-%s-%03d", p.Db.GetName(), p.Member),
@@ -179,7 +202,7 @@ func (p *Pd) install() (err error) {
 		}
 	}
 
-	// Waiting for pds available
+	// Waiting for all pds available
 	if err = p.waitForOk(); err != nil {
 		return err
 	}
@@ -203,16 +226,12 @@ func (p *Pd) createServices() error {
 	return nil
 }
 
-func (p *Pd) createService(temp string) (*v1.Service, error) {
+func (p *Pd) createService(temp string) (*apiv1.Service, error) {
 	j, err := p.toJSONTemplate(temp)
 	if err != nil {
 		return nil, err
 	}
-	retSrv, err := k8sutil.CreateServiceByJSON(j)
-	if err != nil {
-		return nil, err
-	}
-	return retSrv, nil
+	return k8sutil.CreateServiceByJSON(j)
 }
 
 func (p *Pd) createPod() error {
@@ -223,18 +242,20 @@ func (p *Pd) createPod() error {
 	if b, err = p.toJSONTemplate(pdPodYaml); err != nil {
 		return err
 	}
-	if _, err = k8sutil.CreateAndWaitPodByJSON(b, waitPodRuningTimeout); err != nil {
+	if _, err = k8sutil.CreatePodByJSON(b, waitPodRuningTimeout, func(pod *apiv1.Pod) {
+		k8sutil.SetTidbVersion(pod, p.Version)
+	}); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (p *Pd) waitForOk() (err error) {
-	logs.Debug("wait for pd %s running", p.Db.GetName())
+	logs.Debug("wait for pd %q running", p.Db.GetName())
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
 		if _, err = pdutil.PdLeaderGet(p.OuterAddresses[0]); err != nil {
-			logs.Warn("get pd %s leader error: %v", p.Db.GetName(), err)
+			logs.Warn("could not get pd %q leader: %v", p.Db.GetName(), err)
 			return false, nil
 		}
 		js, err := pdutil.PdMembersGet(p.OuterAddresses[0])
@@ -243,19 +264,19 @@ func (p *Pd) waitForOk() (err error) {
 		}
 		ret := gjson.Get(js, "members.#.name")
 		if ret.Type == gjson.Null {
-			logs.Warn("cann't get pd %s members", p.Db.GetName())
+			logs.Warn("could not get pd %s members", p.Db.GetName())
 			return false, nil
 		}
 		if len(ret.Array()) != len(p.Members) {
-			logs.Warn("cann't get pd %s desired %d members", p.Db.GetName(), len(p.Members))
+			logs.Warn("could not get pd %q desired %d members", p.Db.GetName(), len(p.Members))
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait for pd %s available: %v", p.Db.GetName(), err)
+		logs.Error("wait for pd %q available: %v", p.Db.GetName(), err)
 	} else {
-		logs.Debug("pd %s ok", p.Db.GetName())
+		logs.Debug("pd %q ok", p.Db.GetName())
 	}
 	return err
 }
@@ -269,7 +290,6 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		"{{cpu}}", fmt.Sprintf("%v", p.Spec.CPU),
 		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
 		"{{version}}", p.Spec.Version,
-		"{{tidbdata_volume}}", p.Spec.Volume,
 		"{{registry}}", imageRegistry,
 	)
 	str := r.Replace(temp)
@@ -278,4 +298,8 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		return nil, err
 	}
 	return j, nil
+}
+
+func (p *Pd) getImage() string {
+	return fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version)
 }

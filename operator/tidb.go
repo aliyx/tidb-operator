@@ -5,38 +5,43 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/pkg/api/v1"
+
 	"github.com/astaxie/beego/logs"
 
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
-
-	"sync"
 
 	"github.com/ffan/tidb-operator/pkg/util/httputil"
 	"github.com/ghodss/yaml"
 )
 
 var (
-	scaleMu sync.Mutex
+	defaultTidbStatusPort = 10080
 )
 
 func (td *Tidb) upgrade() error {
-	if td.Db.Status.Phase < PhaseTidbStarted {
-		return fmt.Errorf("the db %s tidb unavailable", td.Db.GetName())
-	}
-
 	var (
 		err      error
+		upgraded = false
 		newImage = fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version)
 	)
 
 	e := NewEvent(td.Db.GetName(), "tidb/tidb", "upgrate")
 	defer func() {
-		e.Trace(err, fmt.Sprintf("upgrate tidb to version: %s", td.Version))
-		logs.Info("end upgrading", td.Db.GetName())
+		td.cur = ""
+		if upgraded || err != nil {
+			e.Trace(err, fmt.Sprintf("Upgrate tidb to version: %s", td.Version))
+			logs.Info("end upgrading", td.Db.GetName())
+		}
 	}()
 
-	err = upgradeRC(fmt.Sprintf("tidb-%s", td.Db.GetName()), newImage, td.Version)
+	if td.Db.Status.Phase < PhaseTidbStarted {
+		err = ErrUnavailable
+		return err
+	}
+
+	err = upgradeRC("tidb-"+td.Db.GetName(), newImage, td.Version)
 	if err != nil {
 		return err
 	}
@@ -48,12 +53,15 @@ func (td *Tidb) upgrade() error {
 	for i := range pods {
 		pod := pods[i]
 		if needUpgrade(&pod, td.Version) {
+			upgraded = true
 			// delete pod, rc will create a new version pod
 			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
 				return err
 			}
-			// FIXME: cann't get tidb status
-			time.Sleep(waitTidbComponentAvailableTimeout)
+			// sleep terminationGracePeriodSeconds
+			time.Sleep(8 * time.Second)
+
+			td.cur = pod.GetName()
 			if err = td.waitForOk(); err != nil {
 				return err
 			}
@@ -63,13 +71,12 @@ func (td *Tidb) upgrade() error {
 }
 
 func (td *Tidb) install() (err error) {
-	e := NewEvent(td.Db.Metadata.Name, "tidb/tidb", "install")
 	td.Db.Status.Phase = PhaseTidbPending
-	err = td.Db.update()
-	if err != nil {
+	if err = td.Db.update(); err != nil {
 		return err
 	}
 
+	e := NewEvent(td.Db.GetName(), "tidb/tidb", "install")
 	defer func() {
 		ph := PhaseTidbStarted
 		if err != nil {
@@ -134,7 +141,9 @@ func (td *Tidb) createReplicationController() error {
 	if err != nil {
 		return err
 	}
-	_, err = k8sutil.CreateRcByJSON(j, waitPodRuningTimeout)
+	_, err = k8sutil.CreateRcByJSON(j, waitPodRuningTimeout, func(rc *v1.ReplicationController) {
+		k8sutil.SetTidbVersion(rc, td.Version)
+	})
 	return err
 }
 
@@ -154,9 +163,13 @@ func (td *Tidb) toJSONTemplate(temp string) ([]byte, error) {
 }
 
 func (td *Tidb) waitForOk() (err error) {
-	logs.Debug("waiting for run tidb %s ok...", td.Db.GetName())
-
-	sURL := fmt.Sprintf("http://%s/status", td.Db.Status.OuterStatusAddresses[0])
+	logs.Debug("waiting for tidb %q running...", td.Db.GetName())
+	host := td.Db.Status.OuterStatusAddresses[0]
+	// for upgrade check
+	if td.cur != "" {
+		host = fmt.Sprintf("%s:%d", td.cur, defaultTidbStatusPort)
+	}
+	sURL := fmt.Sprintf("http://%s/status", host)
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(waitTidbComponentAvailableTimeout/(interval)), func() (bool, error) {
 		// check pod
@@ -179,7 +192,7 @@ func (td *Tidb) waitForOk() (err error) {
 		// check tidb status
 
 		if _, err := httputil.Get(sURL, 2*time.Second); err != nil {
-			logs.Warn("get tidb status: %v", err)
+			logs.Warn("could not get tidb status: %v", err)
 			return false, nil
 		}
 		err = td.syncMembers()
@@ -190,9 +203,9 @@ func (td *Tidb) waitForOk() (err error) {
 		return true, nil
 	})
 	if err != nil {
-		logs.Error("wait tidb %s available: %v", td.Db.GetName(), err)
+		logs.Error("wait tidb %q available: %v", td.Db.GetName(), err)
 	} else {
-		logs.Debug("tidb %s ok", td.Db.GetName())
+		logs.Debug("tidb %q ok", td.Db.GetName())
 	}
 	return err
 }
@@ -205,6 +218,7 @@ func (td *Tidb) uninstall() (err error) {
 		return err
 	}
 	td.Members = nil
+	td.cur = ""
 	td.Db.Status.MigrateState = ""
 	td.Db.Status.ScaleState = 0
 	td.Db.Status.OuterAddresses = nil
@@ -276,7 +290,6 @@ func (td *Tidb) checkStatus() error {
 	if err != nil {
 		return err
 	}
-	need := false
 	for i := range pods {
 		pod := pods[i]
 		if !k8sutil.IsPodOk(pod) {
@@ -285,14 +298,6 @@ func (td *Tidb) checkStatus() error {
 				return err
 			}
 			continue
-		}
-		if needUpgrade(&pod, td.Version) {
-			need = true
-		}
-	}
-	if need {
-		if err = td.upgrade(); err != nil {
-			return err
 		}
 	}
 	return nil

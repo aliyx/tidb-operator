@@ -4,11 +4,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	PodOnline = iota
-	PodOffline
-)
-
 // StoreStatus tikv store status
 type StoreStatus int
 
@@ -17,8 +12,15 @@ const (
 	StoreOnline StoreStatus = iota
 	// StoreOffline mark the store offline, but what will not be deleted
 	StoreOffline
-	// StoreTombstone the store' Pod will be deleted
+	// StoreTombstone the store'pod will be deleted
 	StoreTombstone
+	// StoreUnknown maybe start failure, etc
+	StoreUnknown
+
+	// PodRunning pod status is runnng
+	PodRunning = iota
+	// PodFailed pod status is failed
+	PodFailed
 )
 
 const (
@@ -60,7 +62,8 @@ type Tidb struct {
 	Spec    `json:",inline"`
 	Members []*Member `json:"members,omitempty"`
 
-	Db *Db `json:"-"`
+	cur string
+	Db  *Db `json:"-"`
 }
 
 // Owner creater
@@ -110,7 +113,7 @@ type Status struct {
 // Phase tidb runing status
 type Phase int
 
-// Pd 元数据
+// Pd describe a pd cluster
 type Pd struct {
 	Spec `json:",inline"`
 
@@ -129,7 +132,7 @@ type Member struct {
 	State int    `json:"state,omitempty"`
 }
 
-// Tikv 元数据存储模块
+// Tikv describe a tikv cluster
 type Tikv struct {
 	Spec   `json:",inline"`
 	Member int `json:"member"`
@@ -144,9 +147,8 @@ type Tikv struct {
 	Db  *Db `json:"-"`
 }
 
-// Store tikv在tidb集群中的状态
+// Store a tikv
 type Store struct {
-	// tikv info
 	ID      int         `json:"id,omitempty"`
 	Name    string      `json:"name,omitempty"`
 	Address string      `json:"address,omitempty"`
