@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ffan/tidb-operator/pkg/util/retryutil"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/httputil"
 	"github.com/tidwall/gjson"
@@ -58,6 +60,28 @@ func PdMembersGet(host string) (string, error) {
 		return "", err
 	}
 	return string(bs), nil
+}
+
+// RetryGetPdMembers retry get pd member when is electing
+func RetryGetPdMembers(host string) (string, error) {
+	var (
+		b   []byte
+		err error
+	)
+	// default elect time is 3s
+	retryutil.Retry(time.Second, 5, func() (bool, error) {
+		b, err = httputil.Get(fmt.Sprintf(pdAPIV1MembersGet, host), pdReqTimeout)
+		// maybe electing
+		if err != nil {
+			logs.Warn("could not get members, may be electing: %v", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
 }
 
 func PdMembersGetName(host string) ([]string, error) {

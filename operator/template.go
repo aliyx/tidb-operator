@@ -56,7 +56,7 @@ metadata:
 spec:
   # default is 30s
   terminationGracePeriodSeconds: 5
-  restartPolicy: OnFailure
+  restartPolicy: Never
   # DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
   # For example, pd-test-001 in default namesapce will have DNS name
   # 'pd-test-001.test.default.svc.cluster.local'.
@@ -68,7 +68,7 @@ spec:
   containers:
     - name: pd
       image: {{registry}}/pd:{{version}}
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Never
       resources:
         limits:
           memory: "{{mem}}Mi"
@@ -86,19 +86,12 @@ spec:
           peer_urls="http://0.0.0.0:2380"
           advertise_peer_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380"
 
-          export PD_NAME=$HOSTNAME
-          export PD_DATA_DIR=/data/pd
-
-          export CLIENT_URLS=$client_urls
-          export ADVERTISE_CLIENT_URLS=$advertise_client_urls
-          export PEER_URLS=$peer_urls
-          export ADVERTISE_PEER_URLS=$advertise_peer_urls
-
           # set prometheus
           sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
 
-          if [ -d $PD_DATA_DIR ]; then
-            echo "Resuming with existing data dir:$PD_DATA_DIR"
+          data_dir=/data/pd
+          if [ -d $data_dir ]; then
+            echo "Resuming with existing data dir:$data_dir"
           else
             echo "First run for this member"
             # First wait for the desired number of replicas to show up.
@@ -118,13 +111,13 @@ spec:
           echo "Initial-cluster:$urls"
 
           pd-server \
-          --name="$PD_NAME" \
-          --data-dir="$PD_DATA_DIR" \
-          --client-urls="$CLIENT_URLS" \
-          --advertise-client-urls="$ADVERTISE_CLIENT_URLS" \
-          --peer-urls="$PEER_URLS" \
-          --advertise-peer-urls="$ADVERTISE_PEER_URLS" \
-          --initial-cluster=$urls \
+          --name="$HOSTNAME" \
+          --data-dir="$data_dir" \
+          --client-urls="$client_urls" \
+          --advertise-client-urls="$advertise_client_urls" \
+          --peer-urls="$peer_urls" \
+          --advertise-peer-urls="$advertise_peer_urls" \
+          {{cluster}} \
           --config="/etc/pd/config.toml"
 `
 

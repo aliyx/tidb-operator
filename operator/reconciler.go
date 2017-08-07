@@ -71,6 +71,10 @@ func (db *Db) Reconcile(kvReplica, dbReplica int) (err error) {
 
 // Upgrade tidb version
 func (db *Db) Upgrade() error {
+	if !db.Status.Available {
+		return ErrUnavailable
+	}
+
 	if db.Status.UpgradeState == upgrading {
 		return fmt.Errorf("db %q is upgrading", db.GetName())
 	}

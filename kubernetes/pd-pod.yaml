@@ -70,6 +70,5 @@ spec:
           --advertise-client-urls="$advertise_client_urls" \
           --peer-urls="$peer_urls" \
           --advertise-peer-urls="$advertise_peer_urls" \
-          --initial-cluster=$urls \
-          --join=http://pd-{{cell}}:2379 \
+          {{cluster}} \
           --config="/etc/pd/config.toml"

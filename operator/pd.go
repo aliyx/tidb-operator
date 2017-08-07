@@ -71,7 +71,7 @@ func (db *Db) reconcilePds() error {
 		parseError(db, err)
 		if changed > 0 || err != nil {
 			if err != nil {
-				logs.Error("reconcile pd %q error: %v", db.GetName(), err)
+				logs.Error("reconcile pd %q cluster error: %v", db.GetName(), err)
 			}
 			e.Trace(err, "Reconcile pd cluster")
 		}
@@ -95,7 +95,8 @@ func (db *Db) reconcilePds() error {
 	}
 
 	// check not in pd cluster member
-	js, err := pdutil.PdMembersGet(p.OuterAddresses[0])
+
+	js, err := pdutil.RetryGetPdMembers(p.OuterAddresses[0])
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ func (db *Db) reconcilePds() error {
 	if ret.Type == gjson.Null {
 		logs.Warn("could not get pd %q members", p.Db.GetName())
 		for _, mb := range p.Members {
-			logs.Warn("mark pd %q status PodFailed")
+			logs.Warn("mark pd %q status PodFailed", mb.Name)
 			mb.State = PodFailed
 		}
 	}
@@ -282,15 +283,20 @@ func (p *Pd) waitForOk() (err error) {
 }
 
 func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
+	cluster := "--initial-cluster=$urls"
+	if p.Db.Status.Phase > PhasePdStarted {
+		cluster = "--join=http://pd-" + p.Db.GetName() + ":2379"
+	}
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
-		"{{cell}}", p.Db.Metadata.Name,
+		"{{cell}}", p.Db.GetName(),
 		"{{id}}", fmt.Sprintf("%03d", p.Member),
 		"{{replicas}}", fmt.Sprintf("%d", p.Spec.Replicas),
 		"{{cpu}}", fmt.Sprintf("%v", p.Spec.CPU),
 		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
 		"{{version}}", p.Spec.Version,
 		"{{registry}}", imageRegistry,
+		"{{cluster}}", cluster,
 	)
 	str := r.Replace(temp)
 	j, err := yaml.YAMLToJSON([]byte(str))
