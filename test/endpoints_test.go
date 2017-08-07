@@ -139,7 +139,7 @@ func Test_Migrate(t *testing.T) {
 	m := controllers.Migrator{
 		Mysql: mysqlutil.Mysql{
 			Database: "xinyang1",
-			IP:       "10.213.125.85",
+			IP:       "10.213.125.107",
 			Port:     13306,
 			User:     "xinyang1",
 			Password: "xinyang1",

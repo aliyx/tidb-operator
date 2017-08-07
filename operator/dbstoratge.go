@@ -90,7 +90,7 @@ func (db *Db) check() (err error) {
 		return err
 	}
 	// db share Volume
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	db.Volume = strings.Trim(md.Spec.K8s.HostPath, " ")
 	if len(db.Volume) == 0 {
 		db.Volume = "emptyDir: {}"
@@ -114,7 +114,7 @@ func (s Schema) check() error {
 }
 
 func (p *Pd) check() error {
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	p.CPU = md.Spec.Pd.CPU
 	p.Mem = md.Spec.Pd.Mem
 	p.Replicas = 3
@@ -137,7 +137,7 @@ func (p *Pd) check() error {
 }
 
 func (tk *Tikv) check() error {
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	tk.CPU = md.Spec.Tikv.CPU
 	tk.Mem = md.Spec.Tikv.Mem
 	if tk.Capatity < 1 {
@@ -161,7 +161,7 @@ func (tk *Tikv) check() error {
 }
 
 func (td *Tidb) check() error {
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	td.CPU = md.Spec.Tidb.CPU
 	td.Mem = md.Spec.Tidb.Mem
 	if err := td.validate(); err != nil {

@@ -209,7 +209,7 @@ func (db *Db) Uninstall(ch chan int) (err error) {
 		}
 		for i := 0; i < int(stopTidbTimeout/2); i++ {
 			if started(db.GetName()) {
-				logs.Warn("db '%s' is not completely uninstalled yet", db.GetName())
+				logs.Warn("db %q is not completely uninstalled yet", db.GetName())
 				time.Sleep(2 * time.Second)
 			} else {
 				break
@@ -263,7 +263,7 @@ func NeedApproval(ID string, kvr, dbr uint) bool {
 		kvr = kvr + uint(db.Tikv.Spec.Replicas)
 		dbr = dbr + uint(db.Tidb.Spec.Replicas)
 	}
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	if kvr > md.Spec.AC.KvReplicas || dbr > md.Spec.AC.DbReplicas {
 		return true
 	}

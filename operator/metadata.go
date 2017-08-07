@@ -196,7 +196,9 @@ func metaInit() {
 				logs.Critical("sync metadata  cache error: %v", err)
 				continue
 			}
-			md = m
+			if m != nil {
+				continue
+			}
 
 			// sync proxys
 			ps, _ := k8sutil.GetNodesExternalIP(map[string]string{
@@ -206,7 +208,7 @@ func metaInit() {
 				logs.Warn("cluster proxy has changed, from %v to %v")
 				m.Spec.K8s.Proxys = ps
 				if err = m.Update(); err != nil {
-					logs.Error("failed to update metadta: %v", err)
+					logs.Error("failed to update metadata: %v", err)
 				}
 			}
 		}
@@ -304,7 +306,11 @@ func GetMetadata() (*Metadata, error) {
 	return m, nil
 }
 
-func getCachedMetadata() *Metadata {
+func getNonNullMetadata() *Metadata {
+	md, err := GetMetadata()
+	if err != nil {
+		panic("could not get metadata")
+	}
 	return md
 }
 
@@ -314,7 +320,7 @@ func getNamespace() string {
 
 func getProxys() []string {
 	hosts := make([]string, 2)
-	m := getCachedMetadata()
+	m := getNonNullMetadata()
 	ps := m.Spec.K8s.Proxys
 	if len(ps) < 3 {
 		return ps

@@ -351,7 +351,7 @@ func (tk *Tikv) decrease(replicas int) (err error) {
 }
 
 func (tk *Tikv) increase(replicas int) (err error) {
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	if (replicas + tk.Replicas) > md.Spec.Tikv.Max {
 		return fmt.Errorf("the replicas of tikv exceeds max %d", md.Spec.Tikv.Max)
 	}

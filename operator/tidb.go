@@ -252,7 +252,7 @@ func (db *Db) reconcileTidbs(replica int) error {
 
 	// check replicas
 
-	md := getCachedMetadata()
+	md := getNonNullMetadata()
 	if replica > md.Spec.Tidb.Max {
 		err = fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
 		return err
