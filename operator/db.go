@@ -28,6 +28,7 @@ const (
 	// pd/tikv/tidb grace period is 5s, so +1s
 	terminationGracePeriodSeconds = 6
 
+	// test:3minute product:60minute
 	tikvMaxDowntime = 3 * 60
 	// ScaleUndefined no scale request
 	ScaleUndefined int = iota
