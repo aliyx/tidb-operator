@@ -87,7 +87,7 @@ func main() {
 		logs.Error("can't get Pod 'prom-gateway'", err)
 	} else {
 		if pods[0].Spec.NodeName == node {
-			if err = k8sutil.DeletePods(pods[0].GetName()); err != nil {
+			if err = k8sutil.DeletePod(pods[0].GetName(), 6); err != nil {
 				logs.Error("delete prom-gateway failed, please delete manually %v", err)
 			} else {
 				logs.Info("prom-gateway deleted, kubernetes will create a new Pod")

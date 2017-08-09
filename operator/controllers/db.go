@@ -48,17 +48,8 @@ func (dc *TidbController) Post() {
 	errHandler(
 		dc.Controller,
 		db.Save(),
-		fmt.Sprintf("create tidb(%s)", db.Schema.Name),
+		fmt.Sprintf("create tidb %s", db.Schema.Name),
 	)
-
-	// start is async
-	if db.Status.Phase == operator.PhaseUndefined {
-		errHandler(
-			dc.Controller,
-			db.Install(nil),
-			fmt.Sprintf("install tidb %s cluster", db.Schema.Name),
-		)
-	}
 	dc.Data["json"] = db.GetName()
 	dc.ServeJSON()
 }
@@ -132,71 +123,7 @@ func (dc *TidbController) Patch() {
 	if err = patch(b, newDb); err != nil {
 		dc.CustomAbort(400, fmt.Sprintf("parse patch body err: %v", err))
 	}
-	switch newDb.Operator {
-	case "patch":
-		newDb.Update()
-	case "audit":
-		switch newDb.Status.Phase {
-		case operator.PhaseRefuse:
-			newDb.Update()
-		case operator.PhaseUndefined:
-			newDb.Update()
-			errHandler(
-				dc.Controller,
-				newDb.Install(nil),
-				fmt.Sprintf("start installing db %s", cell),
-			)
-		}
-	case "start":
-		// Startup means passing the audit
-		if newDb.Status.Phase == operator.PhaseAuditing {
-			newDb.Status.Phase = operator.PhaseUndefined
-		}
-		errHandler(
-			dc.Controller,
-			newDb.Install(nil),
-			fmt.Sprintf("start installing db %s", cell),
-		)
-	case "stop":
-		errHandler(
-			dc.Controller,
-			newDb.Uninstall(nil),
-			fmt.Sprintf("start uninstalling db %s", cell),
-		)
-	case "retart":
-		errHandler(
-			dc.Controller,
-			newDb.Reinstall(cell),
-			fmt.Sprintf("start reinstalling db %s", cell),
-		)
-	case "upgrade":
-		errHandler(
-			dc.Controller,
-			newDb.Update(),
-			fmt.Sprintf("upgrade db %s", cell),
-		)
-	case "scale":
-		newDb.Status.ScaleCount++
-		newDb.Operator = "scale"
-		errHandler(
-			dc.Controller,
-			newDb.Update(),
-			fmt.Sprintf("update db %s", cell),
-		)
-		errHandler(
-			dc.Controller,
-			db.Reconcile(newDb.Tikv.Replicas, newDb.Tidb.Replicas),
-			fmt.Sprintf("Start scaling db %s", cell),
-		)
-	case "syncMigrateStat":
-		errHandler(
-			dc.Controller,
-			db.SyncMigrateStat(newDb.Status.MigrateState, newDb.Status.Reason),
-			"sync db migrate status",
-		)
-	default:
-		dc.CustomAbort(403, "unsupport operation")
-	}
+	errHandler(dc.Controller, db.Update(newDb), fmt.Sprintf("patch db %s", cell))
 }
 
 // Get a tidb

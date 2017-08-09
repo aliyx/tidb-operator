@@ -11,6 +11,8 @@ func err2httpStatuscode(err error) (code int) {
 		return 404
 	case operator.ErrRepeatOperation:
 		return 402
+	case operator.ErrUnsupportPatch:
+		return 403
 	default:
 		return 500
 	}

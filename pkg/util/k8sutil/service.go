@@ -32,7 +32,7 @@ func CreateService(srv *v1.Service) (*v1.Service, error) {
 func DelSrvs(names ...string) error {
 	for _, name := range names {
 		kubecli.CoreV1().Services(Namespace).Delete(name, &metav1.DeleteOptions{})
-		logs.Warn(`Service "%s" deleted`, name)
+		logs.Info("Service %q deleted", name)
 	}
 	return nil
 }

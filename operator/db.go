@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	tsql "github.com/ffan/tidb-operator/pkg/util/mysqlutil"
 
@@ -26,6 +25,10 @@ const (
 	tikvScaleErr = 1
 	tidbScaleErr = 1 << 1
 
+	// pd/tikv/tidb grace period is 5s, so +1s
+	terminationGracePeriodSeconds = 6
+
+	tikvMaxDowntime = 3 * 60
 	// ScaleUndefined no scale request
 	ScaleUndefined int = iota
 	// ScalePending wait for the admin to scale
@@ -43,18 +46,100 @@ var (
 	doings  = make(map[string]struct{})
 )
 
-// create user specify schema and set database privileges
-func (db *Db) initSchema() (err error) {
-	if db.Status.Phase != PhaseTidbStarted {
-		return fmt.Errorf("tidb '%s' no started", db.GetName())
+// Update patch db for external services
+func (db *Db) Update(newDb *Db) (err error) {
+	db.Operator = newDb.Operator
+	switch newDb.Operator {
+	// case "patch":
+	// 	newDb.update()
+	case "audit":
+		switch newDb.Status.Phase {
+		case PhaseRefuse:
+			db.Status.Phase = PhaseRefuse
+			db.Owner.Reason = newDb.Owner.Reason
+			return db.update()
+		case PhaseUndefined:
+			db.Status.Phase = PhaseUndefined
+			if err = db.update(); err != nil {
+				return
+			}
+			go db.Install(true)
+		default:
+			return ErrUnsupportPatch
+		}
+	case "start":
+		go db.Install(true)
+	case "stop":
+		go db.Uninstall(true)
+	case "retart":
+		go db.Reinstall()
+	case "upgrade":
+		go db.Reconcile()
+	case "scale":
+		if err := db.Tikv.checkScale(newDb.Tikv.Replicas); err != nil {
+			return err
+		}
+		if err := db.Tidb.checkScale(newDb.Tidb.Replicas); err != nil {
+			return err
+		}
+		db.Status.ScaleCount++
+		db.Tikv.Replicas = newDb.Tikv.Replicas
+		db.Tidb.Replicas = newDb.Tidb.Replicas
+		if err = db.update(); err != nil {
+			return
+		}
+		go db.Reconcile()
+	case "syncMigrateStat":
+		return db.SyncMigrateStat(newDb.Status.MigrateState, newDb.Status.Reason)
+	default:
+		return ErrUnsupportPatch
+	}
+	return
+}
+
+// Install tidb cluster and init user privileges
+func (db *Db) Install(lock bool) (err error) {
+	if lock {
+		if !db.TryLock() {
+			return
+		}
+		defer db.Unlock()
 	}
 
-	// save savepoint
-	if err = db.update(); err != nil {
+	e := db.Event(eventDb, "install")
+	defer func() {
+		parseError(db, err)
+		e.Trace(err, "Install tidb cluster on kubernetes")
+		if err = db.update(); err != nil {
+			db.Event(eventDb, "install").Trace(err, "Failed to update db")
+		}
+	}()
+
+	if db.Status.Phase != PhaseUndefined {
+		err = ErrRepeatOperation
+		return err
+	}
+
+	logs.Info("start installing db", db.GetName())
+	if err = db.Pd.install(); err != nil {
 		return
 	}
+	if err = db.Tikv.install(); err != nil {
+		return
+	}
+	if err = db.Tidb.install(); err != nil {
+		return
+	}
+	if err = db.initSchema(); err != nil {
+		return
+	}
+	logs.Info("end install db", db.GetName())
+	return
+}
 
-	e := NewEvent(db.GetName(), "db", "init")
+// create user specify schema and set database privileges
+func (db *Db) initSchema() (err error) {
+	e := db.Event(eventDb, "init")
 	defer func() {
 		ph := PhaseTidbInited
 		if err != nil {
@@ -63,9 +148,13 @@ func (db *Db) initSchema() (err error) {
 			db.Status.Available = true
 		}
 		db.Status.Phase = ph
-
 		e.Trace(err, fmt.Sprintf("Create schema %s and set database privileges", db.Schema.Name))
 	}()
+
+	if db.Status.Phase != PhaseTidbStarted {
+		err = fmt.Errorf("tidb %q no started", db.GetName())
+		return
+	}
 
 	var (
 		h string
@@ -82,171 +171,93 @@ func (db *Db) initSchema() (err error) {
 	return
 }
 
-// Install tidb
-func (db *Db) Install(ch chan int) (err error) {
-	// check status
-	if db.Status.Phase < PhaseUndefined {
-		return fmt.Errorf("db %s may be in the approval or no passed", db.GetName())
-	}
-	if db.Status.Phase != PhaseUndefined {
-		return ErrRepeatOperation
-	}
-
-	go func() {
+// Uninstall tidb from kubernetes
+func (db *Db) Uninstall(lock bool) (err error) {
+	if lock {
 		if !db.TryLock() {
-			logs.Error("failed to try lock db", db.GetName())
 			return
 		}
 		defer db.Unlock()
-		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseUndefined {
-			logs.Error("db %s was modified before install", db.GetName())
-			return
-		}
-		logs.Info("start installing db", db.GetName())
-		e := NewEvent(db.GetName(), "db", "install")
-		defer func() {
-			parseError(db, err)
-			if err != nil {
-				logs.Error("failed to install db %s on k8s: %v", db.GetName(), err)
-			}
-			e.Trace(err, "Start installing tidb cluster on kubernetes")
-
-			if err = db.update(); err != nil {
-				logs.Error("failed to update db %s: %v", db.GetName(), err)
-			}
-			if ch != nil {
-				if err != nil {
-					ch <- 1
-				} else {
-					ch <- 0
-				}
-			}
-			logs.Info("end install db", db.GetName())
-		}()
-		if err = db.Pd.install(); err != nil {
-			return
-		}
-		if err = db.Tikv.install(); err != nil {
-			return
-		}
-		if err = db.Tidb.install(); err != nil {
-			return
-		}
-		if err = db.initSchema(); err != nil {
-			return
-		}
-	}()
-	return nil
-}
-
-// Uninstall tidb from kubernetes
-func (db *Db) Uninstall(ch chan int) (err error) {
-	if db.Status.Phase < PhaseUndefined {
-		if ch != nil {
-			ch <- 0
-		}
-		return nil
 	}
+	if db.Status.Phase < PhaseUndefined {
+		return
+	}
+
 	db.Status.Available = false
 	db.Status.Phase = PhaseTidbUninstalling
 	if err = db.update(); err != nil {
-		if ch != nil {
-			ch <- 1
-		}
+		db.Event(eventDb, "uninstall").Trace(err, "Failed to update db")
 		return err
 	}
-	// aync waiting for all pods deleted from k8s
-	go func() {
-		if !db.TryLock() {
-			logs.Error("failed to try lock db", db.GetName())
-			return
+
+	logs.Info("start uninstalling db", db.GetName())
+	e := db.Event(eventDb, "uninstall")
+	defer func() {
+		ph := PhaseUndefined
+		if started(db.GetName()) {
+			ph = PhaseTidbUninstalling
+			err = fmt.Errorf("async delete pods timeout: %ds", stopTidbTimeout)
+		} else {
+			logs.Info("end uninstall db", db.GetName())
 		}
-		defer db.Unlock()
-		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || new.Status.Phase != PhaseTidbUninstalling {
-			logs.Error("db %q was modified before uninstall", db.GetName())
-			return
-		}
-		logs.Warn("start uninstalling db", db.GetName())
-		e := NewEvent(db.GetName(), "db", "uninstall")
-		defer func() {
-			stoped := 0
-			ph := PhaseUndefined
-			if started(db.GetName()) {
-				ph = PhaseTidbUninstalling
-				stoped = 1
-				err = fmt.Errorf("async delete pods timeout: %v", err)
-			}
-			db.Status.Phase = ph
-			db.Status.Reason = ""
-			db.Status.Message = ""
-			db.Status.MigrateState = ""
-			db.Status.UpgradeState = ""
-			db.Status.ScaleState = 0
-			db.Status.ScaleCount = 0
-			db.Status.MigrateRetryCount = 0
-			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %s: %v", db.GetName(), uerr)
-			}
-			e.Trace(err, "Uninstall tidb all pods/rc/service components on k8s")
-			if ch != nil {
-				ch <- stoped
-			}
-			logs.Warn("end uninstall db", db.GetName())
-		}()
-		if err = db.StopMigrator(); err != nil {
-			return
-		}
-		if err = db.Tidb.uninstall(); err != nil {
-			return
-		}
-		if err = db.Tikv.uninstall(); err != nil {
-			return
-		}
-		if err = db.Pd.uninstall(); err != nil {
-			return
-		}
-		for i := 0; i < int(stopTidbTimeout/2); i++ {
-			if started(db.GetName()) {
-				logs.Warn("db %q is not completely uninstalled yet", db.GetName())
-				time.Sleep(2 * time.Second)
-			} else {
-				break
-			}
+		db.Status.Phase = ph
+		db.Status.Reason = ""
+		db.Status.Message = ""
+		db.Status.MigrateState = ""
+		db.Status.UpgradeState = ""
+		db.Status.ScaleState = 0
+		db.Status.ScaleCount = 0
+		db.Status.MigrateRetryCount = 0
+		e.Trace(err, "Uninstall tidb cluster on k8s")
+		if uerr := db.update(); uerr != nil {
+			err = uerr
+			db.Event(eventDb, "uninstall").Trace(err, "Failed to update db")
 		}
 	}()
-	return err
+	if err = db.StopMigrator(); err != nil {
+		return
+	}
+	if err = db.Tidb.uninstall(); err != nil {
+		return
+	}
+	if err = db.Tikv.uninstall(); err != nil {
+		return
+	}
+	if err = db.Pd.uninstall(); err != nil {
+		return
+	}
+	tries := int(stopTidbTimeout / 2)
+	for i := 0; i < tries; i++ {
+		if started(db.GetName()) {
+			logs.Warn("db %q is not completely uninstalled yet", db.GetName())
+			time.Sleep(2 * time.Second)
+		} else {
+			break
+		}
+	}
+	return
 }
 
 // Reinstall first uninstall tidb, second install tidb
-func (db *Db) Reinstall(cell string) (err error) {
-	go func() {
-		e := NewEvent(cell, "db", "reinstall")
-		defer func(ph Phase) {
-			e.Trace(err, fmt.Sprintf("Reinstall db status from %d to %d", ph, db.Status.Phase))
-		}(db.Status.Phase)
+func (db *Db) Reinstall() (err error) {
+	if !db.TryLock() {
+		return
+	}
+	defer db.Unlock()
 
-		ch := make(chan int, 1)
-		if err = db.Uninstall(ch); err != nil {
-			logs.Error("delete db %s error: %v", cell, err)
-			return
-		}
-		// waiting for all pod deleted
-		stoped := <-ch
-		if stoped != 0 {
-			logs.Error("Uninstall db %s timeout", cell)
-			return
-		}
+	e := db.Event(eventDb, "reinstall")
+	defer func(ph Phase) {
+		e.Trace(err, fmt.Sprintf("Reinstall db status from %d to %d", ph, db.Status.Phase))
+	}(db.Status.Phase)
 
-		if err = db.Install(ch); err != nil {
-			logs.Error("Install db %s error: %v", cell, err)
-			return
-		}
-		// end
-		<-ch
-	}()
-	return nil
+	if err = db.Uninstall(false); err != nil {
+		return
+	}
+
+	if err = db.Install(false); err != nil {
+		return
+	}
+	return
 }
 
 // NeedApproval whether the user creates tidb for approval
@@ -282,27 +293,27 @@ func Delete(cell string) error {
 
 	// async wait
 	go func() {
-		logs.Warn("start deleting db", db.GetName())
-		ch := make(chan int, 1)
-		if err = db.Uninstall(ch); err != nil {
+		if !db.TryLock() {
 			return
 		}
+		defer func() {
+			defer db.Unlock()
+			if err != nil {
+				db.Event(eventDb, "delete").Trace(err, "Failed to delete db")
+			}
+		}()
 
-		// wait uninstalled
-		stoped := <-ch
-		if stoped != 0 {
-			// fail to uninstall tidb, so quit
+		logs.Info("start deleting db", db.GetName())
+		if err = db.Uninstall(false); err != nil {
 			return
 		}
-		if err = db.delete(); err != nil && err != storage.ErrNoNode {
-			logs.Error("delete tidb error: %v", err)
+		if err = delEventsBy(db.GetName()); err != nil {
 			return
 		}
-		if err = delEventsBy(db.Metadata.Name); err != nil {
-			logs.Error("delete event error: %v", err)
+		if err = db.delete(); err != nil {
 			return
 		}
-		logs.Warn("end delete db", db.GetName())
+		logs.Info("end delete db", db.GetName())
 	}()
 	return nil
 }
@@ -330,14 +341,24 @@ func (db *Db) TryLock() (locked bool) {
 		rw.Lock()
 		// double-check
 		if n := db.Locker(); n != nil {
-			doings[db.GetName()] = struct{}{}
-			locked = true
+			if new, err := GetDb(db.GetName()); new != nil {
+				db = new
+				doings[db.GetName()] = struct{}{}
+				locked = true
+			} else {
+				logs.Error("could get db %q: %", db.GetName(), err)
+				locked = false
+				rw.Unlock()
+			}
 		} else {
 			locked = false
 			rw.Unlock()
 		}
 	} else {
 		locked = false
+	}
+	if !locked {
+		logs.Error("could not try lock db", db.GetName())
 	}
 	return
 }

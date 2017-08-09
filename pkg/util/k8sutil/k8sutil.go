@@ -2,6 +2,7 @@ package k8sutil
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"time"
@@ -43,6 +44,9 @@ var (
 
 	// InCluster is in kubernetes
 	InCluster = false
+
+	// ErrNotDeleted ...
+	ErrNotDeleted = errors.New("not deleted")
 )
 
 func init() {

@@ -21,6 +21,14 @@ const (
 	Eok = "ok"
 )
 
+var (
+	eventPd       = "pd"
+	eventTikv     = "tikv"
+	eventTidb     = "tidb"
+	eventMigrator = "migrator"
+	eventDb       = "db"
+)
+
 // Events resource
 type Events struct {
 	metav1.TypeMeta `json:",inline"`
@@ -154,4 +162,9 @@ func delEventsBy(cell string) error {
 		return err
 	}
 	return nil
+}
+
+// Event creates an event associated with db
+func (db *Db) Event(comp, key string) *Event {
+	return NewEvent(db.GetName(), comp, key)
 }

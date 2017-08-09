@@ -30,6 +30,7 @@ spec:
       labels:
         name: tidb-gc
     spec:
+      terminationGracePeriodSeconds: 5
       volumes:
       - name: datadir
         hostPath:

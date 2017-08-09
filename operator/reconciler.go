@@ -1,9 +1,8 @@
 package operator
 
 import (
-	"fmt"
-
 	"github.com/astaxie/beego/logs"
+	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"k8s.io/client-go/pkg/api/v1"
 )
@@ -11,75 +10,84 @@ import (
 // Reconcile tikv and tidb desired status
 // 1. reconcile replica count
 // 2. reconcile version
-func (db *Db) Reconcile(kvReplica, dbReplica int) (err error) {
-	if !db.Status.Available {
-		return ErrUnavailable
+func (db *Db) Reconcile() (err error) {
+	if !db.TryLock() {
+		return
 	}
+	defer db.Unlock()
+
+	defer func() {
+		if err != nil {
+			db.Event(eventDb, "reconcile").Trace(err, "Failed to reconcile tidb cluster")
+		}
+	}()
 
 	// check is scaling
 	if db.Status.ScaleState&scaling > 0 {
-		return ErrScaling
+		return
 	}
 
-	go func() {
-		if !db.TryLock() {
-			logs.Error("could not try lock db", db.GetName())
-			return
-		}
-		defer db.Unlock()
-		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || !new.Status.Available || new.Status.ScaleState&scaling > 0 {
-			logs.Error("db %q was modified before scale", db.GetName())
-			return
-		}
+	if !db.Status.Available {
+		err = ErrUnavailable
+		return
+	}
 
-		logs.Debug("start reconciling db", db.GetName())
-		db.Status.ScaleState |= scaling
+	logs.Debug("start reconciling db", db.GetName())
+	db.Status.ScaleState |= scaling
+	if err = db.update(); err != nil {
+		return
+	}
+	defer func() {
+		parseError(db, err)
+		db.Status.ScaleState ^= scaling
 		if err = db.update(); err != nil {
-			logs.Error("failed to update db %q: %v", db.GetName(), err)
-			return
+			logs.Error("failed to update db %s: %v", db.GetName(), err)
+		} else {
+			logs.Debug("end reconciling db", db.GetName())
 		}
-
-		defer func() {
-			if err != nil {
-				logs.Error("failed to reconcile tidb cluster %q, %v", db.GetName(), err)
-			}
-			parseError(db, err)
-			db.Status.ScaleState ^= scaling
-			if err = db.update(); err != nil {
-				logs.Error("failed to update db %s: %v", db.GetName(), err)
-			} else {
-				logs.Debug("end reconciling db", db.GetName())
-			}
-		}()
-
-		if err = db.reconcilePds(); err != nil {
-			return
+		if err == nil {
+			db.upgrade()
 		}
-		if err = db.reconcileTikvs(kvReplica); err != nil {
-			return
-		}
-		if err = db.reconcileTidbs(dbReplica); err != nil {
-			return
-		}
-
-		// check version
-		err = db.Upgrade()
 	}()
-	return nil
+
+	if err = db.reconcilePds(); err != nil {
+		return
+	}
+	if err = db.reconcileTikvs(); err != nil {
+		return
+	}
+	if err = db.reconcileTidbs(); err != nil {
+		return
+	}
+	return
 }
 
-// Upgrade tidb version
-func (db *Db) Upgrade() error {
+// upgrade tidb version
+func (db *Db) upgrade() (err error) {
+	defer func() {
+		if err != nil {
+			db.Event(eventDb, "upgrade").Trace(err, "Failed to upgrade db to version: %s", db.Pd.Version)
+		}
+	}()
+
+	if new, _ := GetDb(db.GetName()); new != nil {
+		db = new
+	} else {
+		err = storage.ErrNoNode
+		return
+	}
+
 	if !db.Status.Available {
-		return ErrUnavailable
+		err = ErrUnavailable
+		return
 	}
 
 	if db.Status.UpgradeState == upgrading {
-		return fmt.Errorf("db %q is upgrading", db.GetName())
+		logs.Warn("db %q is upgrading", db.GetName())
+		return
 	}
 
-	// check all pod whether need to upgrade
+	// check all pods whether need to upgrade
 
 	pods, err := k8sutil.GetPods(db.GetName(), "")
 	if err != nil {
@@ -97,44 +105,34 @@ func (db *Db) Upgrade() error {
 		return nil
 	}
 
-	go func() {
-		if !db.TryLock() {
-			return
-		}
-		defer db.Unlock()
-		// double-check
-		if new, _ := GetDb(db.GetName()); new == nil || new.Status.UpgradeState == upgrading {
-			logs.Error("db %q was modified before upgrade", db.GetName())
-			return
-		}
-		db.Status.UpgradeState = upgrading
-		if err = db.update(); err != nil {
-			logs.Error("failed to update db %q: %v", db.GetName(), err)
-			return
-		}
+	db.Status.UpgradeState = upgrading
+	if err = db.update(); err != nil {
+		return err
+	}
 
-		defer func() {
-			st := upgradeOk
-			if err != nil {
-				st = upgradeFailed
-				logs.Error("failed to upgrade db %q: %v", db.GetName(), err)
-			}
-			db.Status.UpgradeState = st
-			if err = db.update(); err != nil {
-				logs.Error("failed to update db %q: %v", db.GetName(), err)
-			}
-		}()
-		if err = db.Pd.upgrade(); err != nil {
-			return
+	defer func() {
+		st := upgradeOk
+		if err != nil {
+			st = upgradeFailed
 		}
-		if err = db.Tikv.upgrade(); err != nil {
-			return
-		}
-		if err = db.Tidb.upgrade(); err != nil {
-			return
+		db.Status.UpgradeState = st
+		if uerr := db.update(); uerr != nil {
+			logs.Error("failed to update db %q: %v", db.GetName(), uerr)
+			if uerr != nil {
+				err = uerr
+			}
 		}
 	}()
-	return nil
+	if err = db.Pd.upgrade(); err != nil {
+		return
+	}
+	if err = db.Tikv.upgrade(); err != nil {
+		return
+	}
+	if err = db.Tidb.upgrade(); err != nil {
+		return
+	}
+	return
 }
 
 func upgradeOne(name, image, version string) (bool, error) {

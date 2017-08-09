@@ -92,7 +92,10 @@ func PatchRc(name string, updateFunc func(*v1.ReplicationController)) error {
 
 // DelRc cascade delete rc and it's pods
 func DelRc(name string) (err error) {
-	kubecli.CoreV1().ReplicationControllers(Namespace).Delete(name, CascadeDeleteOptions(5))
-	logs.Warn(`ReplicationController "%s" deleted`, name)
-	return nil
+	err = kubecli.CoreV1().ReplicationControllers(Namespace).Delete(name, CascadeDeleteOptions(5))
+	if err != nil {
+		return err
+	}
+	logs.Info("ReplicationController %q deleted", name)
+	return
 }

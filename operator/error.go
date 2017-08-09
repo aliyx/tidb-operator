@@ -16,6 +16,8 @@ var (
 	ErrScaling = errors.New("be scaling")
 	// ErrUnavailable ...
 	ErrUnavailable = errors.New("unavailable")
+	// ErrUnsupportPatch ...
+	ErrUnsupportPatch = errors.New("unsupport patch operator")
 )
 
 func parseError(db *Db, err error) {

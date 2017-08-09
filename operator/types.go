@@ -44,23 +44,22 @@ type Db struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Owner  Owner  `json:"owner,omitempty"`
-	Schema Schema `json:"schema"`
-
-	Pd   *Pd   `json:"pd"`
-	Tikv *Tikv `json:"tikv"`
-	Tidb *Tidb `json:"tidb"`
-
+	Owner    Owner  `json:"owner,omitempty"`
+	Schema   Schema `json:"schema"`
+	Pd       *Pd    `json:"pd"`
+	Tikv     *Tikv  `json:"tikv"`
+	Tidb     *Tidb  `json:"tidb"`
 	Operator string `json:"operator"`
 	Status   Status `json:"status"`
-
-	Volume string `json:"tidbdata_volume,omitempty"`
+	Volume   string `json:"tidbdata_volume,omitempty"`
 }
 
 // Tidb tidb module
 type Tidb struct {
 	Spec    `json:",inline"`
 	Members []*Member `json:"members,omitempty"`
+	// number of available tidb
+	AvailableReplicas int `json:"availableReplicas"`
 
 	cur string
 	Db  *Db `json:"-"`

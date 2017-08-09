@@ -66,7 +66,7 @@ func (db *Db) reconcilePds() error {
 		pods    []apiv1.Pod
 	)
 
-	e := NewEvent(db.GetName(), "tidb/pd", "reconcile")
+	e := db.Event(eventPd, "reconcile")
 	defer func() {
 		parseError(db, err)
 		if changed > 0 || err != nil {
@@ -129,11 +129,9 @@ func (db *Db) reconcilePds() error {
 			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err != nil {
 				logs.Error("failed to delete member %q from pd cluster", mb.Name)
 			}
-			if err = k8sutil.DeletePods(mb.Name); err != nil {
+			if err = k8sutil.DeletePod(mb.Name, terminationGracePeriodSeconds); err != nil {
 				return err
 			}
-			// sleep terminationGracePeriodSeconds
-			time.Sleep(8 * time.Second)
 			p.Member = i + 1
 			if err = p.createPod(); err != nil {
 				return err

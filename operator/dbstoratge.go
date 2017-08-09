@@ -64,6 +64,10 @@ func (db *Db) Save() error {
 	mu.Lock()
 	lockers[db.GetName()] = new(sync.Mutex)
 	mu.Unlock()
+
+	if db.Status.Phase == PhaseUndefined {
+		go db.Install(true)
+	}
 	return nil
 }
 
@@ -205,13 +209,8 @@ func encodeUserID(uid string) string {
 	return u[len(u)-3:]
 }
 
-// Update db
-func (db *Db) Update() error {
-	return dbS.Update(db.Metadata.Name, db)
-}
-
 func (db *Db) update() error {
-	return dbS.Update(db.Metadata.Name, db)
+	return dbS.Update(db.GetName(), db)
 }
 
 // GetDb get a db instance

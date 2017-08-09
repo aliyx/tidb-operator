@@ -105,9 +105,10 @@ func reconcile(ctx context.Context) {
 			db := &dbs[i]
 			db.AfterPropertiesSet()
 			if db.Doing() {
+				logs.Info("db %q is doing", db.GetName())
 				continue
 			}
-			if err = db.Reconcile(db.Tikv.Replicas, db.Tidb.Replicas); err != nil {
+			if err = db.Reconcile(); err != nil {
 				switch err {
 				case ErrUnavailable:
 					if db.Status.Phase > PhaseUndefined {

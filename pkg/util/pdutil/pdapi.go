@@ -38,11 +38,21 @@ func PdStoreIDGet(host string, ID int) (string, error) {
 	return string(bs), nil
 }
 
-func PdStoreDelete(host string, id int) error {
+// PdStoreDemote demote store from tikv cluster
+func PdStoreDemote(host string, id int) error {
 	if err := httputil.Delete(fmt.Sprintf(pdAPIV1StoreIDDelete, host, id), pdReqTimeout); err != nil {
 		return err
 	}
-	logs.Warn(`store:%d deleted`, id)
+	logs.Info("Store:%d demoted", id)
+	return nil
+}
+
+// PdStoreDelete delete store from tikv cluster
+func PdStoreDelete(host string, id int) error {
+	if err := httputil.Delete(fmt.Sprintf(pdAPIV1StoreIDDelete+"?force", host, id), pdReqTimeout); err != nil {
+		return err
+	}
+	logs.Info("Store:%d deleted", id)
 	return nil
 }
 

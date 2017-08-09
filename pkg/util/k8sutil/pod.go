@@ -129,13 +129,28 @@ func clonePod(p *v1.Pod) *v1.Pod {
 // DeletePods delete the specified names pod
 func DeletePods(podNames ...string) error {
 	for _, pName := range podNames {
-		err := kubecli.CoreV1().Pods(Namespace).Delete(pName, metav1.NewDeleteOptions(0))
+		err := kubecli.CoreV1().Pods(Namespace).Delete(pName, &metav1.DeleteOptions{})
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 		logs.Info(`Pod "%s" deleted`, pName)
 	}
 	return nil
+}
+
+// DeletePod delete the specified pod
+func DeletePod(name string, timeout int) error {
+	err := kubecli.CoreV1().Pods(Namespace).Delete(name, &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	time.Sleep(time.Duration(timeout) * time.Second)
+	_, err = GetPod(name)
+	if err != nil && apierrors.IsNotFound(err) {
+		logs.Info("Pod %q deleted", name)
+		return nil
+	}
+	return fmt.Errorf("Pod %q not been deleted", name)
 }
 
 // DeletePodsBy delete the specified cell pods
@@ -149,7 +164,7 @@ func DeletePodsBy(cell, component string) error {
 	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
-	logs.Warn(`Pods cell:"%s" component:"%s" deleted`, cell, component)
+	logs.Warn("Pods cell: %q component: %q deleted", cell, component)
 	return nil
 }
 

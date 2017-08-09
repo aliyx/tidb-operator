@@ -27,6 +27,7 @@ spec:
     - name: datadir
       {{tidbdata_volume}}
   terminationGracePeriodSeconds: 5
+  restartPolicy: Never
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}
