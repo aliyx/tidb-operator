@@ -15,7 +15,9 @@ var (
 	// ErrScaling be scaling
 	ErrScaling = errors.New("be scaling")
 	// ErrUnavailable ...
-	ErrUnavailable = errors.New("unavailable")
+	ErrUnavailable = errors.New("db is unavailable")
+	// ErrPdUnavailable pd cluster exception
+	ErrPdUnavailable = errors.New("pd cluster is unavailable")
 	// ErrUnsupportPatch ...
 	ErrUnsupportPatch = errors.New("unsupport patch operator")
 )

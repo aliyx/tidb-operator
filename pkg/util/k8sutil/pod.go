@@ -164,7 +164,7 @@ func DeletePodsBy(cell, component string) error {
 	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
-	logs.Warn("Pods cell: %q component: %q deleted", cell, component)
+	logs.Info("Pods cell: %q component: %q deleted", cell, component)
 	return nil
 }
 
@@ -176,7 +176,7 @@ func DeletePodsByLabel(ls map[string]string) error {
 	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
-	logs.Warn("Pods '%s' deleted", ls)
+	logs.Info("Pods %q deleted", ls)
 	return nil
 }
 

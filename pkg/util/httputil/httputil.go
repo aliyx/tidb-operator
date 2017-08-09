@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	// ErrAlreadyExists 409返回该错误
-	ErrAlreadyExists = errors.New("resource already exists")
+	// ErrAlreadyExists 409
+	ErrAlreadyExists = errors.New("already exists")
 	// ErrNotFound 404
-	ErrNotFound = errors.New("resource not exists")
+	ErrNotFound = errors.New("not found")
 )
 
-// Post create a resource
+// Post send post request
 func Post(url string, body []byte) (string, error) {
 	resp, err := resty.R().
 		SetHeader("Content-Type", "application/json").
@@ -24,7 +24,7 @@ func Post(url string, body []byte) (string, error) {
 		Post(url)
 
 	if err != nil {
-		return "", fmt.Errorf("error: %v", err)
+		return "", err
 	}
 	switch resp.StatusCode() {
 	case 200, 201:
@@ -32,43 +32,43 @@ func Post(url string, body []byte) (string, error) {
 	case 409:
 		return "", ErrAlreadyExists
 	default:
-		return "", fmt.Errorf("post %s error: %v", url, resp.String())
+		return "", fmt.Errorf("http: %s error: %s", url, resp.String())
 	}
 }
 
-// Get get a resource
+// Get send get request
 func Get(url string, timeout time.Duration) ([]byte, error) {
 	resty.SetTimeout(timeout)
 	resp, err := resty.R().
 		SetHeader("Content-Type", "application/json").
 		Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("error: %v", err)
+		return nil, err
 	}
 	if resp.StatusCode() == 404 {
 		return nil, ErrNotFound
 	}
 	if resp.StatusCode() != 200 {
-		return nil, fmt.Errorf("get resource %s error: %v", url, resp.String())
+		return nil, fmt.Errorf("http: %s error: %s", url, resp.String())
 	}
 	return resp.Body(), nil
 }
 
-// Delete a resource
+// Delete send delete request
 func Delete(url string, timeout time.Duration) error {
 	resty.SetTimeout(timeout)
 	resp, err := resty.R().
 		Delete(url)
 	if err != nil {
-		return fmt.Errorf("error: %v", err)
+		return err
 	}
 	if resp.StatusCode() != 200 && resp.StatusCode() != 404 {
-		return fmt.Errorf("delete service %s error: %v", url, resp.String())
+		return fmt.Errorf("http: %s error: %s", url, resp.String())
 	}
 	return nil
 }
 
-// Patch a resource
+// Patch send patch request
 func Patch(url string, body []byte, timeout time.Duration) error {
 	resty.SetTimeout(timeout)
 	resp, err := resty.R().
@@ -76,10 +76,10 @@ func Patch(url string, body []byte, timeout time.Duration) error {
 		SetBody(body).
 		Patch(url)
 	if err != nil {
-		return fmt.Errorf("error: %v", err)
+		return err
 	}
 	if resp.StatusCode() != 200 && resp.StatusCode() != 404 {
-		return fmt.Errorf("http: %v error: %v", url, resp.String())
+		return fmt.Errorf("http: %s error: %s", url, resp.String())
 	}
 	return nil
 }

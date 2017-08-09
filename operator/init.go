@@ -27,8 +27,8 @@ var (
 func ParseConfig() {
 	forceInitMd = beego.AppConfig.DefaultBool("forceInitMd", false)
 	imageRegistry = beego.AppConfig.String("dockerRegistry")
-	logs.Debug("force init metadata: ", forceInitMd)
-	logs.Debug("image registrey: ", imageRegistry)
+	logs.Debug("force init metadata:", forceInitMd)
+	logs.Debug("image registrey:", imageRegistry)
 }
 
 // Init operator
@@ -104,8 +104,11 @@ func reconcile(ctx context.Context) {
 		for i := range dbs {
 			db := &dbs[i]
 			db.AfterPropertiesSet()
+			if db.Status.Phase <= PhaseUndefined {
+				continue
+			}
 			if db.Doing() {
-				logs.Info("db %q is doing", db.GetName())
+				logs.Info("db %q is busy", db.GetName())
 				continue
 			}
 			if err = db.Reconcile(); err != nil {

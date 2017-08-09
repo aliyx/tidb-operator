@@ -54,6 +54,9 @@ func (db *Db) Update(newDb *Db) (err error) {
 	// case "patch":
 	// 	newDb.update()
 	case "audit":
+		if db.Status.Phase > PhaseUndefined {
+			return ErrUnsupportPatch
+		}
 		switch newDb.Status.Phase {
 		case PhaseRefuse:
 			db.Status.Phase = PhaseRefuse
@@ -72,7 +75,7 @@ func (db *Db) Update(newDb *Db) (err error) {
 		go db.Install(true)
 	case "stop":
 		go db.Uninstall(true)
-	case "retart":
+	case "restart":
 		go db.Reinstall()
 	case "upgrade":
 		go db.Reconcile()
@@ -131,6 +134,8 @@ func (db *Db) Install(lock bool) (err error) {
 	if err = db.Tidb.install(); err != nil {
 		return
 	}
+	time.Sleep(30 * time.Second)
+	logs.Info("wait 30s for tidb %q cluster to initialize", db.GetName())
 	if err = db.initSchema(); err != nil {
 		return
 	}
@@ -272,8 +277,8 @@ func NeedApproval(ID string, kvr, dbr uint) bool {
 		return true
 	}
 	for _, db := range dbs {
-		kvr = kvr + uint(db.Tikv.Spec.Replicas)
-		dbr = dbr + uint(db.Tidb.Spec.Replicas)
+		kvr = kvr + uint(db.Tikv.Replicas)
+		dbr = dbr + uint(db.Tidb.Replicas)
 	}
 	md := getNonNullMetadata()
 	if kvr > md.Spec.AC.KvReplicas || dbr > md.Spec.AC.DbReplicas {

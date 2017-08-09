@@ -82,7 +82,7 @@ func (e *Event) Trace(err error, msg ...string) {
 	}
 	if err != nil {
 		e.Type = Eerror
-		e.Message = fmt.Sprintf("%s:%v", msg, err)
+		e.Message = fmt.Sprintf("%s: %v", msg, err)
 		logs.Error(e.Message)
 	}
 	e.save()

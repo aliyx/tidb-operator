@@ -22,15 +22,24 @@ const (
 	migrateAPI  = "%s/tidb/api/v1/tidbs/%s/migrate"
 	eventsAPI   = "%s/tidb/api/v1/tidbs/%s/events"
 	limitAPI    = "%s/tidb/api/v1/tidbs/%s/limit"
+	metadataAPI = "%s/tidb/api/v1/metadata"
 )
 
+func Test_GetMetadata(t *testing.T) {
+	resp, err := httputil.Get(fmt.Sprintf(metadataAPI, host), 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%s", resp)
+}
+
 func Test_Limit(t *testing.T) {
-	body := `{"kvr":4,"dbr":5}`
+	body := `{"kvReplicas":4,"dbReplicas":5}`
 	resp, err := httputil.Post(fmt.Sprintf(limitAPI, host, "6"), []byte(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(resp)
+	fmt.Println("need approval: " + resp)
 }
 
 func Test_CreateDB(t *testing.T) {
@@ -41,10 +50,13 @@ func Test_CreateDB(t *testing.T) {
 		"schema":{"name":"xinyang1","user":"xinyang1","password":"xinyang1"},
 		"status":{"phase":-1}}`
 	resp, err := httputil.Post(fmt.Sprintf(createDBAPI, host), []byte(body))
-	if err != nil {
+	if err == httputil.ErrAlreadyExists {
+		fmt.Println("already exist")
+		return
+	} else if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(resp)
+	fmt.Println("id:" + resp)
 }
 
 func Test_GetDB(t *testing.T) {

@@ -23,6 +23,8 @@ var (
 	errInvalidSchema           = errors.New("invalid database schema")
 	errInvalidDatabaseUsername = errors.New("invalid database username")
 	errInvalidDatabasePassword = errors.New("invalid database password")
+
+	defaultImageVersion = "latest"
 )
 
 // NewDb create a db instance
@@ -44,26 +46,29 @@ func dbInit() {
 
 // Save db
 func (db *Db) Save() error {
+	mu.Lock()
+	defer mu.Unlock()
 	db.Metadata.Name = uniqueID(db.Owner.ID, db.Schema.Name)
 	db.TypeMeta = metav1.TypeMeta{
 		Kind:       spec.TPRKindTidb,
 		APIVersion: spec.APIVersion,
 	}
-	if err := db.check(); err != nil {
-		return err
-	}
 	if old, _ := GetDb(db.GetName()); old != nil {
-		return fmt.Errorf(`db "%s" has created`, old.GetName())
+		return storage.ErrAlreadyExists
 	}
 	if pods, err := k8sutil.ListPodNames(db.GetName(), ""); err != nil || len(pods) > 1 {
-		return fmt.Errorf(`db "%s" has not been cleared yet: %v`, db.GetName(), err)
+		return err
+	} else if len(pods) > 1 {
+		return fmt.Errorf("db %q has not been cleared yet", db.GetName())
+	}
+	if err := db.check(); err != nil {
+		return err
 	}
 	if err := dbS.Create(db); err != nil {
 		return err
 	}
-	mu.Lock()
+
 	lockers[db.GetName()] = new(sync.Mutex)
-	mu.Unlock()
 
 	if db.Status.Phase == PhaseUndefined {
 		go db.Install(true)
@@ -73,13 +78,13 @@ func (db *Db) Save() error {
 
 func (db *Db) check() (err error) {
 	if db.Pd == nil {
-		return errors.New("pd is nil")
+		db.Pd = &Pd{}
 	}
 	if db.Tikv == nil {
-		return errors.New("tikv is nil")
+		db.Tikv = &Tikv{}
 	}
 	if db.Tidb == nil {
-		return errors.New("tidb is nil")
+		db.Tidb = &Tidb{}
 	}
 	if err = db.Schema.check(); err != nil {
 		return err
@@ -122,6 +127,9 @@ func (p *Pd) check() error {
 	p.CPU = md.Spec.Pd.CPU
 	p.Mem = md.Spec.Pd.Mem
 	p.Replicas = 3
+	if p.Version == "" {
+		p.Version = defaultImageVersion
+	}
 	if err := p.validate(); err != nil {
 		return err
 	}
@@ -147,6 +155,12 @@ func (tk *Tikv) check() error {
 	if tk.Capatity < 1 {
 		tk.Capatity = md.Spec.Tikv.Capacity
 	}
+	if tk.Replicas < 1 {
+		tk.Replicas = 3
+	}
+	if tk.Version == "" {
+		tk.Version = defaultImageVersion
+	}
 	if err := tk.validate(); err != nil {
 		return err
 	}
@@ -168,6 +182,12 @@ func (td *Tidb) check() error {
 	md := getNonNullMetadata()
 	td.CPU = md.Spec.Tidb.CPU
 	td.Mem = md.Spec.Tidb.Mem
+	if td.Replicas < 1 {
+		td.Replicas = 3
+	}
+	if td.Version == "" {
+		td.Version = defaultImageVersion
+	}
 	if err := td.validate(); err != nil {
 		return err
 	}
@@ -296,6 +316,6 @@ func (db *Db) delete() error {
 	if err := dbS.Delete(db.Metadata.Name); err != nil {
 		return err
 	}
-	logs.Warn(`Tidb "%s" deleted`, db.Metadata.Name)
+	logs.Info("tidb %q deleted", db.Metadata.Name)
 	return nil
 }

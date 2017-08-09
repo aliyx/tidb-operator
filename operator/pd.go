@@ -82,7 +82,27 @@ func (db *Db) reconcilePds() error {
 		return err
 	}
 
-	// check not running pod
+	// Add the deleted pod
+	// if len(pods) != p.Replicas {
+	// 	changed = p.Replicas - len(pods)
+	// 	for i, mb := range p.Members {
+	// 		have := false
+	// 		for _, pod := range pods {
+	// 			if mb.Name == pod.GetName() {
+	// 				have = true
+	// 				break
+	// 			}
+	// 		}
+	// 		if !have {
+	// 			p.Member = i + 1
+	// 			if err = p.createPod(); err != nil {
+	// 				return err
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	// mark not running pod
 	for _, mb := range p.Members {
 		st := PodFailed
 		for _, pod := range pods {
@@ -94,19 +114,22 @@ func (db *Db) reconcilePds() error {
 		mb.State = st
 	}
 
-	// check not in pd cluster member
-
+	// check pd cluster is normal
 	js, err := pdutil.RetryGetPdMembers(p.OuterAddresses[0])
 	if err != nil {
+		logs.Critical("pd %q cluster is unavailable", p.Db.GetName())
 		return err
 	}
+
+	// check not in pd cluster member
 	ret := gjson.Get(js, "members.#.name")
 	if ret.Type == gjson.Null {
-		logs.Warn("could not get pd %q members", p.Db.GetName())
+		logs.Critical("could not get pd %q members, maybe cluster is unavailable", p.Db.GetName())
 		for _, mb := range p.Members {
 			logs.Warn("mark pd %q status PodFailed", mb.Name)
 			mb.State = PodFailed
 		}
+		return ErrPdUnavailable
 	}
 	for _, mb := range p.Members {
 		ok := false
@@ -128,6 +151,7 @@ func (db *Db) reconcilePds() error {
 			changed++
 			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err != nil {
 				logs.Error("failed to delete member %q from pd cluster", mb.Name)
+				return err
 			}
 			if err = k8sutil.DeletePod(mb.Name, terminationGracePeriodSeconds); err != nil {
 				return err

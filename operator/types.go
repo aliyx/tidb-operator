@@ -16,7 +16,9 @@ const (
 	StoreTombstone
 	// StoreUnknown maybe start failure, etc
 	StoreUnknown
+)
 
+const (
 	// PodRunning pod status is runnng
 	PodRunning = iota
 	// PodFailed pod status is failed
