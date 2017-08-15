@@ -3,6 +3,7 @@ package k8sutil
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"time"
 
@@ -91,12 +92,11 @@ func CreateAndWaitPod(pod *v1.Pod, timeout time.Duration) (*v1.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	logs.Info("Pod %q created", retPod.GetName())
 	retPod, err = waitPodRunning(pod.GetName(), timeout)
 	if err != nil {
 		return nil, err
 	}
-	logs.Info("Pod %q created", retPod.GetName())
 	return retPod, err
 }
 
@@ -141,12 +141,16 @@ func DeletePods(podNames ...string) error {
 // DeletePod delete the specified pod
 func DeletePod(name string, timeout int) error {
 	err := kubecli.CoreV1().Pods(Namespace).Delete(name, &metav1.DeleteOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logs.Warn("to delete a non-existent pod %q", name)
+			return nil
+		}
 		return err
 	}
 	time.Sleep(time.Duration(timeout) * time.Second)
-	_, err = GetPod(name)
-	if err != nil && apierrors.IsNotFound(err) {
+	// Do not know why can also get the pod after that is delete and over timeout
+	if p, _ := GetPod(name); p == nil || p.GetName() != name {
 		logs.Info("Pod %q deleted", name)
 		return nil
 	}
@@ -176,7 +180,7 @@ func DeletePodsByLabel(ls map[string]string) error {
 	if err := kubecli.CoreV1().Pods(Namespace).DeleteCollection(metav1.NewDeleteOptions(0), option); err != nil {
 		return err
 	}
-	logs.Info("Pods %q deleted", ls)
+	logs.Info(strings.Replace(fmt.Sprintf("Pods %q deleted", ls), "map[", "label[", -1))
 	return nil
 }
 

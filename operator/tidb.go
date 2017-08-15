@@ -27,12 +27,14 @@ func (td *Tidb) upgrade() error {
 		newImage = fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version)
 	)
 
-	e := NewEvent(td.Db.GetName(), "tidb/tidb", "upgrate")
+	e := td.Db.Event(eventTidb, "upgrade")
 	defer func() {
 		td.cur = ""
 		if upgraded || err != nil {
-			e.Trace(err, fmt.Sprintf("Upgrate tidb to version: %s", td.Version))
-			logs.Info("end upgrading", td.Db.GetName())
+			e.Trace(err, "Upgrate tidb to version: "+td.Version)
+			if err == nil {
+				logs.Info("end upgrading", td.Db.GetName())
+			}
 		}
 	}()
 
@@ -55,17 +57,38 @@ func (td *Tidb) upgrade() error {
 		if needUpgrade(&pod, td.Version) {
 			upgraded = true
 			// delete pod, rc will create a new version pod
-			if err = k8sutil.DeletePod(pod.GetName(), terminationGracePeriodSeconds); err != nil {
+			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
 				return err
 			}
-
-			td.cur = pod.GetName()
+			time.Sleep(time.Duration(terminationGracePeriodSeconds) * time.Second)
+			td.cur = td.getNewPodName(pods)
 			if err = td.waitForOk(); err != nil {
 				return err
 			}
+			time.Sleep(tidbUpgradeInterval)
 		}
 	}
 	return nil
+}
+
+func (td *Tidb) getNewPodName(old []v1.Pod) string {
+	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+	if err != nil {
+		return ""
+	}
+	for _, n := range pods {
+		have := false
+		for _, o := range old {
+			if n.GetName() == o.GetName() {
+				have = true
+				break
+			}
+		}
+		if !have {
+			return n.GetName()
+		}
+	}
+	return ""
 }
 
 func (td *Tidb) install() (err error) {

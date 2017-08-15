@@ -39,7 +39,7 @@ func (tk *Tikv) upgrade() (err error) {
 		image    = fmt.Sprintf("%s/tikv:%s", imageRegistry, tk.Version)
 	)
 
-	e := NewEvent(tk.Db.GetName(), "tidb/tikv", "upgrate")
+	e := tk.Db.Event(eventTikv, "upgrate")
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
@@ -49,9 +49,10 @@ func (tk *Tikv) upgrade() (err error) {
 
 	if tk.Db.Status.Phase < PhaseTikvStarted {
 		err = ErrUnavailable
+		return
 	}
 
-	names := tk.getStoresKey()
+	names := tk.getSortedStoresKey()
 	for _, name := range names {
 		upgraded, err = upgradeOne(name, image, tk.Version)
 		if err != nil {
@@ -64,7 +65,7 @@ func (tk *Tikv) upgrade() (err error) {
 			if err = tk.waitForStoreOk(); err != nil {
 				return err
 			}
-			time.Sleep(upgradeInterval)
+			time.Sleep(tikvUpgradeInterval)
 		}
 	}
 	return nil
@@ -188,6 +189,7 @@ func (tk *Tikv) deleteBuriedTikv() error {
 			return err
 		}
 		if st == StoreTombstone {
+			logs.Info("delete tikv: %q, status: tombstone", name)
 			if err = pdutil.PdStoreDelete(tk.Db.Pd.OuterAddresses[0], s.ID); err != nil {
 				return err
 			}
@@ -335,6 +337,7 @@ func (tk *Tikv) checkStores() error {
 			}
 		}
 		if !have {
+			logs.Warn("delete uncontrolled pod %q", pod.GetName())
 			if err = k8sutil.DeletePod(pod.GetName(), terminationGracePeriodSeconds); err != nil {
 				return err
 			}
@@ -372,7 +375,7 @@ func (tk *Tikv) checkStores() error {
 
 // Only mark store status is 'offline' and decrease AvailableReplicas
 func (tk *Tikv) decrease(replicas int) (err error) {
-	names := tk.getStoresKey()
+	names := tk.getSortedStoresKey()
 	for i := 0; i < replicas; i++ {
 		name := names[i]
 		if err = pdutil.PdStoreDemote(tk.Db.Pd.OuterAddresses[0], tk.Stores[name].ID); err != nil {
@@ -456,7 +459,7 @@ func (tk *Tikv) tryDeleteDownTikv() error {
 		elapsed := time.Now().Unix() - hb.Unix()
 		// delete pod if the downtime is more than 1 hour
 		if sn == "Down" && elapsed > tikvMaxDowntime {
-			logs.Warn("delete the store %q over downtime", name)
+			logs.Warn("delete the store %q which over downtime", name)
 			if err = pdutil.PdStoreDelete(tk.Db.Pd.OuterAddresses[0], s.ID); err != nil {
 				return err
 			}
@@ -495,7 +498,7 @@ func (tk *Tikv) getStoreStateName(s *Store) (string, *time.Time, error) {
 	return ret.String(), &t, nil
 }
 
-func (tk *Tikv) getStoresKey() []string {
+func (tk *Tikv) getSortedStoresKey() []string {
 	var keys []string
 	for k := range tk.Stores {
 		keys = append(keys, k)

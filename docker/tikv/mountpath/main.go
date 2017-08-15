@@ -24,6 +24,10 @@ func main() {
 		defaultPath(hostPath, mount)
 		return
 	}
+	if dir := exist(hostPath, mount); dir != "" {
+		fmt.Println(dir)
+		return
+	}
 
 	lock, err := locker(hostPath)
 	if err != nil {
@@ -41,6 +45,7 @@ func main() {
 		defaultPath(hostPath, mount)
 		return
 	}
+
 	all := []string{}
 	for _, f := range fis {
 		if !f.IsDir() {
@@ -78,13 +83,7 @@ func main() {
 }
 
 func defaultPath(hostPath, mount string) {
-	if len(mount) < 1 {
-		fmt.Printf("%s\n", hostPath)
-	} else if hostPath == "/" {
-		fmt.Printf("/%s\n", mount)
-	} else {
-		fmt.Printf("%s/%s\n", hostPath, mount)
-	}
+	fmt.Println(filepath.Join(hostPath, mount))
 }
 
 func locker(hostPath string) (lockfile.Lockfile, error) {
@@ -92,4 +91,23 @@ func locker(hostPath string) (lockfile.Lockfile, error) {
 		hostPath = "/tmp"
 	}
 	return lockfile.New(filepath.Join(hostPath, "tidb.lock"))
+}
+
+func exist(hostPath, mount string) string {
+	host, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Join(hostPath, mount)
+	if strings.LastIndexAny(dir, "/") != (len(dir) - 1) {
+		dir = dir + "*"
+	}
+	files, err := filepath.Glob(filepath.Join(dir, host))
+	if err != nil {
+		return ""
+	}
+	if len(files) > 0 {
+		return strings.TrimSuffix(files[0], "/"+host)
+	}
+	return ""
 }

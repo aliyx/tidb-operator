@@ -48,12 +48,16 @@ spec:
       - bash
       - "-c"
       - |
-        p=$(mountpath /host {{mount}})
-        export TIKV_DATA_DIR=$p
-        echo "Current data mount path:$TIKV_DATA_DIR"
-
+        p=$(mountpath "/host" {{mount}})
+        data_dir=$p/$HOSTNAME
+        echo "Current data dir:$data_dir"
+        if [ -d $data_dir ]; then
+          echo "Resuming with existing data dir"
+        else
+          echo "First run for this tikv"
+        fi
         /tikv-server \
-        --store="$TIKV_DATA_DIR/tikv-{{cell}}-{{id}}" \
+        --store="$data_dir" \
         --addr="0.0.0.0:20160" \
         --capacity={{capacity}}GB \
         --advertise-addr="$POD_IP:20160" \

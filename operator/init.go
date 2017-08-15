@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	reconcileInterval = 30 * time.Second
+	reconcileInterval = 10 * time.Second
 )
 
 var (
@@ -72,6 +72,7 @@ func undo() error {
 			db.Status.ScaleState ^= scaling
 			changed = true
 		}
+		// recover upgrade to normal
 		if db.Status.UpgradeState == upgrading {
 			db.Status.UpgradeState = ""
 			changed = true
@@ -81,6 +82,25 @@ func undo() error {
 				return err
 			}
 			logs.Warn("recover db %s", db.GetName())
+		}
+
+		// recover if the installation process is interrupted
+		if db.Status.Phase > PhaseUndefined && db.Status.Phase < PhaseTidbInited {
+			switch db.Operator {
+			case "start", "restart":
+				logs.Warn("recover db %q to reinstall", db.GetName())
+				go db.Reinstall()
+			}
+		}
+		if db.Status.Phase > PhaseTidbInited {
+			switch db.Operator {
+			case "restart":
+				logs.Warn("recover db %q to reinstall", db.GetName())
+				go db.Reinstall()
+			case "stop":
+				logs.Warn("recover db %q to uninstall", db.GetName())
+				go db.Uninstall(true)
+			}
 		}
 	}
 	return nil
@@ -95,15 +115,17 @@ func reconcile(ctx context.Context) {
 		default:
 			time.Sleep(reconcileInterval)
 		}
-		logs.Debug("reconcile all tidb clusters")
+		logs.Debug("start reconciling all tidb clusters")
 
 		dbs, err := GetDbs("admin")
 		if err != nil {
 			logs.Error("failed to get all tidb clusters")
+			continue
 		}
 		for i := range dbs {
 			db := &dbs[i]
 			db.AfterPropertiesSet()
+			// no pass
 			if db.Status.Phase <= PhaseUndefined {
 				continue
 			}
@@ -111,18 +133,19 @@ func reconcile(ctx context.Context) {
 				logs.Info("db %q is busy", db.GetName())
 				continue
 			}
-			if err = db.Reconcile(); err != nil {
-				switch err {
-				case ErrUnavailable:
-					if db.Status.Phase > PhaseUndefined {
-						logs.Warn("%s %v", db.GetName(), err)
+			go func() {
+				err := db.Reconcile()
+				if err != nil {
+					switch err {
+					case ErrUnavailable:
+						if db.Status.Phase > PhaseUndefined {
+							logs.Critical("db %q is not available", db.GetName())
+						}
+					default:
+						logs.Error("failed to reconcile db %q: %v", db.GetName(), err)
 					}
-				case ErrScaling:
-					logs.Warn("%s %v", db.GetName(), err)
-				default:
-					logs.Error("failed to reconcile db %s: %v", db.GetName(), err)
 				}
-			}
+			}()
 		}
 	}
 }

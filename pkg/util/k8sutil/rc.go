@@ -10,7 +10,8 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -53,7 +54,7 @@ func CreateAndWaitRc(rc *v1.ReplicationController, timeout time.Duration) (*v1.R
 	}
 	interval := 3 * time.Second
 	err = retryutil.Retry(interval, int(timeout/(interval)), func() (bool, error) {
-		retRc, err = kubecli.CoreV1().ReplicationControllers(Namespace).Get(rc.GetName(), meta_v1.GetOptions{})
+		retRc, err = kubecli.CoreV1().ReplicationControllers(Namespace).Get(rc.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -76,7 +77,7 @@ func cloneRc(d *v1.ReplicationController) *v1.ReplicationController {
 
 // PatchRc patch a ReplicationController
 func PatchRc(name string, updateFunc func(*v1.ReplicationController)) error {
-	or, err := kubecli.CoreV1().ReplicationControllers(Namespace).Get(name, meta_v1.GetOptions{})
+	or, err := kubecli.CoreV1().ReplicationControllers(Namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -93,9 +94,9 @@ func PatchRc(name string, updateFunc func(*v1.ReplicationController)) error {
 // DelRc cascade delete rc and it's pods
 func DelRc(name string) (err error) {
 	err = kubecli.CoreV1().ReplicationControllers(Namespace).Delete(name, CascadeDeleteOptions(5))
-	if err != nil {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	logs.Info("ReplicationController %q deleted", name)
-	return
+	return nil
 }

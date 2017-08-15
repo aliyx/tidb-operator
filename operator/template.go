@@ -88,7 +88,6 @@ spec:
 
           # set prometheus
           sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
-
           data_dir=/data/pd
           if [ -d $data_dir ]; then
             echo "Resuming with existing data dir:$data_dir"
@@ -100,6 +99,8 @@ spec:
               echo "[$(date)] waiting for {{replicas}} entries in SRV record for {{cell}}"
               sleep 1
             done
+            # pd will overwrite if join exist cluster
+            sed -i -e 's/"existing"/"{{c-state}}"/' /etc/pd/config.toml
           fi
 
           urls=""
@@ -117,7 +118,7 @@ spec:
           --advertise-client-urls="$advertise_client_urls" \
           --peer-urls="$peer_urls" \
           --advertise-peer-urls="$advertise_peer_urls" \
-          {{cluster}} \
+          {{c-urls}} \
           --config="/etc/pd/config.toml"
 `
 
@@ -155,6 +156,7 @@ spec:
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}
+    imagePullPolicy: Always
     resources:
       # 初始化requests和limits相同的值，是为了防止memory超过requests时，node资源不足，导致该pod被重新安排到其它node
       requests:
@@ -172,12 +174,16 @@ spec:
       - bash
       - "-c"
       - |
-        p=$(mountpath /host {{mount}})
-        export TIKV_DATA_DIR=$p
-        echo "Current data mount path:$TIKV_DATA_DIR"
-
+        p=$(mountpath "/host" {{mount}})
+        data_dir=$p/$HOSTNAME
+        echo "Current data dir:$data_dir"
+        if [ -d $data_dir ]; then
+          echo "Resuming with existing data dir"
+        else
+          echo "First run for this tikv"
+        fi
         /tikv-server \
-        --store="$TIKV_DATA_DIR/tikv-{{cell}}-{{id}}" \
+        --store="$data_dir" \
         --addr="0.0.0.0:20160" \
         --capacity={{capacity}}GB \
         --advertise-addr="$POD_IP:20160" \

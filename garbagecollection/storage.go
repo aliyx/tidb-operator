@@ -1,7 +1,6 @@
 package garbagecollection
 
 import (
-	"errors"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,10 +10,6 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/operator"
-)
-
-var (
-	found = errors.New("found")
 )
 
 // PVProvisioner persistent volumes provisioner
@@ -42,33 +37,19 @@ func (hp *HostPathPVProvisioner) Recycling(s *operator.Store) error {
 	}
 
 	logs.Info("start recycling tikv: %s", s.Name)
-	err := filepath.Walk(hp.HostPath, func(path string, info os.FileInfo, err error) error {
-		// end
-		if err != nil {
+	dir := hp.HostPath
+	if len(hp.Mount) > 0 {
+		dir += (hp.Mount + "*")
+	}
+	files, err := filepath.Glob(filepath.Join(dir, s.Name))
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		logs.Info("%s is deleted", f)
+		if err = os.RemoveAll(f); err != nil {
 			return err
 		}
-		// continue
-		if !info.IsDir() {
-			return nil
-		}
-
-		if path == hp.HostPath {
-			return nil
-		}
-		// end if found
-		if strings.HasSuffix(path, s.Name) {
-			os.RemoveAll(path)
-			logs.Info("%s is deleted", path)
-			return found
-		}
-		// Only handle with the 'mount' suffix directory
-		if strings.Contains(path, "/"+hp.Mount) {
-			return nil
-		}
-		return filepath.SkipDir
-	})
-	if err != found {
-		return err
 	}
 	return nil
 }

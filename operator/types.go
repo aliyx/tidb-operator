@@ -124,7 +124,11 @@ type Pd struct {
 	Member  int       `json:"member"`
 	Members []*Member `json:"members,omitempty"`
 
-	Db *Db `json:"-"`
+	// default is new
+	initialClusterState string
+	// true: join exist cluser, false:  init cluster
+	join bool
+	Db   *Db `json:"-"`
 }
 
 // Member describe a pd or tikv pod

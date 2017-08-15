@@ -15,18 +15,21 @@ import (
 
 const (
 	stopTidbTimeout                   = 60 // 60s
-	waitPodRuningTimeout              = 180 * time.Second
-	waitTidbComponentAvailableTimeout = 180 * time.Second
+	waitPodRuningTimeout              = 90 * time.Second
+	waitTidbComponentAvailableTimeout = 90 * time.Second
 
-	// wait leader election
-	upgradeInterval = 15 * time.Second
+	// wait leader election and data sync
+	pdUpgradeInterval = 15 * time.Second
+	// wait leader election and data sync
+	tikvUpgradeInterval = 60 * time.Second
+	tidbUpgradeInterval = 15 * time.Second
 
 	scaling      = 1 << 8
 	tikvScaleErr = 1
 	tidbScaleErr = 1 << 1
 
-	// pd/tikv/tidb grace period is 5s, so +1s
-	terminationGracePeriodSeconds = 6
+	// pd/tikv/tidb grace period is 5s, so +3s
+	terminationGracePeriodSeconds = 8
 
 	// test:3minute product:60minute
 	tikvMaxDowntime = 3 * 60
@@ -78,6 +81,18 @@ func (db *Db) Update(newDb *Db) (err error) {
 	case "restart":
 		go db.Reinstall()
 	case "upgrade":
+		if db.Pd.Version == newDb.Pd.Version {
+			return
+		}
+		if newDb.Pd.Version != newDb.Tikv.Version || newDb.Tikv.Version != newDb.Tidb.Version {
+			return fmt.Errorf("currently only support all versions are consistent")
+		}
+		db.Pd.Version = newDb.Pd.Version
+		db.Tikv.Version = newDb.Tikv.Version
+		db.Tidb.Version = newDb.Tidb.Version
+		if err = db.update(); err != nil {
+			return
+		}
 		go db.Reconcile()
 	case "scale":
 		if err := db.Tikv.checkScale(newDb.Tikv.Replicas); err != nil {
@@ -134,8 +149,8 @@ func (db *Db) Install(lock bool) (err error) {
 	if err = db.Tidb.install(); err != nil {
 		return
 	}
-	time.Sleep(30 * time.Second)
 	logs.Info("wait 30s for tidb %q cluster to initialize", db.GetName())
+	time.Sleep(30 * time.Second)
 	if err = db.initSchema(); err != nil {
 		return
 	}
@@ -200,11 +215,13 @@ func (db *Db) Uninstall(lock bool) (err error) {
 	e := db.Event(eventDb, "uninstall")
 	defer func() {
 		ph := PhaseUndefined
-		if started(db.GetName()) {
-			ph = PhaseTidbUninstalling
-			err = fmt.Errorf("async delete pods timeout: %ds", stopTidbTimeout)
-		} else {
-			logs.Info("end uninstall db", db.GetName())
+		if err == nil {
+			if started(db.GetName()) {
+				ph = PhaseTidbUninstalling
+				err = fmt.Errorf("async delete pods timeout: %ds", stopTidbTimeout)
+			} else {
+				logs.Info("end uninstall db", db.GetName())
+			}
 		}
 		db.Status.Phase = ph
 		db.Status.Reason = ""
@@ -309,6 +326,7 @@ func Delete(cell string) error {
 			}
 		}()
 
+		db.Operator = "stop"
 		logs.Info("start deleting db", db.GetName())
 		if err = db.Uninstall(false); err != nil {
 			return

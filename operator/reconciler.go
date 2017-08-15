@@ -66,7 +66,7 @@ func (db *Db) Reconcile() (err error) {
 func (db *Db) upgrade() (err error) {
 	defer func() {
 		if err != nil {
-			db.Event(eventDb, "upgrade").Trace(err, "Failed to upgrade db to version: %s", db.Pd.Version)
+			db.Event(eventDb, "upgrade").Trace(err, "Failed to upgrade db to version:", db.Pd.Version)
 		}
 	}()
 

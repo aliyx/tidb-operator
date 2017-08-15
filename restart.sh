@@ -20,7 +20,7 @@ fail() {
 }
 
 warn() {
-  echo -e "\033[33m$1 \033[0m"
+	echo -e "\033[33m$1 \033[0m"
 }
 
 # The command line help
@@ -31,7 +31,7 @@ display_help() {
 	echo "   -i, --init-md          Force init default metadata. (default false)"
 	echo "   -p, --host-path        The volume of pod host path, (default '/data')"
 	echo "   -m, --mount            The prefix of pod mount path, default('')"
-  echo "   -k, --k8s-address      The Kubernetes api server, default('http://10.213.44.128:10218')"
+	echo "   -k, --k8s-address      The Kubernetes api server, default('http://10.213.44.128:10218')"
 	echo
 	exit 1
 }
@@ -41,6 +41,8 @@ hostPath=/
 mount=data
 initMd=false
 k8sAddress=http://10.213.44.128:10218
+# info
+logLevel=6
 
 # Check if parameter is set too execute
 while :; do
@@ -49,19 +51,23 @@ while :; do
 		runMode="$2"
 		shift 2
 		;;
-  -i | --init-md)
+	-i | --init-md)
 		initMd="$2"
 		shift 2
 		;;
-  -p | --host-path)
+	-p | --host-path)
 		hostPath="$2"
 		shift 2
 		;;
-   -m | --mount)
+	-m | --mount)
 		mount="$2"
 		shift 2
 		;;
-  -k | ----k8s-address)
+	--log-level)
+		logLevel="$2"
+		shift 2
+		;;
+	-k | ----k8s-address)
 		k8sAddress="$2"
 		shift 2
 		;;
@@ -84,18 +90,19 @@ while :; do
 done
 
 case "$runMode" in
-  dev)
-    warn "Current environment: dev" 
-    ;;
-  test)
-    warn "Current environment: test" 
-    ;;
-  prod)
-    warn "Current environment: prod" 
-    ;;
-  *)
-    warn "No environment: $runMode"
-    exit 1
+dev)
+	warn "Current environment: dev"
+	;;
+test)
+	warn "Current environment: test"
+	;;
+prod)
+	warn "Current environment: prod"
+	;;
+*)
+	warn "No environment: $runMode"
+	exit 1
+	;;
 esac
 
 ip=$(/sbin/ifconfig eth0 | grep 'netmask ' | cut -d: -f2 | awk '{print $2}')
@@ -127,5 +134,6 @@ fi
 	-host-path=$hostPath \
 	-mount=$mount \
 	-init-md=$initMd \
+	-log-level=$logLevel \
 	-http-addr=$ip &
 echo $! >/tmp/tidb-operator.pid

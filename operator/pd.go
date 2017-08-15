@@ -29,7 +29,7 @@ func (p *Pd) upgrade() error {
 		count    int
 	)
 
-	e := NewEvent(p.Db.Metadata.Name, "tidb/pd", "upgrate")
+	e := NewEvent(p.Db.GetName(), "tidb/pd", "upgrate")
 	defer func() {
 		// have upgrade
 		if count > 0 || err != nil {
@@ -52,12 +52,17 @@ func (p *Pd) upgrade() error {
 				mb.State = PodFailed
 				return err
 			}
-			time.Sleep(upgradeInterval)
+			time.Sleep(pdUpgradeInterval)
 		}
 	}
 	return nil
 }
 
+// https://coreos.com/etcd/docs/latest/op-guide/runtime-configuration.html
+// https://coreos.com/etcd/docs/latest/op-guide/failures.html
+// The process is as follows:
+// 1.Replace a failed pd, join the exist cluster if normal; otherwise reboot a new same pd with old name.
+// 2.Delete uncontrolled member to <db.Tikv.Members> as the center.
 func (db *Db) reconcilePds() error {
 	var (
 		err     error
@@ -82,26 +87,6 @@ func (db *Db) reconcilePds() error {
 		return err
 	}
 
-	// Add the deleted pod
-	// if len(pods) != p.Replicas {
-	// 	changed = p.Replicas - len(pods)
-	// 	for i, mb := range p.Members {
-	// 		have := false
-	// 		for _, pod := range pods {
-	// 			if mb.Name == pod.GetName() {
-	// 				have = true
-	// 				break
-	// 			}
-	// 		}
-	// 		if !have {
-	// 			p.Member = i + 1
-	// 			if err = p.createPod(); err != nil {
-	// 				return err
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	// mark not running pod
 	for _, mb := range p.Members {
 		st := PodFailed
@@ -114,58 +99,71 @@ func (db *Db) reconcilePds() error {
 		mb.State = st
 	}
 
-	// check pd cluster is normal
+	// delete failed pod and create a new pod
+	for i, mb := range p.Members {
+		if mb.State == PodRunning {
+			continue
+		}
+		logs.Info("start deleting member %q, because it is not available", mb.Name)
+		changed++
+		tries := 3
+		for i := 0; i < tries; i++ {
+			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err == nil {
+				// rejoin a deleted pd
+				p.join = true
+				break
+			}
+			logs.Warn("retry delete member %q: %d times", mb.Name, i+1)
+			// maybe is electing
+			time.Sleep(time.Duration(i) * time.Second)
+		}
+		if err != nil {
+			// maybe majority members of the cluster fail,
+			// the etcd cluster fails and cannot accept more writes
+			logs.Critical("failed to delete member, because pd %q cluster is unavailable", p.Db.GetName())
+		}
+		if err = k8sutil.DeletePod(mb.Name, terminationGracePeriodSeconds); err != nil {
+			return err
+		}
+		p.Member = i + 1
+		p.initialClusterState = "existing"
+		if err = p.createPod(); err != nil {
+			return err
+		}
+		mb.State = PodRunning
+	}
+	if err = p.waitForOk(); err != nil {
+		return err
+	}
+
+	// check pd cluster whether normal
 	js, err := pdutil.RetryGetPdMembers(p.OuterAddresses[0])
 	if err != nil {
 		logs.Critical("pd %q cluster is unavailable", p.Db.GetName())
+		// Perhaps because of pod missing can not be elected
 		return err
 	}
 
-	// check not in pd cluster member
+	// Remove uncontrolled member
 	ret := gjson.Get(js, "members.#.name")
 	if ret.Type == gjson.Null {
 		logs.Critical("could not get pd %q members, maybe cluster is unavailable", p.Db.GetName())
-		for _, mb := range p.Members {
-			logs.Warn("mark pd %q status PodFailed", mb.Name)
-			mb.State = PodFailed
-		}
 		return ErrPdUnavailable
 	}
-	for _, mb := range p.Members {
-		ok := false
-		for _, r := range ret.Array() {
+	for _, r := range ret.Array() {
+		have := false
+		for _, mb := range p.Members {
 			if r.String() == mb.Name {
-				ok = true
+				have = true
 				break
 			}
 		}
-		if !ok {
-			logs.Warn("mark pd %q status PodFailed")
-			mb.State = PodFailed
+		if !have {
+			logs.Warn("delete member %s from pd cluster", r.String())
+			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], r.String()); err != nil {
+				return err
+			}
 		}
-	}
-
-	// delete failed pd and create a new pd
-	for i, mb := range p.Members {
-		if mb.State == PodFailed {
-			changed++
-			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err != nil {
-				logs.Error("failed to delete member %q from pd cluster", mb.Name)
-				return err
-			}
-			if err = k8sutil.DeletePod(mb.Name, terminationGracePeriodSeconds); err != nil {
-				return err
-			}
-			p.Member = i + 1
-			if err = p.createPod(); err != nil {
-				return err
-			}
-			mb.State = PodRunning
-		}
-	}
-
-	if err = p.waitForOk(); err != nil {
-		return err
 	}
 
 	return nil
@@ -305,9 +303,15 @@ func (p *Pd) waitForOk() (err error) {
 }
 
 func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
+	state := "new"
 	cluster := "--initial-cluster=$urls"
-	if p.Db.Status.Phase > PhasePdStarted {
+	if p.initialClusterState != "" {
+		state = p.initialClusterState
+		p.initialClusterState = ""
+	}
+	if p.join {
 		cluster = "--join=http://pd-" + p.Db.GetName() + ":2379"
+		p.join = false
 	}
 	r := strings.NewReplacer(
 		"{{namespace}}", getNamespace(),
@@ -318,7 +322,8 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
 		"{{version}}", p.Spec.Version,
 		"{{registry}}", imageRegistry,
-		"{{cluster}}", cluster,
+		"{{c-state}}", state,
+		"{{c-urls}}", cluster,
 	)
 	str := r.Replace(temp)
 	j, err := yaml.YAMLToJSON([]byte(str))

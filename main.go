@@ -82,6 +82,7 @@ func main() {
 		panic(err)
 	}
 
+	// start restful api server
 	go beego.Run()
 
 	sc := make(chan os.Signal, 1)

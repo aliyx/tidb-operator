@@ -12,7 +12,7 @@ func Test_gc(t *testing.T) {
 		n  *operator.Db
 		pv PVProvisioner
 	}
-	hostpath := &HostPathPVProvisioner{"localhost.localdomain", "/tmp"}
+	hostpath := &HostPathPVProvisioner{"localhost.localdomain", "/", "data", nil}
 	tests := []struct {
 		name    string
 		args    args

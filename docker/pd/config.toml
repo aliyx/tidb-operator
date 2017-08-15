@@ -12,7 +12,7 @@ peer-urls = "http://127.0.0.1:2380"
 advertise-peer-urls = ""
 
 # initial-cluster = "pd=http://127.0.0.1:2380"
-# initial-cluster-state = "new"
+initial-cluster-state = "existing"
 
 lease = 3
 tso-save-interval = "3s"

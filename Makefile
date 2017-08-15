@@ -97,35 +97,28 @@ tikv:
 
 push-pd: docker/pd
 	docker push $(REGISTRY)pd:$(VERSION)
-	docker push $(REGISTRY)pd:latest
 .PHONY: push-pd
 
 push-tikv:
 	docker push $(REGISTRY)tikv:$(VERSION)
-	docker push $(REGISTRY)tikv:latest
 .PHONY: push-tikv
 
 push-tidb:
 	docker push $(REGISTRY)tidb:$(VERSION)
-	docker push $(REGISTRY)tidb:latest
 .PHONY: push-tidb
 
 push-migrator: docker/migrator
 	docker push $(REGISTRY)migrator:$(VERSION)
-	docker push $(REGISTRY)migrator:latest
 .PHONY: push-migrator
 
 push-prom-server:
 	docker push $(REGISTRY)prom-server:$(VERSION)
-	docker push $(REGISTRY)prom-server:latest
 .PHONY: push-prom-server
 
 push-tidb-gc:
 	docker push $(REGISTRY)tidb-gc:$(VERSION)
-	docker push $(REGISTRY)tidb-gc:latest
 .PHONY: push-tidb-gc
 
 push-tidb-operator:
 	docker push $(REGISTRY)tidb-operator:$(VERSION)
-	docker push $(REGISTRY)tidb-operator:latest
 .PHONY: push-tidb-operator
