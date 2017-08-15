@@ -34,7 +34,7 @@ spec:
       volumes:
       - name: datadir
         hostPath:
-          path: /
+          path: /mnt
       serviceAccountName: tidb-gc
       containers:
       - name: tidb-gc

@@ -37,7 +37,7 @@ display_help() {
 }
 
 runMode="dev"
-hostPath=/
+hostPath=/mnt
 mount=data
 initMd=false
 k8sAddress=http://10.213.44.128:10218
