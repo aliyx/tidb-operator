@@ -83,7 +83,7 @@ func (e *Event) Trace(err error, msg ...string) {
 	if err != nil {
 		e.Type = Eerror
 		e.Message = fmt.Sprintf("%s: %v", msg, err)
-		logs.Error(e.Message)
+		logs.Error("%s[comp:%s, key:%s]: %s", e.Cell, e.Count, e.Key, e.Message)
 	}
 	e.save()
 }
@@ -141,7 +141,7 @@ func (es *Events) save() error {
 }
 
 func (es *Events) update() error {
-	if err := evtS.Update(es.Metadata.Name, es); err != nil {
+	if err := evtS.RetryUpdate(es.Metadata.Name, es); err != nil {
 		return err
 	}
 	return nil

@@ -289,7 +289,7 @@ func (m *Metadata) Update() (err error) {
 	if len(m.Spec.K8s.Proxys) < 1 {
 		return fmt.Errorf("unavailable proxys: %v", m.Spec.K8s.Proxys)
 	}
-	return metaS.Update(m.Metadata.Name, m)
+	return metaS.RetryUpdate(m.Metadata.Name, m)
 }
 
 func (m *Metadata) adjust() (err error) {

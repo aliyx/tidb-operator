@@ -230,7 +230,49 @@ func encodeUserID(uid string) string {
 }
 
 func (db *Db) update() error {
-	return dbS.Update(db.GetName(), db)
+	return dbS.RetryUpdate(db.GetName(), db)
+}
+
+// patch all of the asynchronous processing should call the function
+func (db *Db) patch(patchFunc func(*Db)) error {
+	retryCount := 0
+	for {
+		old := NewDb()
+		err := dbS.Get(db.GetName(), old)
+		if err != nil {
+			return err
+		}
+		db.Metadata.SetResourceVersion(old.Metadata.GetResourceVersion())
+
+		// upgrade version is immutable
+		db.Pd.Version = old.Pd.Version
+		db.Tikv.Version = old.Tikv.Version
+		db.Tidb.Version = old.Tidb.Version
+
+		// scale replicas is immutable
+		db.Status.ScaleCount = old.Status.ScaleCount
+		db.Tikv.Replicas = old.Tikv.Replicas
+		db.Tidb.Replicas = old.Tidb.Replicas
+
+		// migrate maybe will change
+		db.Status.MigrateState = old.Status.MigrateState
+		db.Status.MigrateRetryCount = old.Status.MigrateRetryCount
+		db.Status.Reason = old.Status.Reason
+		if patchFunc != nil {
+			patchFunc(db)
+		}
+
+		err = dbS.Update(db.GetName(), db)
+		if err == storage.ErrConflict {
+			if retryCount > 5 {
+				logs.Error("retry update db %q over %d times, exit", db.GetName(), retryCount)
+				return err
+			}
+			retryCount++
+			continue
+		}
+		return nil
+	}
 }
 
 // GetDb get a db instance

@@ -34,6 +34,8 @@ var (
 	// ErrBadVersion is returned by an update function that
 	// failed to update the data because the version was different
 	ErrBadVersion = errors.New("bad node version")
+	// ErrConflict resource version conflict
+	ErrConflict = errors.New("conflict")
 )
 
 // Storage implement Impl interface
@@ -103,6 +105,22 @@ func (s *Storage) DeleteAll() error {
 
 // Update update a tpr.
 func (s *Storage) Update(key string, v interface{}) error {
+	var statusCode int
+	err := s.tprClient.Put().
+		Resource(s.kindPlural()).
+		Namespace(s.Namespace).
+		Name(key).
+		Body(v).
+		Do().StatusCode(&statusCode).Error()
+
+	if statusCode == http.StatusConflict {
+		return ErrConflict
+	}
+	return err
+}
+
+// RetryUpdate retry max 5 time to update a tpr.
+func (s *Storage) RetryUpdate(key string, v interface{}) error {
 	retryCount := 0
 	for {
 		r := spec.Resource{}

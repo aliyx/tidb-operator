@@ -143,7 +143,7 @@ func DeletePod(name string, timeout int) error {
 	err := kubecli.CoreV1().Pods(Namespace).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logs.Warn("to delete a non-existent pod %q", name)
+			logs.Warn("to delete a nonexistent pod %q", name)
 			return nil
 		}
 		return err

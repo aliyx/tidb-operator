@@ -36,14 +36,14 @@ func (db *Db) Reconcile() (err error) {
 
 	logs.Debug("start reconciling db", db.GetName())
 	db.Status.ScaleState |= scaling
-	if err = db.update(); err != nil {
+	if err = db.patch(nil); err != nil {
 		return
 	}
 	defer func() {
 		parseError(db, err)
 		db.Status.ScaleState ^= scaling
-		if err = db.update(); err != nil {
-			logs.Error("failed to update db %s: %v", db.GetName(), err)
+		if err = db.patch(nil); err != nil {
+			logs.Error("failed to patch db %s: %v", db.GetName(), err)
 		} else {
 			logs.Debug("end reconciling db", db.GetName())
 		}
@@ -108,7 +108,7 @@ func (db *Db) upgrade() (err error) {
 	}
 
 	db.Status.UpgradeState = upgrading
-	if err = db.update(); err != nil {
+	if err = db.patch(nil); err != nil {
 		return err
 	}
 
@@ -118,8 +118,8 @@ func (db *Db) upgrade() (err error) {
 			st = upgradeFailed
 		}
 		db.Status.UpgradeState = st
-		if uerr := db.update(); uerr != nil {
-			logs.Error("failed to update db %q: %v", db.GetName(), uerr)
+		if uerr := db.patch(nil); uerr != nil {
+			logs.Error("failed to patch db %q: %v", db.GetName(), uerr)
 			if uerr != nil {
 				err = uerr
 			}

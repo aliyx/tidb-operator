@@ -33,6 +33,9 @@ const (
 
 	// test:3minute product:60minute
 	tikvMaxDowntime = 3 * 60
+
+	tikvAllowMaximumDowntimes = 3
+
 	// ScaleUndefined no scale request
 	ScaleUndefined int = iota
 	// ScalePending wait for the admin to scale
@@ -129,7 +132,7 @@ func (db *Db) Install(lock bool) (err error) {
 	defer func() {
 		parseError(db, err)
 		e.Trace(err, "Install tidb cluster on kubernetes")
-		if err = db.update(); err != nil {
+		if err = db.patch(nil); err != nil {
 			db.Event(eventDb, "install").Trace(err, "Failed to update db")
 		}
 	}()
@@ -206,7 +209,7 @@ func (db *Db) Uninstall(lock bool) (err error) {
 
 	db.Status.Available = false
 	db.Status.Phase = PhaseTidbUninstalling
-	if err = db.update(); err != nil {
+	if err = db.patch(nil); err != nil {
 		db.Event(eventDb, "uninstall").Trace(err, "Failed to update db")
 		return err
 	}
@@ -232,7 +235,7 @@ func (db *Db) Uninstall(lock bool) (err error) {
 		db.Status.ScaleCount = 0
 		db.Status.MigrateRetryCount = 0
 		e.Trace(err, "Uninstall tidb cluster on k8s")
-		if uerr := db.update(); uerr != nil {
+		if uerr := db.patch(nil); uerr != nil {
 			err = uerr
 			db.Event(eventDb, "uninstall").Trace(err, "Failed to update db")
 		}

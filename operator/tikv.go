@@ -87,7 +87,7 @@ func (tk *Tikv) install() (err error) {
 
 	// savepoint for page show
 	tk.Db.Status.Phase = PhaseTikvPending
-	if err = tk.Db.update(); err != nil {
+	if err = tk.Db.patch(nil); err != nil {
 		return err
 	}
 
@@ -297,12 +297,7 @@ func (tk *Tikv) checkStores() error {
 
 	ret := gjson.Get(j, "count")
 	if ret.Int() < 1 {
-		logs.Warn("current db %q available stores count: 0", tk.Db.GetName())
-		for _, s := range tk.Stores {
-			logs.Warn("mark store %q offline", s.Name)
-			s.State = StoreOffline
-		}
-		tk.AvailableReplicas = 0
+		logs.Error("current db %q is unavailable, stores count: 0", tk.Db.GetName())
 		return nil
 	}
 
@@ -349,6 +344,12 @@ func (tk *Tikv) checkStores() error {
 
 	// get all online tikvs
 	ret = gjson.Get(j, "stores.#[store.state_name==Up]#.store.id")
+	if len(ret.Array()) < 1 {
+		logs.Warn(
+			"could not get up stores, maybe pd %q cluster has just gone through a leader switch or other reasons",
+			tk.Db.GetName())
+		return nil
+	}
 	for name, s := range tk.Stores {
 		online := false
 		for _, sid := range ret.Array() {
@@ -360,14 +361,26 @@ func (tk *Tikv) checkStores() error {
 		}
 		if !online {
 			if s.State == StoreOnline {
-				logs.Warn("mark tikv %q offline", name)
-				s.State = StoreOffline
-				tk.AvailableReplicas--
+				if s.DownTimes >= tikvAllowMaximumDowntimes {
+					logs.Warn("mark tikv %q offline that over max downtimes: %d", name, tikvAllowMaximumDowntimes)
+					s.State = StoreOffline
+					tk.AvailableReplicas--
+				} else {
+					s.DownTimes++
+					logs.Warn("mark tikv %q down times: %d", name, s.DownTimes)
+				}
 			}
-		} else if s.State == StoreOffline {
-			// may be down -> up
-			s.State = StoreOnline
-			tk.AvailableReplicas++
+		} else {
+			// reset down times to zero
+			if s.DownTimes > 0 {
+				logs.Info("reover store %q status from down to up", name)
+				s.DownTimes = 0
+			}
+			if s.State == StoreOffline {
+				// may be down -> up
+				s.State = StoreOnline
+				tk.AvailableReplicas++
+			}
 		}
 	}
 	return nil

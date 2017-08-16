@@ -93,7 +93,7 @@ func (td *Tidb) getNewPodName(old []v1.Pod) string {
 
 func (td *Tidb) install() (err error) {
 	td.Db.Status.Phase = PhaseTidbPending
-	if err = td.Db.update(); err != nil {
+	if err = td.Db.patch(nil); err != nil {
 		return err
 	}
 
@@ -106,7 +106,7 @@ func (td *Tidb) install() (err error) {
 		td.Db.Status.Phase = ph
 		e.Trace(err, fmt.Sprintf("Install tidb replicationcontrollers with %d replicas on k8s", td.Replicas))
 		// save savepoint
-		if err = td.Db.update(); err != nil {
+		if err = td.Db.patch(nil); err != nil {
 			td.Db.Event(eventTidb, "install").Trace(err, "Failed to update db")
 			return
 		}

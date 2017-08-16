@@ -19,7 +19,9 @@ const (
 	pdAPIV1StoreIDDelete = "http://%s/pd/api/v1/store/%d"
 	pdAPIV1StoreIDGet    = "http://%s/pd/api/v1/store/%d"
 	pdAPIV1LeaderGet     = "http://%s/pd/api/v1/leader"
-	pdAPIV1MembersGet    = "http://%s/pd/api/v1/members"
+
+	pdAPIV1MembersGet         = "http://%s/pd/api/v1/members"
+	pdAPIV1MemberDeleteByName = "http://%s/pd/api/v1/members/name/%s"
 )
 
 func PdStoresGet(host string) (string, error) {
@@ -112,7 +114,7 @@ func PdMembersGetName(host string) ([]string, error) {
 
 // PdMemberDelete delete member from pd cluster
 func PdMemberDelete(host string, name string) error {
-	if err := httputil.Delete(fmt.Sprintf(pdAPIV1MembersGet+"/%s", host, name), pdReqTimeout); err != nil {
+	if err := httputil.Delete(fmt.Sprintf(pdAPIV1MemberDeleteByName, host, name), pdReqTimeout); err != nil {
 		return err
 	}
 	logs.Info("Pd member %q deleted", name)

@@ -147,17 +147,18 @@ func (db *Db) startMigrator(my *tsql.Migration) (err error) {
 	}
 
 	go func() {
-		e := NewEvent(db.GetName(), "migrator", fmt.Sprintf("operator(%s)", sync))
+		e := db.Event("migrator", fmt.Sprintf("operator(%s)", sync))
 		defer func() {
-			if uerr := db.update(); uerr != nil {
-				logs.Error("failed to update db %s error: %v", db.GetName(), uerr)
-			}
 			e.Trace(err,
 				fmt.Sprintf("Migrate mysql(%s) to tidb, include: %v tables: %s", my.Src.Dsn(), my.Include, my.Tables))
 		}()
 
 		if _, err = k8sutil.CreateAndWaitJobByJSON(j, waitPodRuningTimeout); err != nil {
-			db.Status.MigrateState = migStartMigrateErr
+			if uerr := db.patch(func(newDb *Db) {
+				newDb.Status.MigrateState = migStartMigrateErr
+			}); uerr != nil {
+				db.Event("migrator", "update").Trace(uerr, "Failed to update db")
+			}
 			return
 		}
 	}()

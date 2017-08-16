@@ -105,8 +105,8 @@ func (db *Db) reconcilePds() error {
 		if mb.State == PodRunning {
 			continue
 		}
-		logs.Info("start deleting member %q, because it is not available", mb.Name)
 		changed++
+		logs.Info("start deleting member %q, because it is not available", mb.Name)
 		tries := 3
 		for i := 0; i < tries; i++ {
 			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], mb.Name); err == nil {
@@ -200,7 +200,7 @@ func (p *Pd) install() (err error) {
 
 	// savepoint for page show
 	p.Db.Status.Phase = PhasePdPending
-	if err = p.Db.update(); err != nil {
+	if err = p.Db.patch(nil); err != nil {
 		return err
 	}
 

@@ -18,3 +18,10 @@ func TestPdStoreIDGet(t *testing.T) {
 	}
 	println(string)
 }
+
+func TestPdMemberDelete(t *testing.T) {
+	err := PdMemberDelete("10.213.44.128:14854", "pd-001-test-003")
+	if err != nil {
+		t.Error(err)
+	}
+}

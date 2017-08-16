@@ -154,11 +154,12 @@ type Tikv struct {
 
 // Store a tikv
 type Store struct {
-	ID      int         `json:"id,omitempty"`
-	Name    string      `json:"name,omitempty"`
-	Address string      `json:"address,omitempty"`
-	Node    string      `json:"nodeName,omitempty"`
-	State   StoreStatus `json:"state"`
+	ID        int         `json:"id,omitempty"`
+	Name      string      `json:"name,omitempty"`
+	Address   string      `json:"address,omitempty"`
+	Node      string      `json:"nodeName,omitempty"`
+	State     StoreStatus `json:"state"`
+	DownTimes int         `json:"downTimes"`
 }
 
 const (
