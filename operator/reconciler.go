@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"time"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
@@ -126,9 +128,11 @@ func (db *Db) upgrade() (err error) {
 	if err = db.Pd.upgrade(); err != nil {
 		return
 	}
+	time.Sleep(pdUpgradeInterval)
 	if err = db.Tikv.upgrade(); err != nil {
 		return
 	}
+	time.Sleep(tikvUpgradeInterval)
 	if err = db.Tidb.upgrade(); err != nil {
 		return
 	}

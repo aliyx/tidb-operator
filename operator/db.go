@@ -21,7 +21,7 @@ const (
 	// wait leader election and data sync
 	pdUpgradeInterval = 15 * time.Second
 	// wait leader election and data sync
-	tikvUpgradeInterval = 60 * time.Second
+	tikvUpgradeInterval = 90 * time.Second
 	tidbUpgradeInterval = 15 * time.Second
 
 	scaling      = 1 << 8
@@ -370,7 +370,7 @@ func (db *Db) TryLock() (locked bool) {
 				doings[db.GetName()] = struct{}{}
 				locked = true
 			} else {
-				logs.Error("could get db %q: %", db.GetName(), err)
+				logs.Warn("could get db %q which may have been deleted: %v", db.GetName(), err)
 				locked = false
 				rw.Unlock()
 			}
@@ -382,7 +382,7 @@ func (db *Db) TryLock() (locked bool) {
 		locked = false
 	}
 	if !locked {
-		logs.Error("could not try lock db", db.GetName())
+		logs.Warn("could not try lock db", db.GetName())
 	}
 	return
 }

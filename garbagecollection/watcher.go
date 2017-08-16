@@ -213,7 +213,7 @@ func (w *Watcher) initResource() (string, error) {
 		}
 		// tidb-gc hostPath is root('/'), mountPath is '/host'
 		// so tikv hostPath is '/host' + tikv hostPath(md.Spec.K8s.HostPath)
-		hostPath := "/host" + md.Spec.K8s.HostPath
+		hostPath := "/host/"
 		logs.Info("current pv provisioner is hostPath, hostPath: %q, mount: %q",
 			hostPath, md.Spec.K8s.Mount)
 		pvProvisioner = &HostPathPVProvisioner{

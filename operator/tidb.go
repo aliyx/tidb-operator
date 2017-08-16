@@ -57,10 +57,10 @@ func (td *Tidb) upgrade() error {
 		if needUpgrade(&pod, td.Version) {
 			upgraded = true
 			// delete pod, rc will create a new version pod
-			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
+			if err = k8sutil.DeletePod(pod.GetName(), terminationGracePeriodSeconds); err != nil {
 				return err
 			}
-			time.Sleep(time.Duration(terminationGracePeriodSeconds) * time.Second)
+			// time.Sleep(time.Duration(terminationGracePeriodSeconds) * time.Second)
 			td.cur = td.getNewPodName(pods)
 			if err = td.waitForOk(); err != nil {
 				return err
@@ -205,13 +205,16 @@ func (td *Tidb) waitForOk() (err error) {
 			return false, err
 		}
 		count := 0
+		notReady := []string{}
 		for _, pod := range pods {
 			if k8sutil.IsPodOk(pod) {
 				count++
+			} else {
+				notReady = append(notReady, pod.GetName())
 			}
 		}
 		if count != td.Replicas {
-			logs.Warn("some pods(tidb-%s-*) not running yet", td.Db.GetName())
+			logs.Warn("the pods %v is not running yet", notReady)
 			return false, nil
 		}
 

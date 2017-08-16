@@ -68,7 +68,7 @@ spec:
   containers:
     - name: pd
       image: {{registry}}/pd:{{version}}
-      imagePullPolicy: Never
+      imagePullPolicy: IfNotPresent
       resources:
         limits:
           memory: "{{mem}}Mi"

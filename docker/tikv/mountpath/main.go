@@ -55,7 +55,6 @@ func main() {
 			all = append(all, f.Name())
 		}
 	}
-
 	count := 0
 	var mnt string
 	for _, d := range all {

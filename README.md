@@ -1,6 +1,6 @@
 # tidb-operator
 
-tidb-operator manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, supports online scale up or dowm, rolling upgrades, full / incremental migrate data to tidb cluster, all operations web.
+tidb-operator manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, supports online scale up or dowm, rolling upgrades, multiple disk mount points, full / incremental migrate data to tidb cluster, all operations web.
 
 Note: **Currently only support kubernetes version is `1.6`, all port ranges `[10000-15000)`. Only provide restful api, easy to integrate into the existing web frame.**
 
@@ -33,6 +33,8 @@ make install-grafana # run this shell on kubernetes master
 Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
 
 #### Deploy tidb-gc on kubernetes
+
+Tidb-gc is used to recycle deleted tikvs and indicators, default hostpath is `/mnt`, which will gc dir `/mnt/data*/` if `tidb-operator` starts the argument -host-path is `/mnt`, -mount is `data`.
 
 ```bash
 make install-tidb-gc # run this shell on kubernetes master

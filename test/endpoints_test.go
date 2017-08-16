@@ -44,10 +44,10 @@ func Test_Limit(t *testing.T) {
 
 func Test_CreateDB(t *testing.T) {
 	body := `{
-		"pd":{"version":"rc3"},"tikv":{"replicas":3,"version":"rc3"},
-		"tidb":{"replicas":2,"version":"rc3"},
-		"owner":{"userId":"6","userName":"yangxin45","desc":""},
-		"schema":{"name":"xinyang1","user":"xinyang1","password":"xinyang1"},
+		"pd":{"version":"rc4"},"tikv":{"replicas":3,"version":"rc4"},
+		"tidb":{"replicas":2,"version":"rc4"},
+		"owner":{"userId":"1","userName":"test","desc":""},
+		"schema":{"name":"test","user":"test","password":"test"},
 		"status":{"phase":-1}}`
 	resp, err := httputil.Post(fmt.Sprintf(createDBAPI, host), []byte(body))
 	if err == httputil.ErrAlreadyExists {
@@ -60,7 +60,7 @@ func Test_CreateDB(t *testing.T) {
 }
 
 func Test_GetDB(t *testing.T) {
-	resp, err := httputil.Get(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), 3*time.Second)
+	resp, err := httputil.Get(fmt.Sprintf(deleteDBAPI, host, "001-test"), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func Test_GetDB(t *testing.T) {
 func Test_AuditPass(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"audit"},
 	{"op":"replace","path":"/status/phase","value":0}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func Test_AuditRefuse(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"audit"},
 	{"op":"replace","path":"/status/phase","value":-2},
 	{"op":"replace","path":"/owner/reason","value":"refuse"}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func Test_AuditRefuse(t *testing.T) {
 
 func Test_Start(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"start"}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func Test_Start(t *testing.T) {
 
 func Test_Stop(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"stop"}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func Test_Stop(t *testing.T) {
 
 func Test_Restart(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"restart"}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func Test_Upgrade(t *testing.T) {
 	{"op":"replace","path":"/pd/version","value":"latest"},
 	{"op":"replace","path":"/tikv/version","value":"latest"},
 	{"op":"replace","path":"/tidb/version","value":"latest"}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,14 +125,14 @@ func Test_Scale(t *testing.T) {
 	body := `[{"op":"replace","path":"/operator","value":"scale"},
 	{"op":"replace","path":"/tidb/replicas","value":2},
 	{"op":"replace","path":"/tikv/replicas","value":4}]`
-	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), []byte(body), 3*time.Second)
+	err := httputil.Patch(fmt.Sprintf(deleteDBAPI, host, "001-test"), []byte(body), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func Test_DeleteDB(t *testing.T) {
-	err := httputil.Delete(fmt.Sprintf(deleteDBAPI, host, "006-xinyang1"), 3*time.Second)
+	err := httputil.Delete(fmt.Sprintf(deleteDBAPI, host, "001-test"), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,11 +150,11 @@ INSERT INTO t2 VALUES (1, "a"), (2, "b"), (3, "c");
 func Test_Migrate(t *testing.T) {
 	m := controllers.Migrator{
 		Mysql: mysqlutil.Mysql{
-			Database: "xinyang1",
+			Database: "test",
 			IP:       "10.213.125.107",
 			Port:     13306,
-			User:     "xinyang1",
-			Password: "xinyang1",
+			User:     "test",
+			Password: "test",
 		},
 		Include: true,
 		Tables:  []string{"t1", "t2"},
@@ -163,14 +163,14 @@ func Test_Migrate(t *testing.T) {
 	}
 	body, _ := json.Marshal(m)
 	fmt.Printf("%s", body)
-	_, err := httputil.Post(fmt.Sprintf(migrateAPI, host, "006-xinyang1"), body)
+	_, err := httputil.Post(fmt.Sprintf(migrateAPI, host, "001-test"), body)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func Test_GetEvents(t *testing.T) {
-	b, err := httputil.Get(fmt.Sprintf(eventsAPI, host, "006-xinyang1"), 3*time.Second)
+	b, err := httputil.Get(fmt.Sprintf(eventsAPI, host, "001-test"), 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

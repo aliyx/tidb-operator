@@ -48,11 +48,12 @@ func (p *Pd) upgrade() error {
 		}
 		if upgraded {
 			count++
+			// wait election and sync data
+			time.Sleep(pdUpgradeInterval)
 			if err = p.waitForOk(); err != nil {
 				mb.State = PodFailed
 				return err
 			}
-			time.Sleep(pdUpgradeInterval)
 		}
 	}
 	return nil
@@ -186,7 +187,7 @@ func (p *Pd) uninstall() (err error) {
 }
 
 func (p *Pd) install() (err error) {
-	e := NewEvent(p.Db.GetName(), "tidb/pd", "install")
+	e := p.Db.Event(eventPd, "install")
 	defer func() {
 		ph := PhasePdStarted
 		if err != nil {

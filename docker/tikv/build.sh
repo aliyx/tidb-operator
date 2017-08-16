@@ -12,6 +12,9 @@ echo "*  Proxy: $DPROXY"
 echo "*  Image: ${REGISTRY}tikv:$VERSION"
 echo "****************************" 
 
+echo "start pulling pingcap/tikv image from docker hub"
+docker pull pingcap/tikv:$VERSION
+
 echo "build mountpath"
 mkdir bin
 go build -o ./bin/mountpath ./mountpath

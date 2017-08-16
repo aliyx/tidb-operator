@@ -19,6 +19,7 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -62,10 +63,10 @@ func (tk *Tikv) upgrade() (err error) {
 			count++
 			// wait ok
 			tk.cur = name
+			time.Sleep(tikvUpgradeInterval)
 			if err = tk.waitForStoreOk(); err != nil {
 				return err
 			}
-			time.Sleep(tikvUpgradeInterval)
 		}
 	}
 	return nil
@@ -90,7 +91,6 @@ func (tk *Tikv) install() (err error) {
 		return err
 	}
 
-	tk.Stores = make(map[string]*Store)
 	for r := 1; r <= tk.Replicas; r++ {
 		tk.Member++
 		if err = tk._install(); err != nil {
@@ -102,6 +102,9 @@ func (tk *Tikv) install() (err error) {
 
 func (tk *Tikv) _install() (err error) {
 	tk.cur = fmt.Sprintf("tikv-%s-%03d", tk.Db.GetName(), tk.Member)
+	if tk.Stores == nil {
+		tk.Stores = make(map[string]*Store)
+	}
 	tk.Stores[tk.cur] = &Store{}
 	tk.ReadyReplicas++
 	if err = tk.createPod(); err != nil {
@@ -261,7 +264,6 @@ func (db *Db) reconcileTikvs() error {
 		return nil
 	}
 
-	logs.Info("start reconciling tikv %q cluster", kv.Db.GetName())
 	r := kv.AvailableReplicas
 	if r < kv.ReadyReplicas {
 		r = kv.ReadyReplicas
@@ -279,9 +281,10 @@ func (db *Db) reconcileTikvs() error {
 		logs.Info("end scale down tikv %q pods desire: %d, ready: %d, available: %d",
 			db.GetName(), kv.Replicas, kv.ReadyReplicas, kv.AvailableReplicas)
 	default:
+		logs.Info("start reconciling tikv %q cluster", db.GetName())
 		err = kv.reconcile()
+		logs.Info("end reconcile tikv %q cluster", db.GetName())
 	}
-	logs.Info("end reconcile tikv %q cluster", kv.Db.GetName())
 	return err
 }
 
@@ -346,9 +349,6 @@ func (tk *Tikv) checkStores() error {
 
 	// get all online tikvs
 	ret = gjson.Get(j, "stores.#[store.state_name==Up]#.store.id")
-	if ret.Type == gjson.Null {
-		return nil
-	}
 	for name, s := range tk.Stores {
 		online := false
 		for _, sid := range ret.Array() {
@@ -456,10 +456,24 @@ func (tk *Tikv) tryDeleteDownTikv() error {
 		if err != nil {
 			return err
 		}
-		elapsed := time.Now().Unix() - hb.Unix()
-		// delete pod if the downtime is more than 1 hour
-		if sn == "Down" && elapsed > tikvMaxDowntime {
-			logs.Warn("delete the store %q which over downtime", name)
+
+		del := false
+		// Delete the pod that does not exist to prevent ip conflict with new pod
+		_, err = k8sutil.GetPod(name)
+		if apierrors.IsNotFound(err) {
+			del = true
+			logs.Warn("delete the store %q which does not exist in k8s", name)
+		}
+
+		// delete pod if the downtime is more than max downtime
+		if !del {
+			elapsed := time.Now().Unix() - hb.Unix()
+			if sn == "Down" && elapsed > tikvMaxDowntime {
+				logs.Warn("delete the store %q which over max downtime %ds", name, tikvMaxDowntime)
+				del = true
+			}
+		}
+		if del {
 			if err = pdutil.PdStoreDelete(tk.Db.Pd.OuterAddresses[0], s.ID); err != nil {
 				return err
 			}

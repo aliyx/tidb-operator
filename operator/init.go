@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	reconcileInterval = 10 * time.Second
+	reconcileInterval = 15 * time.Second
 )
 
 var (

@@ -72,16 +72,20 @@ func gc(o, n *operator.Db, pv PVProvisioner) (err error) {
 }
 
 func gcPd(o, n *operator.Db) error {
-	if n != nil {
+	if o == nil || n == nil {
 		return nil
 	}
-	pd := o.Pd
-	if pd == nil {
+	// may be installing pd cluster
+	if o.Pd == nil || len(o.Pd.Members) < 1 {
 		return nil
 	}
-	for _, mem := range pd.Members {
+	// not delete pd cluster
+	if n.Pd != nil && len(n.Pd.Members) > 0 {
+		return nil
+	}
+	for _, mem := range o.Pd.Members {
 		if err := prometheusutil.DeleteMetrics(o.GetName(), mem.Name); err != nil {
-			return err
+			logs.Warn(err)
 		}
 	}
 	return nil
@@ -109,7 +113,7 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 
 	// recycle
 	if len(deleted) > 0 {
-		logs.Info("tikv %v to be recycled", reflect.ValueOf(deleted).MapKeys())
+		logs.Info("to recycle the deleted tikvs %v", reflect.ValueOf(deleted).MapKeys())
 	}
 
 	for _, s := range deleted {
@@ -118,14 +122,14 @@ func gcTikv(o, n *operator.Db, pv PVProvisioner) (err error) {
 		}
 		// job is tikv_{id}
 		if err = prometheusutil.DeleteMetrics(fmt.Sprintf("tikv_%d", s.ID), s.Name); err != nil {
-			return err
+			logs.Warn(err)
 		}
 	}
 
 	// delete all mitric by job
 	if n == nil {
 		if err = prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-			return err
+			logs.Warn(err)
 		}
 	}
 	return nil
@@ -160,16 +164,16 @@ func gcTidb(o, n *operator.Db) error {
 		// all tidb job is 'tidb'
 
 		if err := prometheusutil.DeleteMetrics("tidb", name); err != nil {
-			return err
+			logs.Warn(err)
 		}
 		// with port metrics
 		if err := prometheusutil.DeleteMetrics("tidb", fmt.Sprintf("%s_%d", name, 4000)); err != nil {
-			return err
+			logs.Warn(err)
 		}
 	}
 	if n == nil {
 		if err := prometheusutil.DeleteMetricsByJob(o.GetName()); err != nil {
-			return err
+			logs.Warn(err)
 		}
 	}
 	return nil

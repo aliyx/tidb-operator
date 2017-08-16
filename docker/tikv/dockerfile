@@ -1,4 +1,6 @@
-FROM pingcap/tikv:rc3
+# ARG VERSION=latest
+# FROM pingcap/tikv:$VERSION
+FROM pingcap/tikv:rc4
 
 MAINTAINER yangxin45
 
