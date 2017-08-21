@@ -475,7 +475,7 @@ func (tk *Tikv) tryDeleteDownTikv() error {
 		_, err = k8sutil.GetPod(name)
 		if apierrors.IsNotFound(err) {
 			del = true
-			logs.Warn("delete the store %q which does not exist in k8s", name)
+			logs.Warn("delete the store %q that does not exist in k8s", name)
 		}
 
 		// delete pod if the downtime is more than max downtime

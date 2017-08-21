@@ -1,4 +1,4 @@
-# tidb-operator
+# Tidb-operator
 
 tidb-operator manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, supports online scale up or dowm, rolling upgrades, multiple disk mount points, full / incremental migrate data to tidb cluster, all operations web.
 

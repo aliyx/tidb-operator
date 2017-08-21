@@ -133,8 +133,11 @@ func (db *Db) reconcilePds() error {
 		}
 		mb.State = PodRunning
 	}
-	if err = p.waitForOk(); err != nil {
-		return err
+
+	if changed > 0 {
+		if err = p.waitForOk(); err != nil {
+			return err
+		}
 	}
 
 	// check pd cluster whether normal
@@ -164,6 +167,36 @@ func (db *Db) reconcilePds() error {
 			if err = pdutil.PdMemberDelete(p.OuterAddresses[0], r.String()); err != nil {
 				return err
 			}
+		}
+	}
+
+	// Add missing member
+	for i, mb := range p.Members {
+		have := false
+		for _, r := range ret.Array() {
+			if r.String() == mb.Name {
+				have = true
+				break
+			}
+		}
+		if !have {
+			changed++
+			logs.Info("restart tikv %q, becase of that not in pd cluster", mb.Name)
+			if err = k8sutil.DeletePod(mb.Name, terminationGracePeriodSeconds); err != nil {
+				return err
+			}
+			p.Member = i + 1
+			p.join = true
+			p.initialClusterState = "existing"
+			if err = p.createPod(); err != nil {
+				return err
+			}
+			mb.State = PodRunning
+		}
+	}
+	if changed > 0 {
+		if err = p.waitForOk(); err != nil {
+			return err
 		}
 	}
 
@@ -290,7 +323,8 @@ func (p *Pd) waitForOk() (err error) {
 			return false, nil
 		}
 		if len(ret.Array()) != len(p.Members) {
-			logs.Warn("could not get pd %q desired %d members", p.Db.GetName(), len(p.Members))
+			logs.Warn("could not get pd %q desired members count: %d, current: %d",
+				p.Db.GetName(), len(p.Members), len(ret.Array()))
 			return false, nil
 		}
 		return true, nil

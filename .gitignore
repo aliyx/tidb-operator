@@ -7,6 +7,7 @@ lastupdate.tmp
 
 # binary file
 tidb-operator
+debug
 cmd/tidb-gc/tidb-gc
 
 # generate swagger file

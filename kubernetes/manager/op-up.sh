@@ -12,6 +12,8 @@ env=${RUN_MODE:-'dev'}
 initMd=${INIT_MD:-'false'}
 hostPath=${DATA_VOLUME}
 mount=${MOUNT}
+# default log level is info:6
+logLevel=${LOG_LEVEL:-6}
 
 echo "****************************"
 echo "*Creating tidb-operator namespace: $NS"
@@ -20,7 +22,7 @@ echo "****************************"
 
 # Create the tidb-operator service and deployment.
 sed_script=""
-for var in initMd env version registry namespace hostPath mount; do
+for var in initMd env version registry namespace hostPath mount logLevel; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo "Creating tidb-operator service/deployment..."

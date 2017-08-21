@@ -74,6 +74,7 @@ spec:
               -http-addr=${POD_IP} \
               -init-md={{initMd}} \
               -host-path={{hostPath}} \
+              -log-level={{logLevel}} \
               -mount={{mount}}
         image: {{registry}}/tidb-operator:{{version}}
         imagePullPolicy: Always
