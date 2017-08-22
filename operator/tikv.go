@@ -451,7 +451,7 @@ func (tk *Tikv) reconcile() (err error) {
 	tk.AvailableReplicas = count
 
 	if tk.AvailableReplicas != tk.ReadyReplicas {
-		logs.Warn("the tikvs %q status is inconsistent, ready: %d, available: %d",
+		logs.Warn("the tikv %q cluster status is inconsistent, ready replicas: %d, available replicas: %d",
 			tk.Db.GetName(), tk.ReadyReplicas, tk.AvailableReplicas)
 		return
 	}

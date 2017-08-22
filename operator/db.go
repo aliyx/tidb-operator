@@ -32,7 +32,7 @@ const (
 	terminationGracePeriodSeconds = 8
 
 	// test:3minute product:60minute
-	tikvMaxDowntime = 3 * 60
+	tikvMaxDowntime = 60 * 60
 
 	tikvAllowMaximumDowntimes = 3
 
