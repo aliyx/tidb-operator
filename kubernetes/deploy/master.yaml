@@ -1,3 +1,4 @@
+# https://kubernetes.io/docs/admin/kubeadm/#config-file
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 etcd:
@@ -9,6 +10,7 @@ networking:
   dnsDomain:
   serviceSubnet: 
   podSubnet:
+kubernetesVersion: stable
 cloudProvider: 
 authorizationModes:
 # kubeadm token generate 
