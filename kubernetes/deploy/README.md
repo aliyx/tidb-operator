@@ -2,12 +2,12 @@
 
 Install the kubernetes cluster in the company's local area network.
 
-## Install
+## Start repository
 
-First upload k8s need 4 rpm package (*kubectl-1.6.1-0.x86_64.rpm, *kubeadm-1.6.1-0.x86_64.rpm, *kubelet-1.6.1-0.x86_64.rpm, *Kubernetes-cni-0.5.1-0.x86_64.rpm) to the server you want to install, and then execute the following script:
+Store various installation scripts and rpm for kube cluster install.
 
 ```bash
-./install.sh . # .Indicates the location of rpm
+./repository.sh start
 ```
 
 ## Master
@@ -15,7 +15,7 @@ First upload k8s need 4 rpm package (*kubectl-1.6.1-0.x86_64.rpm, *kubeadm-1.6.1
 Execute on the specified master node：
 
 ```bash
-./kube-master.sh
+bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) master
 ```
 
 ## Node
@@ -23,7 +23,7 @@ Execute on the specified master node：
 Execute on the specified slve node：
 
 ```bash
-./kube-node.sh ip # Ip refers to the master node ip address
+bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) join ip # Ip refers to the master node ip address
 ```
 
 ## Set proxy and prometheus

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-set -x
+# set -x
 
 root=$(id -u)
 if [ "$root" -ne 0 ]; then
