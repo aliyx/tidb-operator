@@ -24,6 +24,13 @@ RPM_KUBECNI=$fserver/rpm/kubernetes-cni-0.5.1-0.x86_64.rpm
 images=(gcr.io/google_containers/kube-apiserver-amd64:v$version gcr.io/google_containers/kube-controller-manager-amd64:v$version gcr.io/google_containers/kube-scheduler-amd64:v$version gcr.io/google_containers/kube-proxy-amd64:v$version gcr.io/google_containers/etcd-amd64:3.0.17 gcr.io/google_containers/pause-amd64:3.0 gcr.io/google_containers/k8s-dns-sidecar-amd64:1.14.4 gcr.io/google_containers/k8s-dns-kube-dns-amd64:1.14.4 gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64:1.14.4 gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.3)
 weave=(weaveworks/weave-kube:1.9.8 weaveworks/weave-npc:1.9.8 weaveworks/weaveexec:1.9.8)
 
+IpAddressRegex="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+HostnameRegex="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
+
+kube::common::is_ip() {
+    echo "$1" | grep -E "^$IpAddressRegex$" >/dev/null || echo "$1" | grep -E "^$HostnameRegex$" >/dev/null
+}
+
 kube::common::os() {
 	ubu=$(cat /etc/issue | grep "Ubuntu 16.04" | wc -l)
 	cet=$(cat cat /etc/centos-release | grep "CentOS Linux release 7" | wc -l)
@@ -37,12 +44,27 @@ kube::common::os() {
 	fi
 }
 
-# https://kubernetes.io/docs/admin/kubeadm/
+kube::common::yum_config() {
+	sudo cat > /etc/yum.repos.d/kubernetes.repo <<-EOF
+[kubernetes]
+name=Kubernetes
+baseurl=http://yum.kubernetes.io/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+}
+
 kube::prepare_rpm() {
+	kube::common::yum_config
+
 	yumdownloader -v >/dev/null 2>&1 || yum install -y yum-utils
 	yumdownloader --destdir=/tmp kubelet kubeadm kubectl kubernetes-cni
 }
 
+# https://kubernetes.io/docs/admin/kubeadm/
 kube::prepare_image() {
 	kube:install_docker
 
@@ -94,7 +116,7 @@ kube::pull_images() {
 	done
 }
 
-kube::install_bin() {
+kube::install_binaries() {
 	kubeadm version >/dev/null 2>&1 && kubeadm reset
 
 	yum install -y socat
@@ -123,7 +145,8 @@ kube::install_bin() {
 
 	# set apiserver port, as the company below 10000 port can not access
 	echo alias kubectl='kubectl --server=127.0.0.1:10218' >/etc/profile.d/k8s.sh
-	echo "export KUBERNETES_API_SERVER=127.0.0.1:10218" | sudo tee -a /etc/profile.d/k8s.sh
+	echo "export KUBERNETES_API_SERVER=127.0.0.1:10218" | tee -a /etc/profile.d/k8s.sh
+	echo "export PATH=$PATH:/usr/local/bin/" | tee -a /etc/profile.d/k8s.sh
 
 	# sync system time: ntp.api.bz is china
 	ntpdate -v >/dev/null 2>&1 || yum -y install ntpdate
@@ -132,39 +155,36 @@ kube::install_bin() {
 	clock -w
 }
 
-# https://kubernetes.io/docs/tasks/administer-cluster/kubeadm-upgrade-1-7/
-kube::master_upgrade() {
+kube::upgrade_binaries() {
 	rm -rf /tmp/kube && mkdir -p /tmp/kube
 	curl -sS -L $RPM_KUBEADM >/tmp/kube/kubeadm.rpm
 	curl -sS -L $RPM_KUBECTL >/tmp/kube/kubectl.rpm
 	curl -sS -L $RPM_KUBELET >/tmp/kube/kubelet.rpm
 	curl -sS -L $RPM_KUBECNI >/tmp/kube/kube-cni.rpm
-	curl -sS -L $fserver/master.yaml >/tmp/kube/master.yaml
 
 	rpm -Uvh /tmp/kube/kubectl.rpm /tmp/kube/kubelet.rpm /tmp/kube/kube-cni.rpm /tmp/kube/kubeadm.rpm --nofiledigest --replacepkgs
 
+	systemctl daemon-reload && systemctl start kubelet
+}
+
+# https://kubernetes.io/docs/tasks/administer-cluster/kubeadm-upgrade-1-7/
+kube::master_upgrade() {
 	kube::pull_images
 
-	systemctl daemon-reload && systemctl start kubelet
+	kube::upgrade_binaries
 
 	KUBECONFIG=/etc/kubernetes/admin.conf kubectl delete daemonset kube-proxy -n kube-system
 
+	curl -sS -L $fserver/master.yaml >/tmp/kube/master.yaml
 	kubeadm init --skip-preflight-checks --config /tmp/kube/master.yaml
 
 	# https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
-	kubectl apply -f $fserver/weave-daemonset-1.7.yaml
+	kubectl apply -f $fserver/weave-daemonset-k8s-1.6.yaml
 }
 
 kube::node_upgrade() {
-	rm -rf /tmp/kube && mkdir -p /tmp/kube
-	curl -sS -L $RPM_KUBEADM >/tmp/kube/kubeadm.rpm
-	curl -sS -L $RPM_KUBECTL >/tmp/kube/kubectl.rpm
-	curl -sS -L $RPM_KUBELET >/tmp/kube/kubelet.rpm
-	curl -sS -L $RPM_KUBECNI >/tmp/kube/kube-cni.rpm
-
-	rpm -Uvh /tmp/kube/kubectl.rpm /tmp/kube/kubelet.rpm /tmp/kube/kube-cni.rpm /tmp/kube/kubeadm.rpm
-
-	systemctl daemon-reload && systemctl start kubelet
+	kube::pull_images
+	kube::upgrade_binaries
 }
 
 # see logs
@@ -176,7 +196,7 @@ kube::master_up() {
 
 	kube::pull_images
 
-	kube::install_bin
+	kube::install_binaries
 
 	curl -sSL $fserver/master.yaml >/tmp/kube/master.yaml
 	kubeadm init --config /tmp/kube/master.yaml
@@ -187,13 +207,15 @@ kube::master_up() {
 	#   sudo chown $(id -u):$(id -g) $HOME/.kube/config
 	chmod 666 /etc/kubernetes/admin.conf
 	export KUBECONFIG=/etc/kubernetes/admin.conf
-	echo "export KUBECONFIG=/etc/kubernetes/admin.conf" >>/etc/profile
+	echo "export KUBECONFIG=/etc/kubernetes/admin.conf" | tee -a /etc/profile.d/k8s.sh
 
 	#install weave network
 	# use weave as pod network https://www.weave.works/docs/net/latest/kube-addon/
 	# https://github.com/weaveworks/weave/releases/
 	# 2.0.2 requires ipset version 6.29 or higher, that set types support the optional comment extension.
 	kubectl apply -f $fserver/weave-daemonset-k8s-1.6.yaml
+	curl -sSL $fserver/weave-1.9.8.sh >/usr/local/bin/weave
+	chmod a+x /usr/local/bin/weave
 
 	kubectl apply -f $fserver/kubernetes-dashboard.yaml
 
@@ -208,7 +230,7 @@ kube::node_up() {
 
 	kube::pull_images
 
-	kube::install_bin
+	kube::install_binaries
 
 	kubeadm join --token 997ea0.40e5c1218d0afc50 $@:6443
 }
@@ -266,7 +288,7 @@ main() {
 		;;
 	"j" | "join")
 		shift
-		if [ -z "$@" ]; then
+		if ! kube::common::is_ip "$@"; then
 			echo "please specify master ip"
 			exit 1
 		else
