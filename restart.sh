@@ -49,27 +49,27 @@ while :; do
 	case "$1" in
 	-r | --run-mode)
 		runMode="$2"
-		shift 2
+		shift
 		;;
 	-i | --init-md)
 		initMd="$2"
-		shift 2
+		shift
 		;;
 	-p | --host-path)
 		hostPath="$2"
-		shift 2
+		shift
 		;;
 	-m | --mount)
 		mount="$2"
-		shift 2
+		shift
 		;;
 	--log-level)
 		logLevel="$2"
-		shift 2
+		shift
 		;;
 	-k | ----k8s-address)
 		k8sAddress="$2"
-		shift 2
+		shift
 		;;
 	-h | --help)
 		display_help
@@ -87,6 +87,7 @@ while :; do
 		break
 		;;
 	esac
+	shift
 done
 
 case "$runMode" in

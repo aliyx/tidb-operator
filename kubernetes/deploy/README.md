@@ -2,9 +2,9 @@
 
 Install the kubernetes cluster in the company's local area network.
 
-## Start repository
+## Start repository server
 
-Store various installation scripts and rpm for kube cluster install.
+Store the k8s cluster needed to build scripts and rpm.
 
 ```bash
 ./repository.sh start
@@ -12,7 +12,7 @@ Store various installation scripts and rpm for kube cluster install.
 
 ## Master
 
-Execute on the specified master node：
+Execute on the specified master node:
 
 ```bash
 bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) master
@@ -20,13 +20,13 @@ bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) master
 
 ## Node
 
-Execute on the specified slve node：
+Execute on the specified slave node:
 
 ```bash
 bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) join ip # Ip refers to the master node ip address
 ```
 
-## Set proxy and prometheus
+## Mark proxy and prometheus node
 
 ```bash
 # label proxy
@@ -46,4 +46,4 @@ kubectl taint node name node-role.prometheus-
 ## Access
 
 K8s apiserver exposed port is 10218, dashboard port is 12801, pod port range is 12800-14999, because the company's export port range is 10000-14999.
-Visit dashboard: {masterip}:12801
+Access dashboard: `http://<masterIP>:12801`
