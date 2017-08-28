@@ -261,7 +261,7 @@ kube::tear_down() {
 
 main() {
 	case $1 in
-	"p" | "prepare")
+	"prepare")
 		shift
 		if [ "$@" == "rpm" ]; then
 			kube::prepare_rpm
@@ -272,10 +272,10 @@ main() {
 			kube::prepare_image
 		fi
 		;;
-	"m" | "master")
+	"master")
 		kube::master_up
 		;;
-	"u" | "upgrade")
+	"upgrade")
 		shift
 		if [ "$@" == "master" ]; then
 			kube::master_upgrade
@@ -286,7 +286,7 @@ main() {
 			exit 1
 		fi
 		;;
-	"j" | "join")
+	"join")
 		shift
 		if ! kube::common::is_ip "$@"; then
 			echo "please specify master ip"
@@ -295,11 +295,12 @@ main() {
 			kube::node_up $@
 		fi
 		;;
-	"d" | "down")
+	"down")
 		kube::tear_down
 		;;
 	*)
-		echo "usage: $0 p[prepare] [rpm|image] | m[master] | j[join] ip | d[down] | u[upgrade] node "
+		echo "usage: $0 prepare [rpm|image] | master | join ip | down | upgrade [master|node] "
+		echo ""
 		echo "       $0 prepare  to download k8s rpm and dependency images "
 		echo "       $0 master   to setup master "
 		echo "       $0 upgrade  to upgrade master "
