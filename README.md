@@ -1,8 +1,8 @@
 # Tidb-operator
 
-tidb-operator manage multiple tidb cluster atop Kubernetes, support for the actual needs of users to apply for different specifications of resources, supports online scale up or dowm, rolling upgrades, multiple disk mount points, full / incremental migrate data to tidb cluster, all operations web.
+tidb-operator manage multiple tidb cluster atop Kubernetes, support multi-tenant, and online scale up or dowm, rolling upgrades, multiple disk mount points, full / incremental migrate data to tidb cluster, all operations web.
 
-Note: **Currently only support kubernetes version is `1.6`, all port ranges `[10000-15000)`. Only provide restful api, easy to integrate into the existing web frame.**
+Note: **Currently only support kubernetes version is `1.7`, all port ranges `[10000-15000)`. Only provide restful api, easy to integrate into the existing web frame.**
 
 ## Build images
 
