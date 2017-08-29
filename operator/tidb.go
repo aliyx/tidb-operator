@@ -320,8 +320,8 @@ func (td *Tidb) checkStatus() error {
 
 func (td *Tidb) checkScale(replica int) error {
 	md := getNonNullMetadata()
-	if replica > md.Spec.Tidb.Max {
-		return fmt.Errorf("the replicas of tidb exceeds max %d", md.Spec.Tidb.Max)
+	if replica > md.Tidb.Max {
+		return fmt.Errorf("the replicas of tidb exceeds max %d", md.Tidb.Max)
 	}
 	if replica < 2 {
 		return fmt.Errorf("replicas must be greater than 2")

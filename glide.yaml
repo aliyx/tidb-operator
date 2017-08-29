@@ -23,3 +23,5 @@ import:
   version: a13245d02534abe88286859b547d041816f9a3f4
 - package: k8s.io/client-go
   version: 1850dd66e4213a26bd70d0b85fee4176d324b845
+- package: github.com/fatih/structs
+  version: ^1.0.0

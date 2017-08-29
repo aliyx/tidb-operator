@@ -537,8 +537,8 @@ func (tk *Tikv) checkScale(replicas int) error {
 	md := getNonNullMetadata()
 	c := replicas - tk.Replicas
 	if c > 0 {
-		if (replicas + tk.Replicas) > md.Spec.Tikv.Max {
-			return fmt.Errorf("the replicas of tikv exceeds max %d", md.Spec.Tikv.Max)
+		if (replicas + tk.Replicas) > md.Tikv.Max {
+			return fmt.Errorf("the replicas of tikv exceeds max %d", md.Tikv.Max)
 		}
 		if replicas > tk.Spec.Replicas*2 {
 			return fmt.Errorf("each scale up can not exceed 2 times")

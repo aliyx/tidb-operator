@@ -1,5 +1,5 @@
-hash: 9c6b435a6559837e7b6310270d3af1d5fb66f7c37c9a7e4d68f22a570e81224e
-updated: 2017-08-29T09:22:07.069463518+08:00
+hash: 265bf2953baca68049cf3696e0a224522ec2f9612e41ad8a221a99e538e04e22
+updated: 2017-08-29T13:48:35.753323443+08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -29,6 +29,8 @@ imports:
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
   version: 944e07253867aacae43c04b2e6a239005443f33a
+- name: github.com/fatih/structs
+  version: a720dfa8df582c51dee1b36feabb906bde1588bd
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-openapi/jsonpointer
@@ -253,7 +255,6 @@ imports:
   - kubernetes/typed/settings/v1alpha1
   - kubernetes/typed/storage/v1
   - kubernetes/typed/storage/v1beta1
-  - pkg/api
   - pkg/api/v1
   - pkg/api/v1/ref
   - pkg/version

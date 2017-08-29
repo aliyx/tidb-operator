@@ -100,7 +100,7 @@ func (db *Db) check() (err error) {
 	}
 	// db share Volume
 	md := getNonNullMetadata()
-	db.Volume = strings.Trim(md.Spec.K8s.HostPath, " ")
+	db.Volume = strings.Trim(md.K8sConfig.HostPath, " ")
 	if len(db.Volume) == 0 {
 		db.Volume = "emptyDir: {}"
 	} else {
@@ -124,8 +124,8 @@ func (s Schema) check() error {
 
 func (p *Pd) check() error {
 	md := getNonNullMetadata()
-	p.CPU = md.Spec.Pd.CPU
-	p.Mem = md.Spec.Pd.Mem
+	p.CPU = md.Pd.CPU
+	p.Mem = md.Pd.Mem
 	p.Replicas = 3
 	if p.Version == "" {
 		p.Version = defaultImageVersion
@@ -133,7 +133,7 @@ func (p *Pd) check() error {
 	if err := p.validate(); err != nil {
 		return err
 	}
-	max := md.Spec.Pd.Max
+	max := md.Pd.Max
 	if p.Spec.Replicas < 3 || p.Spec.Replicas > max || p.Spec.Replicas%2 == 0 {
 		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
 	}
@@ -150,10 +150,10 @@ func (p *Pd) check() error {
 
 func (tk *Tikv) check() error {
 	md := getNonNullMetadata()
-	tk.CPU = md.Spec.Tikv.CPU
-	tk.Mem = md.Spec.Tikv.Mem
+	tk.CPU = md.Tikv.CPU
+	tk.Mem = md.Tikv.Mem
 	if tk.Capatity < 1 {
-		tk.Capatity = md.Spec.Tikv.Capacity
+		tk.Capatity = md.Tikv.Capacity
 	}
 	if tk.Replicas < 1 {
 		tk.Replicas = 3
@@ -164,24 +164,24 @@ func (tk *Tikv) check() error {
 	if err := tk.validate(); err != nil {
 		return err
 	}
-	max := md.Spec.Tikv.Max
+	max := md.Tikv.Max
 	if tk.Spec.Replicas < 3 || tk.Spec.Replicas > max {
 		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
-	tk.Volume = strings.Trim(md.Spec.K8s.HostPath, " ")
+	tk.Volume = strings.Trim(md.K8sConfig.HostPath, " ")
 	if len(tk.Spec.Volume) == 0 {
 		tk.Volume = "emptyDir: {}"
 	} else {
 		tk.Volume = fmt.Sprintf("hostPath: {path: %s}", tk.Volume)
 	}
-	tk.Mount = md.Spec.K8s.Mount
+	tk.Mount = md.K8sConfig.Mount
 	return nil
 }
 
 func (td *Tidb) check() error {
 	md := getNonNullMetadata()
-	td.CPU = md.Spec.Tidb.CPU
-	td.Mem = md.Spec.Tidb.Mem
+	td.CPU = md.Tidb.CPU
+	td.Mem = md.Tidb.Mem
 	if td.Replicas < 1 {
 		td.Replicas = 3
 	}
@@ -191,7 +191,7 @@ func (td *Tidb) check() error {
 	if err := td.validate(); err != nil {
 		return err
 	}
-	max := md.Spec.Tidb.Max
+	max := md.Tidb.Max
 	if td.Replicas < 1 || td.Replicas > max {
 		return fmt.Errorf("replicas must be >= 1 and <= %d", max)
 	}
