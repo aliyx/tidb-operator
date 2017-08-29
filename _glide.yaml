@@ -1,0 +1,24 @@
+package: github.com/ffan/tidb-operator
+import:
+- package: github.com/astaxie/beego
+  subpackages:
+  - context/param
+  - logs
+- package: github.com/evanphx/json-patch
+- package: github.com/ghodss/yaml
+  version: ^1.0.0
+- package: github.com/go-sql-driver/mysql
+  version: ^1.3.0
+- package: github.com/nightlyone/lockfile
+- package: github.com/tidwall/gjson
+- package: gopkg.in/resty.v0
+  version: ^0.13.0
+- package: gopkg.in/yaml.v2
+- package: k8s.io/client-go
+  version: 1850dd66e4213a26bd70d0b85fee4176d324b845
+- package: k8s.io/api
+  version: e532fdb5587debfd7aade56dabe9eb5df9544baf
+- package: k8s.io/apimachinery
+  version: a13245d02534abe88286859b547d041816f9a3f4
+- package: k8s.io/apiextensions-apiserver
+  version: 6d8c23d2e66ce61e2a7e34f92e8eb3eec13279fa

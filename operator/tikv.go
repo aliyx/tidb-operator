@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/client-go/pkg/api/v1"
-
 	"time"
 
 	"errors"
@@ -19,6 +17,7 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

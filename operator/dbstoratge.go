@@ -37,7 +37,7 @@ func NewDb(cell ...string) *Db {
 }
 
 func dbInit() {
-	s, err := storage.NewStorage(getNamespace(), spec.TPRKindTidb)
+	s, err := storage.NewStorage(getNamespace(), spec.CRDKindTidb)
 	if err != nil {
 		panic(fmt.Errorf("Create storage db error: %v", err))
 	}
@@ -50,8 +50,8 @@ func (db *Db) Save() error {
 	defer mu.Unlock()
 	db.Metadata.Name = uniqueID(db.Owner.ID, db.Schema.Name)
 	db.TypeMeta = metav1.TypeMeta{
-		Kind:       spec.TPRKindTidb,
-		APIVersion: spec.APIVersion,
+		Kind:       spec.CRDKindTidb,
+		APIVersion: spec.SchemeGroupVersion.String(),
 	}
 	if old, _ := GetDb(db.GetName()); old != nil {
 		return storage.ErrAlreadyExists

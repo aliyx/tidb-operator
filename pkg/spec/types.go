@@ -6,20 +6,20 @@ import (
 )
 
 const (
-	// TPRKindMetadata metadata TPR schema
-	TPRKindMetadata = "Metadata"
-	// TPRKindTidb tidb TPR schema
-	TPRKindTidb = "Tidb"
-	// TPRKindEvent event TPR schema
-	TPRKindEvent = "Event"
-	// TPRGroup all resources group
-	TPRGroup = "tidb.ffan.com"
-	// TPRVersion current version is beta
-	TPRVersion = "v1beta1"
-	// TPRDescription a trp desc
-	TPRDescription = "Manage tidb cluster"
-	// APIVersion tpr api version
-	APIVersion = TPRGroup + "/" + TPRVersion
+	// CRDGroup all crd resources group
+	CRDGroup = "tidb.ffan.com"
+	// CRDKindMetadata CRD metadata kind
+	CRDKindMetadata = "Metadata"
+	// CRDKindTidb CRD tidb kind
+	CRDKindTidb = "Tidb"
+	// CRDKindEvent CRD event kind
+	CRDKindEvent = "Event"
+	// CRDVersion current version is beta for REST API: /apis/<group>/<version>
+	CRDVersion = "v1beta2"
+)
+
+var (
+	SchemeGroupVersion = schema.GroupVersion{Group: CRDGroup, Version: CRDVersion}
 )
 
 // Resource tpr
@@ -27,11 +27,3 @@ type Resource struct {
 	metav1.TypeMeta `json:",inline"`
 	Metadata        metav1.ObjectMeta `json:"metadata,omitempty"`
 }
-
-var (
-	// SchemeGroupVersion all tpr schema group
-	SchemeGroupVersion = schema.GroupVersion{
-		Group:   TPRGroup,
-		Version: TPRVersion,
-	}
-)

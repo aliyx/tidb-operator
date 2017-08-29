@@ -181,7 +181,7 @@ var (
 
 // Init Metadata
 func metaInit() {
-	s, err := storage.NewStorage(getNamespace(), spec.TPRKindMetadata)
+	s, err := storage.NewStorage(getNamespace(), spec.CRDKindMetadata)
 	if err != nil {
 		panic(fmt.Errorf("Create storage metadata error: %v", err))
 	}
@@ -248,8 +248,8 @@ func initMetadataIfNot() {
 
 	m = &Metadata{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       spec.TPRKindMetadata,
-			APIVersion: spec.APIVersion,
+			Kind:       spec.CRDKindMetadata,
+			APIVersion: spec.SchemeGroupVersion.String(),
 		},
 		Metadata: metav1.ObjectMeta{
 			Name: "metadata",

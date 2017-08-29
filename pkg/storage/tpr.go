@@ -43,11 +43,11 @@ type Storage struct {
 	Namespace string
 	Name      string
 
-	tprClient *rest.RESTClient
+	restcli rest.Interface
 }
 
 func (s *Storage) listURI() string {
-	return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%ss/", spec.TPRGroup, spec.TPRVersion, s.Namespace, s.Name)
+	return fmt.Sprintf("/apis/%s/namespaces/%s/%s/", spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural())
 }
 
 func (s *Storage) kindPlural() string {
@@ -56,14 +56,14 @@ func (s *Storage) kindPlural() string {
 
 // List query all.
 func (s *Storage) List(v interface{}) error {
-	b, err := s.tprClient.Get().
-		RequestURI(s.listURI()).
+	b, err := s.restcli.Get().RequestURI(s.listURI()).
 		// FieldsSelectorParam(fields.Set{"metadata.name": "test"}.AsSelector()).
 		DoRaw()
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(b, v); err != nil {
+
+	if err := json.Unmarshal(b, v); err != nil {
 		return err
 	}
 	return nil
@@ -71,9 +71,7 @@ func (s *Storage) List(v interface{}) error {
 
 // Create create a new resource.
 func (s *Storage) Create(v interface{}) error {
-	err := s.tprClient.Post().
-		Resource(s.kindPlural()).
-		Namespace(s.Namespace).
+	err := s.restcli.Post().RequestURI(s.listURI()).
 		Body(v).
 		Do().Error()
 	if apierrors.IsAlreadyExists(err) {
@@ -84,10 +82,9 @@ func (s *Storage) Create(v interface{}) error {
 
 // Delete delete a resource.
 func (s *Storage) Delete(key string) error {
-	err := s.tprClient.Delete().
-		Resource(s.kindPlural()).
-		Namespace(s.Namespace).
-		Name(key).
+	uri := fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+		spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural(), key)
+	err := s.restcli.Delete().RequestURI(uri).
 		Do().Error()
 	if apierrors.IsNotFound(err) {
 		return ErrNoNode
@@ -97,19 +94,16 @@ func (s *Storage) Delete(key string) error {
 
 // DeleteAll delete all tpr.
 func (s *Storage) DeleteAll() error {
-	return s.tprClient.Delete().
-		Resource(s.kindPlural()).
-		Namespace(s.Namespace).
+	return s.restcli.Delete().RequestURI(s.listURI()).
 		Do().Error()
 }
 
 // Update update a tpr.
 func (s *Storage) Update(key string, v interface{}) error {
 	var statusCode int
-	err := s.tprClient.Put().
-		Resource(s.kindPlural()).
-		Namespace(s.Namespace).
-		Name(key).
+	uri := fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
+		spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural(), key)
+	err := s.restcli.Put().RequestURI(uri).
 		Body(v).
 		Do().StatusCode(&statusCode).Error()
 
@@ -133,7 +127,7 @@ func (s *Storage) RetryUpdate(key string, v interface{}) error {
 		reflect.ValueOf(v).Elem().FieldByName("Metadata").FieldByName("ResourceVersion").SetString(rv)
 
 		var statusCode int
-		err := s.tprClient.Put().
+		err := s.restcli.Put().
 			Resource(s.kindPlural()).
 			Namespace(s.Namespace).
 			Name(key).
@@ -153,7 +147,7 @@ func (s *Storage) RetryUpdate(key string, v interface{}) error {
 
 // Get get a tpr.
 func (s *Storage) Get(key string, v interface{}) error {
-	b, err := s.tprClient.Get().
+	b, err := s.restcli.Get().
 		Resource(s.kindPlural()).
 		Namespace(s.Namespace).
 		Name(key).
@@ -173,16 +167,13 @@ func (s *Storage) Get(key string, v interface{}) error {
 
 // NewStorage return a new storage.Storage
 func NewStorage(namespace, name string) (*Storage, error) {
-	cli, err := k8sutil.NewTPRClient(spec.TPRGroup, spec.TPRVersion)
-	if err != nil {
-		return nil, err
-	}
-	if err = k8sutil.CreateTPR(name); err != nil {
+	cli := k8sutil.NewRESTClient()
+	if err := k8sutil.CreateCRD(name); err != nil {
 		return nil, err
 	}
 	return &Storage{
 		Namespace: namespace,
 		Name:      strings.ToLower(name),
-		tprClient: cli,
+		restcli:   cli,
 	}, nil
 }

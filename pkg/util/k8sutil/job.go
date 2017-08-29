@@ -8,9 +8,9 @@ import (
 
 	"time"
 
+	"k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/client-go/pkg/apis/batch/v1"
 )
 
 // CreateJobByJSON create and wait job status 'running'
