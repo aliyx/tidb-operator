@@ -1,51 +1,27 @@
 package: github.com/ffan/tidb-operator
 import:
 - package: github.com/astaxie/beego
-  version: v1.8.3
+  version: ^1.9.0
   subpackages:
+  - context/param
   - logs
-  - config
-  - context
-  - grace
-  - toolbox
-  - utils
-- package: github.com/ghodss/yaml
-  version: v1.0.0
-- package: github.com/go-sql-driver/mysql
-  version: v1.3
-- package: github.com/tidwall/gjson
-- package: github.com/tidwall/match
-- package: gopkg.in/yaml.v2
-- package: k8s.io/client-go
-  version: v3.0.0
-  subpackages:
-  - kubernetes
-  - kubernetes/typed/core/v1
-  - rest
-  - tools/cache
-  - tools/clientcmd
-  - tools/record
-- package: k8s.io/apimachinery
-  subpackages:
-  - pkg/api/errors
-  - pkg/api/resource
-  - pkg/apis/meta/v1
-  - pkg/runtime
-  - pkg/types
-  - pkg/util/runtime
-  - pkg/util/uuid
-  - pkg/util/validation
-  - pkg/util/validation/field
-  - pkg/util/wait
-  - pkg/watch
-- package: github.com/howeyc/gopass
-- package: github.com/imdario/mergo
-- package: github.com/Sirupsen/logrus
-  version: ^1.0.0
-- package: gopkg.in/resty.v0
-  version: ^0.12.0
 - package: github.com/evanphx/json-patch
-  subpackages:
-  - proto
-  - sortkeys
+- package: github.com/ghodss/yaml
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+- package: github.com/go-sql-driver/mysql
+  version: ^1.3.0
 - package: github.com/nightlyone/lockfile
+- package: github.com/tidwall/gjson
+- package: gopkg.in/resty.v0
+  version: ^0.13.0
+- package: gopkg.in/yaml.v2
+- package: k8s.io/api
+  version: e532fdb5587debfd7aade56dabe9eb5df9544baf
+- package: k8s.io/apiextensions-apiserver
+  version: 6d8c23d2e66ce61e2a7e34f92e8eb3eec13279fa
+- package: k8s.io/apimachinery
+  version: a13245d02534abe88286859b547d041816f9a3f4
+- package: k8s.io/client-go
+  version: 1850dd66e4213a26bd70d0b85fee4176d324b845
+- package: github.com/fatih/structs
+  version: ^1.0.0

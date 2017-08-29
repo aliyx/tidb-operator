@@ -3,19 +3,18 @@ package operator
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 
 	"sync"
 
 	"github.com/astaxie/beego"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMain(m *testing.M) {
 	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
 	beego.AppConfig.Set("dockerRegistry", "10.209.224.13:10500/ffan/rds")
 	ParseConfig()
+	waitProxys = false
 	Init()
 	lockers["006-xinyang1"] = new(sync.Mutex)
 	os.Exit(m.Run())
@@ -68,20 +67,6 @@ func TestDb_Save(t *testing.T) {
 }
 
 func TestGetDb(t *testing.T) {
-	db := Db{
-		Metadata: metav1.ObjectMeta{
-			Name:            "test",
-			ResourceVersion: "abc",
-		},
-	}
-	md := Metadata{
-		Metadata: metav1.ObjectMeta{
-			ResourceVersion: "abcd",
-		},
-	}
-	fmt.Println(reflect.ValueOf(md).FieldByName("Metadata").FieldByName("ResourceVersion").String())
-	reflect.ValueOf(&db).Elem().FieldByName("Metadata").FieldByName("ResourceVersion").SetString("abcd")
-	fmt.Printf("%+v", db)
 }
 
 func TestGetDbs(t *testing.T) {

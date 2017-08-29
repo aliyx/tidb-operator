@@ -301,7 +301,7 @@ func NeedApproval(ID string, kvr, dbr uint) bool {
 		dbr = dbr + uint(db.Tidb.Replicas)
 	}
 	md := getNonNullMetadata()
-	if kvr > md.Spec.AC.KvReplicas || dbr > md.Spec.AC.DbReplicas {
+	if kvr > md.AC.KvReplicas || dbr > md.AC.DbReplicas {
 		return true
 	}
 	return false

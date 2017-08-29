@@ -3,10 +3,11 @@ package operator
 import (
 	"time"
 
+	"k8s.io/api/core/v1"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/storage"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 // Reconcile tikv and tidb desired status

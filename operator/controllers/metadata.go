@@ -71,17 +71,17 @@ func (mc *MetadataController) Get() {
 	var prop interface{}
 	switch key {
 	case "versions":
-		prop = md.Spec.Versions
+		prop = md.Versions
 	case "pd":
-		prop = md.Spec.Pd
+		prop = md.Pd
 	case "tikv":
-		prop = md.Spec.Tikv
+		prop = md.Tikv
 	case "tidb":
-		prop = md.Spec.Tidb
+		prop = md.Tidb
 	case "k8s":
-		prop = md.Spec.K8s
+		prop = md.K8sConfig
 	case "specifications":
-		prop = md.Spec.Specifications
+		prop = md.Specifications
 	default:
 		mc.CustomAbort(404, fmt.Sprintf("Metadata has no %s property", key))
 	}

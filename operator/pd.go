@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/api/core/v1"
+
 	"strings"
 
 	"github.com/astaxie/beego/logs"
@@ -12,7 +14,6 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
 )
 
 func (p *Pd) upgrade() error {
@@ -69,7 +70,7 @@ func (db *Db) reconcilePds() error {
 		err     error
 		p       = db.Pd
 		changed = 0
-		pods    []apiv1.Pod
+		pods    []v1.Pod
 	)
 
 	e := db.Event(eventPd, "reconcile")
@@ -275,13 +276,15 @@ func (p *Pd) createServices() error {
 	if err != nil {
 		return err
 	}
+	p.InnerAddresses = []string{}
 	p.InnerAddresses = append(p.InnerAddresses, fmt.Sprintf("%s:%d", srv.Spec.ClusterIP, srv.Spec.Ports[0].Port))
 	ps := getProxys()
+	p.OuterAddresses = []string{}
 	p.OuterAddresses = append(p.OuterAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[0].NodePort))
 	return nil
 }
 
-func (p *Pd) createService(temp string) (*apiv1.Service, error) {
+func (p *Pd) createService(temp string) (*v1.Service, error) {
 	j, err := p.toJSONTemplate(temp)
 	if err != nil {
 		return nil, err
@@ -297,7 +300,7 @@ func (p *Pd) createPod() error {
 	if b, err = p.toJSONTemplate(pdPodYaml); err != nil {
 		return err
 	}
-	if _, err = k8sutil.CreatePodByJSON(b, waitPodRuningTimeout, func(pod *apiv1.Pod) {
+	if _, err = k8sutil.CreatePodByJSON(b, waitPodRuningTimeout, func(pod *v1.Pod) {
 		k8sutil.SetTidbVersion(pod, p.Version)
 	}); err != nil {
 		return err

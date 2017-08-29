@@ -49,14 +49,6 @@ func init() {
 
 	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
 		beego.ControllerComments{
-			Method: "Limit",
-			Router: `/:user/limit`,
-			AllowHTTPMethods: []string{"post"},
-			MethodParams: param.Make(),
-			Params: nil})
-
-	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
-		beego.ControllerComments{
 			Method: "Patch",
 			Router: `/:cell`,
 			AllowHTTPMethods: []string{"patch"},
@@ -83,6 +75,14 @@ func init() {
 		beego.ControllerComments{
 			Method: "Migrate",
 			Router: `/:cell/migrate`,
+			AllowHTTPMethods: []string{"post"},
+			MethodParams: param.Make(),
+			Params: nil})
+
+	beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"] = append(beego.GlobalControllerRouter["github.com/ffan/tidb-operator/operator/controllers:TidbController"],
+		beego.ControllerComments{
+			Method: "Limit",
+			Router: `/:user/limit`,
 			AllowHTTPMethods: []string{"post"},
 			MethodParams: param.Make(),
 			Params: nil})

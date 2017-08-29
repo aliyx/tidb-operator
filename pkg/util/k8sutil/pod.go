@@ -10,12 +10,12 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 // CreatePodByJSON create and wait pod status 'running'
@@ -119,7 +119,7 @@ func IsPodOk(pod v1.Pod) (ok bool) {
 }
 
 func clonePod(p *v1.Pod) *v1.Pod {
-	np, err := api.Scheme.DeepCopy(p)
+	np, err := scheme.Scheme.DeepCopy(p)
 	if err != nil {
 		panic("cannot deep copy pod")
 	}

@@ -55,7 +55,7 @@ var (
 )
 
 func eventInit() {
-	s, err := storage.NewStorage(getNamespace(), spec.TPRKindEvent)
+	s, err := storage.NewStorage(getNamespace(), spec.CRDKindEvent)
 	if err != nil {
 		panic(fmt.Errorf("Create storage event error: %v", err))
 	}
@@ -100,8 +100,8 @@ func (e *Event) save() error {
 		}
 		es = &Events{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       spec.TPRKindEvent,
-				APIVersion: spec.APIVersion,
+				Kind:       spec.CRDKindEvent,
+				APIVersion: spec.SchemeGroupVersion.String(),
 			},
 			Metadata: metav1.ObjectMeta{
 				Name: e.Cell,

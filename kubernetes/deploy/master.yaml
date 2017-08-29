@@ -1,26 +1,12 @@
+# https://kubernetes.io/docs/admin/kubeadm/#config-file
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
-etcd:
-  endpoints:
-  caFile:
-  certFile:
-  keyFile:
-networking:
-  dnsDomain:
-  serviceSubnet: 
-  podSubnet:
-cloudProvider: 
-authorizationModes:
+kubernetesVersion: stable
 # kubeadm token generate 
 token: 997ea0.40e5c1218d0afc50
 # default the token never expire
 tokenTTL: 0
-selfHosted:
 apiServerExtraArgs:
   insecure-bind-address: "0.0.0.0"
   insecure-port: "10218"
   service-node-port-range: "12800-14999"
-controllerManagerExtraArgs:
-schedulerExtraArgs:
-apiServerCertSANs:
-certificatesDir:

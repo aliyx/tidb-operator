@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"time"
 
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
-
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 // ScaleReplicationController scale rc
@@ -68,7 +67,7 @@ func CreateAndWaitRc(rc *v1.ReplicationController, timeout time.Duration) (*v1.R
 }
 
 func cloneRc(d *v1.ReplicationController) *v1.ReplicationController {
-	cr, err := api.Scheme.DeepCopy(d)
+	cr, err := scheme.Scheme.DeepCopy(d)
 	if err != nil {
 		panic("cannot deep copy pod")
 	}

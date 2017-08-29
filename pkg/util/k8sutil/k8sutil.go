@@ -11,6 +11,7 @@ import (
 
 	"fmt"
 
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // for gcp auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -103,26 +102,9 @@ func inClusterConfig() (*rest.Config, error) {
 	return rest.InClusterConfig()
 }
 
-// NewTPRClient new tpr client
-func NewTPRClient(group, version string) (*rest.RESTClient, error) {
-	config, err := ClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	config.GroupVersion = &schema.GroupVersion{
-		Group:   group,
-		Version: version,
-	}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
-
-	restcli, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-	return restcli, nil
+// NewRESTClient return a restClient
+func NewRESTClient() rest.Interface {
+	return kubecli.Core().RESTClient()
 }
 
 // NewTPRClientWithCodecFactory new tpr client with cf
