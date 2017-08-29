@@ -1,5 +1,5 @@
-hash: 4325b90977d433691429bc09dbc090c73665a35ab0729cd1e4fc9b4b77c87efa
-updated: 2017-08-28T16:53:21.589945131+08:00
+hash: 9c6b435a6559837e7b6310270d3af1d5fb66f7c37c9a7e4d68f22a570e81224e
+updated: 2017-08-29T09:22:07.069463518+08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -101,11 +101,14 @@ imports:
   subpackages:
   - context
   - context/ctxhttp
+  - html
+  - html/atom
   - http2
   - http2/hpack
   - idna
   - lex/httplex
   - publicsuffix
+  - websocket
 - name: golang.org/x/oauth2
   version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
   subpackages:

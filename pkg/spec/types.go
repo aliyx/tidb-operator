@@ -6,20 +6,20 @@ import (
 )
 
 const (
-	// CRDGroup all crd resources group
-	CRDGroup = "tidb.ffan.com"
+	// crdGroup all crd resources group
+	crdGroup = "tidb.ffan.com"
+	// crdVersion current version is beta for REST API: /apis/<group>/<version>
+	crdVersion = "v1beta2"
 	// CRDKindMetadata CRD metadata kind
 	CRDKindMetadata = "Metadata"
 	// CRDKindTidb CRD tidb kind
 	CRDKindTidb = "Tidb"
 	// CRDKindEvent CRD event kind
 	CRDKindEvent = "Event"
-	// CRDVersion current version is beta for REST API: /apis/<group>/<version>
-	CRDVersion = "v1beta2"
 )
 
 var (
-	SchemeGroupVersion = schema.GroupVersion{Group: CRDGroup, Version: CRDVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: crdGroup, Version: crdVersion}
 )
 
 // Resource tpr

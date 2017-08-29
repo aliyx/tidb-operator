@@ -276,8 +276,10 @@ func (p *Pd) createServices() error {
 	if err != nil {
 		return err
 	}
+	p.InnerAddresses = []string{}
 	p.InnerAddresses = append(p.InnerAddresses, fmt.Sprintf("%s:%d", srv.Spec.ClusterIP, srv.Spec.Ports[0].Port))
 	ps := getProxys()
+	p.OuterAddresses = []string{}
 	p.OuterAddresses = append(p.OuterAddresses, fmt.Sprintf("%s:%d", ps[0], srv.Spec.Ports[0].NodePort))
 	return nil
 }

@@ -46,6 +46,10 @@ type Storage struct {
 	restcli rest.Interface
 }
 
+// CRUpdateFunc is a function to be used when atomically
+// updating a Cluster CR.
+type CRUpdateFunc func(v interface{})
+
 func (s *Storage) listURI() string {
 	return fmt.Sprintf("/apis/%s/namespaces/%s/%s/", spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural())
 }
@@ -62,7 +66,6 @@ func (s *Storage) List(v interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	if err := json.Unmarshal(b, v); err != nil {
 		return err
 	}
@@ -82,8 +85,7 @@ func (s *Storage) Create(v interface{}) error {
 
 // Delete delete a resource.
 func (s *Storage) Delete(key string) error {
-	uri := fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
-		spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural(), key)
+	uri := s.listURI() + key
 	err := s.restcli.Delete().RequestURI(uri).
 		Do().Error()
 	if apierrors.IsNotFound(err) {
@@ -101,8 +103,7 @@ func (s *Storage) DeleteAll() error {
 // Update update a tpr.
 func (s *Storage) Update(key string, v interface{}) error {
 	var statusCode int
-	uri := fmt.Sprintf("/apis/%s/namespaces/%s/%s/%s",
-		spec.SchemeGroupVersion.String(), s.Namespace, s.kindPlural(), key)
+	uri := s.listURI() + key
 	err := s.restcli.Put().RequestURI(uri).
 		Body(v).
 		Do().StatusCode(&statusCode).Error()
@@ -126,14 +127,8 @@ func (s *Storage) RetryUpdate(key string, v interface{}) error {
 		rv := reflect.ValueOf(r).FieldByName("Metadata").FieldByName("ResourceVersion").String()
 		reflect.ValueOf(v).Elem().FieldByName("Metadata").FieldByName("ResourceVersion").SetString(rv)
 
-		var statusCode int
-		err := s.restcli.Put().
-			Resource(s.kindPlural()).
-			Namespace(s.Namespace).
-			Name(key).
-			Body(v).
-			Do().StatusCode(&statusCode).Error()
-		if statusCode == http.StatusConflict {
+		err := s.Update(key, v)
+		if err == ErrConflict {
 			if retryCount > 5 {
 				logs.Warn("retry update trp %s %d times", key, retryCount)
 			}
@@ -145,14 +140,10 @@ func (s *Storage) RetryUpdate(key string, v interface{}) error {
 	}
 }
 
-// Get get a tpr.
+// Get get a cr.
 func (s *Storage) Get(key string, v interface{}) error {
-	b, err := s.restcli.Get().
-		Resource(s.kindPlural()).
-		Namespace(s.Namespace).
-		Name(key).
-		DoRaw()
-
+	uri := s.listURI() + key
+	b, err := s.restcli.Get().RequestURI(uri).DoRaw()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ErrNoNode
@@ -167,10 +158,10 @@ func (s *Storage) Get(key string, v interface{}) error {
 
 // NewStorage return a new storage.Storage
 func NewStorage(namespace, name string) (*Storage, error) {
-	cli := k8sutil.NewRESTClient()
 	if err := k8sutil.CreateCRD(name); err != nil {
 		return nil, err
 	}
+	cli := k8sutil.NewRESTClient()
 	return &Storage{
 		Namespace: namespace,
 		Name:      strings.ToLower(name),

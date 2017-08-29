@@ -27,17 +27,18 @@ import (
 func CreateCRD(kind string) error {
 	clientset := mustNewKubeExtClient()
 	singular := strings.ToLower(kind)
+	plural := singular + "s"
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%ss.%s", singular, spec.CRDGroup),
+			Name: fmt.Sprintf("%s.%s", plural, spec.SchemeGroupVersion.Group),
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   spec.CRDGroup,
-			Version: spec.CRDVersion,
+			Group:   spec.SchemeGroupVersion.Group,
+			Version: spec.SchemeGroupVersion.Version,
 			Scope:   apiextensionsv1beta1.NamespaceScoped,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 				Singular: singular,
-				Plural:   singular + "s",
+				Plural:   plural,
 				Kind:     kind,
 			},
 		},
@@ -54,9 +55,17 @@ func CreateCRD(kind string) error {
 
 // WaitCRDReady wait CRD create finished
 func WaitCRDReady(kind string, clientset apiextensionsclient.Interface) error {
+	notFountWait := 0
 	err := retryutil.Retry(5*time.Second, 20, func() (bool, error) {
 		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(kind, metav1.GetOptions{})
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				notFountWait++
+				if notFountWait > 3 {
+					return false, err
+				}
+				return false, nil
+			}
 			return false, err
 		}
 		for _, cond := range crd.Status.Conditions {
@@ -89,8 +98,8 @@ func mustNewKubeExtClient() apiextensionsclient.Interface {
 
 // WatchTidbs watch tidb TPR change
 func WatchTidbs(restClient *rest.RESTClient, ns string, resourceVersion string) (watch.Interface, error) {
-	uri := fmt.Sprintf("/apis/%s/%s/namespaces/%s/tidbs?watch=true&resourceVersion=%s",
-		spec.CRDGroup, spec.CRDVersion, ns, resourceVersion)
+	uri := fmt.Sprintf("/apis/%s/namespaces/%s/tidbs?watch=true&resourceVersion=%s",
+		spec.SchemeGroupVersion.String(), ns, resourceVersion)
 	logs.Info("watch tidb uri: %s", uri)
 	return restClient.Get().RequestURI(uri).Watch()
 }

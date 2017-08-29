@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ffan/tidb-operator/pkg/spec"
+
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,7 +25,7 @@ type testObj struct {
 
 func TestMain(m *testing.M) {
 	k8sutil.Init(k8sAddr)
-	st, err := NewStorage(k8sAddr, "default", "metadata")
+	st, err := NewStorage("default", "metadata")
 	if err != nil {
 		log.Fatalln("cannt create tpr client url=%s, %v", k8sAddr, err)
 	}
@@ -55,6 +57,10 @@ func TestStorage_Update(t *testing.T) {
 
 func TestStorage_Create(t *testing.T) {
 	test := &testObj{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       spec.CRDKindMetadata,
+			APIVersion: spec.SchemeGroupVersion.String(),
+		},
 		Metadata: metav1.ObjectMeta{
 			Name: "test",
 		},

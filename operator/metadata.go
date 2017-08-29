@@ -187,17 +187,14 @@ func metaInit() {
 	}
 	metaS = s
 
-	initMetadataIfNot()
-
 	go func() {
 		for {
 			time.Sleep(syncMetadataInterval)
 			m, err := GetMetadata()
 			if err != nil {
-				logs.Critical("sync metadata  cache error: %v", err)
-				continue
-			}
-			if m != nil {
+				if err != storage.ErrNoNode {
+					logs.Error("could get metadata error: %v", err)
+				}
 				continue
 			}
 
@@ -206,7 +203,7 @@ func metaInit() {
 				"node-role.proxy": "",
 			})
 			if len(ps) > 0 && !reflect.DeepEqual(ps, m.Spec.K8s.Proxys) {
-				logs.Warn("cluster proxy has changed, from %v to %v")
+				logs.Info("cluster proxy has changed, from %v to %v", m.Spec.K8s.Proxys, ps)
 				m.Spec.K8s.Proxys = ps
 				if err = m.Update(); err != nil {
 					logs.Error("failed to update metadata: %v", err)
@@ -214,13 +211,23 @@ func metaInit() {
 			}
 		}
 	}()
+
+	initMetadataIfNot()
 }
 
 func initMetadataIfNot() {
 	m, _ := GetMetadata()
 	if m != nil {
 		if !forceInitMd {
-			return
+			for {
+				if len(m.Spec.K8s.Proxys) == 0 {
+					logs.Warning("waiting for labeling the proxy's node")
+					time.Sleep(3 * time.Second)
+					m, _ = GetMetadata()
+					continue
+				}
+				return
+			}
 		}
 	}
 	ms := &MetaSpec{}
