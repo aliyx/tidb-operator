@@ -27,11 +27,9 @@ echo "Creating pd pod for $cell cell..."
 for id in `seq 1 $replicas`; do
   id=$(printf "%03d\n" $id)
   sed_script=""
-  for var in namespace cell id replicas cpu mem version tidbdata_volume registry cluster; do
+  for var in namespace cell id replicas cpu mem version tidbdata_volume registry cluster c_state c_state; do
     sed_script+="s,{{$var}},${!var},g;"
   done
-  sed_script+="s,{{c-state}},${c_state},g;"
-  sed_script+="s,{{c-urls}},${c_urls},g;"
   # cat pd-pod.yaml | sed -e "$sed_script"
   cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done

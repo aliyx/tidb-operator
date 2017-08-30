@@ -27,7 +27,7 @@ REGISTRY=${REGISTRY-'10.209.224.13:10500/ffan/rds'}
 VERSION=${VERSION:-'latest'}
 
 # The volume of pod host path
-DATA_VOLUME=${DATA_VOLUME:-'/data'}
+DATA_VOLUME=${DATA_VOLUME:-'/mnt'}
 
 # The prefix of pod mount path
 MOUNT=${MOUNT:-''}

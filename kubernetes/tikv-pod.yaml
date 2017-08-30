@@ -31,6 +31,7 @@ spec:
   containers:
   - name: tikv
     image: {{registry}}/tikv:{{version}}
+    imagePullPolicy: Always
     resources:
       # 初始化requests和limits相同的值，是为了防止memory超过requests时，node资源不足，导致该pod被重新安排到其它node
       requests:
@@ -58,8 +59,8 @@ spec:
         fi
         /tikv-server \
         --store="$data_dir" \
+        --capacity={{capacity}} \
         --addr="0.0.0.0:20160" \
-        --capacity={{capacity}}GB \
         --advertise-addr="$POD_IP:20160" \
         --pd="pd-{{cell}}:2379" \
         --config="/etc/tikv/config.toml"

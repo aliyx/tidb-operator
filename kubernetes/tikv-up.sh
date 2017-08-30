@@ -14,12 +14,13 @@ registry=${REGISTRY}
 DATA_VOLUME=${DATA_VOLUME:-''}
 namespace=$NS
 
+((capacity=$capacity*1024*1024*1024))
 cell=`echo $CELL`
 tidbdata_volume='emptyDir: {}'
 if [ -n "$DATA_VOLUME" ]; then
   tidbdata_volume="hostPath: {path: ${DATA_VOLUME}}"
 fi
-mount=''
+mount='data'
 
 for id in `seq 1 $replicas`; do
   echo "Creating tikv pod $id for $cell cell..."

@@ -100,7 +100,7 @@ spec:
               sleep 1
             done
             # pd will overwrite if join exist cluster
-            sed -i -e 's/"existing"/"{{c-state}}"/' /etc/pd/config.toml
+            sed -i -e 's/"existing"/"{{c_state}}"/' /etc/pd/config.toml
           fi
 
           urls=""
@@ -118,7 +118,7 @@ spec:
           --advertise-client-urls="$advertise_client_urls" \
           --peer-urls="$peer_urls" \
           --advertise-peer-urls="$advertise_peer_urls" \
-          {{c-urls}} \
+          {{c_urls}} \
           --config="/etc/pd/config.toml"
 `
 
@@ -185,7 +185,7 @@ spec:
         /tikv-server \
         --store="$data_dir" \
         --addr="0.0.0.0:20160" \
-        --capacity={{capacity}}GB \
+        --capacity={{capacity}} \
         --advertise-addr="$POD_IP:20160" \
         --pd="pd-{{cell}}:2379" \
         --config="/etc/tikv/config.toml"

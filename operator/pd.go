@@ -360,8 +360,8 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
 		"{{version}}", p.Spec.Version,
 		"{{registry}}", imageRegistry,
-		"{{c-state}}", state,
-		"{{c-urls}}", cluster,
+		"{{c_state}}", state,
+		"{{c_urls}}", cluster,
 	)
 	str := r.Replace(temp)
 	j, err := yaml.YAMLToJSON([]byte(str))

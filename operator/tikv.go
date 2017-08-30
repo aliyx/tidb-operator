@@ -23,6 +23,9 @@ import (
 
 const (
 	defaultTikvPort = 20160
+
+	// GB ~/pingcap/tikv/src/util/config.rs<GB>
+	GB = 1024 * 1024 * 1024
 )
 
 var (
@@ -139,7 +142,7 @@ func (tk *Tikv) toJSONTemplate(temp string) ([]byte, error) {
 		"{{version}}", tk.Spec.Version,
 		"{{cpu}}", fmt.Sprintf("%v", tk.Spec.CPU),
 		"{{mem}}", fmt.Sprintf("%v", tk.Spec.Mem),
-		"{{capacity}}", fmt.Sprintf("%v", tk.Spec.Capatity),
+		"{{capacity}}", fmt.Sprintf("%v", tk.Spec.Capatity*GB),
 		"{{tidbdata_volume}}", fmt.Sprintf("%v", tk.Spec.Volume),
 		"{{id}}", fmt.Sprintf("%03v", tk.Member),
 		"{{registry}}", imageRegistry,
