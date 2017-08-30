@@ -13,13 +13,11 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/garbagecollection"
 	"github.com/ffan/tidb-operator/operator"
-	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	apiv1 "k8s.io/client-go/pkg/api/v1"
 )
 
 var (
@@ -33,7 +31,6 @@ func init() {
 	flag.StringVar(&k8sAddress, "k8s-address", "", "Kubernetes api address, if deployed in kubernetes, do not need to set.")
 	flag.StringVar(&exclude, "exclude", "grafana,prometheus", "Exclude which files to be recycled.")
 	flag.Parse()
-
 	// set logs
 
 	logs.SetLogger("console")
@@ -56,18 +53,18 @@ func main() {
 		}
 	}
 
+	operator.Init()
+
 	// register schema for serializer
 
-	operator.Init()
 	scheme := runtime.NewScheme()
-	scheme.AddUnversionedTypes(apiv1.SchemeGroupVersion, &metav1.Status{})
-	codecs := serializer.NewCodecFactory(scheme)
-	garbagecollection.AddToScheme(scheme)
-
-	tpr, err := k8sutil.NewTPRClientWithCodecFactory(spec.TPRGroup, spec.TPRVersion, codecs)
+	scheme.AddUnversionedTypes(v1.SchemeGroupVersion, &metav1.Status{})
+	operator.AddToScheme(scheme)
+	tpr, err := k8sutil.NewCRClientWithCodecFactory(scheme)
 	if err != nil {
 		panic(fmt.Sprintf("create a tpr client: %v", err))
 	}
+
 	c := garbagecollection.Config{
 		HostName:      node,
 		Namespace:     k8sutil.Namespace,
@@ -81,16 +78,18 @@ func main() {
 	w := garbagecollection.NewWatcher(c)
 
 	// clear all metrics by restart a new Pod 'prom-gateway'
-
-	pods, err := k8sutil.GetPodsByNamespace(k8sutil.Namespace, map[string]string{"name": "prom-gateway"})
-	if err != nil || len(pods) != 1 {
-		logs.Error("can't get Pod 'prom-gateway'", err)
-	} else {
-		if pods[0].Spec.NodeName == node {
-			if err = k8sutil.DeletePod(pods[0].GetName(), 6); err != nil {
-				logs.Error("delete prom-gateway failed, please delete manually %v", err)
-			} else {
-				logs.Info("prom-gateway deleted, kubernetes will create a new Pod")
+	pgName := "prom-gateway"
+	pods, err := k8sutil.GetPodsByNamespace(k8sutil.Namespace, map[string]string{"name": pgName})
+	if err != nil {
+		logs.Error("could not get %q pods for to clear all deleted metrics", pgName, err)
+	} else if len(pods) > 0 {
+		for _, pod := range pods {
+			if pod.Spec.NodeName == node {
+				if err = k8sutil.DeletePod(pod.GetName(), 6); err != nil {
+					logs.Error("failed to delete Pod %q, please delete manually %v", pod.GetName(), err)
+				} else {
+					logs.Info("Pod %q deleted, kubernetes will create a new Pod", pod.GetName())
+				}
 			}
 		}
 	}

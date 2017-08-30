@@ -137,12 +137,52 @@ func (m *Metadata) ToConfigMapData() (map[string]string, error) {
 // ConfigMapDataToMetadata convert config data to metadata obj
 func ConfigMapDataToMetadata(mp map[string]string) (*Metadata, error) {
 	md := NewMetadata()
-	b, err := json.Marshal(mp)
-	if err != nil {
-		return nil, err
-	}
-	if err = json.Unmarshal(b, md); err != nil {
-		return nil, err
+	for class, val := range mp {
+		switch class {
+		case "approvalConditions":
+			ac := ApprovalConditions{}
+			if err := json.Unmarshal([]byte(val), &ac); err != nil {
+				return nil, err
+			}
+			md.AC = ac
+		case "kubernetesConfig":
+			kc := K8sConfig{}
+			if err := json.Unmarshal([]byte(val), &kc); err != nil {
+				return nil, err
+			}
+			md.K8sConfig = kc
+		case "pd":
+			u := Unit{}
+			if err := json.Unmarshal([]byte(val), &u); err != nil {
+				return nil, err
+			}
+			md.Pd = u
+		case "tikv":
+			u := Unit{}
+			if err := json.Unmarshal([]byte(val), &u); err != nil {
+				return nil, err
+			}
+			md.Tikv = u
+		case "tidb":
+			u := Unit{}
+			if err := json.Unmarshal([]byte(val), &u); err != nil {
+				return nil, err
+			}
+			md.Tidb = u
+		case "specifications":
+			ss := []Specification{}
+			if err := json.Unmarshal([]byte(val), &ss); err != nil {
+				return nil, err
+			}
+			md.Specifications = ss
+		case "versions":
+			vs := []string{}
+			if err := json.Unmarshal([]byte(val), &vs); err != nil {
+				return nil, err
+			}
+			md.Versions = vs
+		}
+
 	}
 	return md, nil
 }
@@ -180,7 +220,6 @@ func metaInit() {
 func initMetadataIfNot() {
 	var err error
 	md, _ := GetMetadata()
-	logs.Debug("%v", md)
 	defer func() {
 		if err != nil || !waitProxys {
 			return

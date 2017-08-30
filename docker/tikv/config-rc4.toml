@@ -20,9 +20,16 @@ log-level = "info"
 notify-capacity = 40960
 # maximum number of messages can be processed in one tick.
 messages-per-tick = 4096
-# socket send/recv buffer size.
-send-buffer-size = "128KB"
-recv-buffer-size = "128KB"
+
+# size of thread pool for grpc server.
+# grpc-concurrency = 4
+# The number of max concurrent streams/requests on a client connection.
+# grpc-concurrent-stream = 1024
+# The number of connections with each tikv server to send raft messages.
+# grpc-raft-conn-num = 10
+# Amount to read ahead on individual grpc streams.
+# grpc-stream-initial-window-size = "2MB"
+
 # size of thread pool for endpoint task, should less than total cpu cores.
 # end-point-concurrency = 8
 
@@ -49,6 +56,9 @@ address = "prom-gateway:9091"
 job = "tikv"
 
 [raftstore]
+# true (default value) for high reliability, this can prevent data loss when power failure.
+sync-log = true
+
 # notify capacity, 40960 is suitable for about 7000 regions.
 notify-capacity = 40960
 
@@ -63,11 +73,12 @@ pd-store-heartbeat-tick-interval = "10s"
 # When the region's size exceeds region-max-size, we will split the region
 # into two which the left region's size will be region-split-size or a little
 # bit smaller.
-region-max-size = "80MB"
-region-split-size = "64MB"
+region-max-size = "384MB"
+region-split-size = "256MB"
 # When region size changes exceeds region-split-check-diff, we should check
 # whether the region should be split or not.
-region-split-check-diff = "8MB"
+region-split-check-diff = "32MB"
+
 # Interval to check region whether need to be split or not.
 split-region-check-tick-interval = "5s"
 
@@ -79,10 +90,10 @@ split-region-check-tick-interval = "5s"
 # A threshold to gc stale raft log, must >= 1.
 # raft-log-gc-threshold = 50
 # When entry count exceed this value, gc will be forced trigger.
-# raft-log-gc-count-limit = 48000
+# raft-log-gc-count-limit = 196608
 # When the approximate size of raft log entries exceed this value, gc will be forced trigger.
 # It's recommanded to set it to 3/4 of region-split-size.
-# raft-log-gc-size-limit = "48MB"
+# raft-log-gc-size-limit = "192MB"
 
 # When a peer hasn't been active for max-peer-down-duration,
 # we will consider this peer to be down and report it to pd.
@@ -97,7 +108,7 @@ max-peer-down-duration = "5m"
 # if written bytes reach lock-cf-compact-threshold for lock column family, will fire
 # a manual compaction for lock column family.
 # lock-cf-compact-interval = "10m"
-# lock-cf-compact-threshold = "256MB"
+# lock-cf-compact-bytes-threshold = "256MB"
 
 # Interval (s) to check region whether the data are consistent.
 # consistency-check-interval = 0
@@ -114,15 +125,8 @@ endpoints = ""
 # Time for the info log file to roll (in seconds).
 # info-log-roll-time = "0s"
 
-# Maximum number of concurrent background compaction jobs, submitted to
-# the default LOW priority thread pool.
-max-background-compactions = 6
-
-# Maximum number of concurrent background flush jobs
-max-background-flushes = 2
-
-# Suggested number of concurrent background compaction jobs.
-# base-background-compactions = 1
+# Maximum number of concurrent background jobs (compactions and flushes)
+# max-background-jobs = 8
 
 # This value represents the maximum number of threads that will concurrently perform a
 # compaction job by breaking it into multiple, smaller ones that are run simultaneously.
@@ -198,8 +202,20 @@ stats-dump-period-sec = 600
 # least 2MB;
 # compaction-readahead-size = 0
 
-# Limit the disk IO of compaction and flush.
+# This is the maximum buffer size that is used by WritableFileWrite
+# writable-file-max-buffer-size = "1MB"
+
+# Use O_DIRECT for both reads and writes in background flush and compactions
+# use-direct-io-for-flush-and-compaction = false
+
+# Limit the disk IO of compaction and flush. Compaction and flush can cause
+# terrible spikes if they exceed a certain threshold. Consider setting this to
+# 50% ~ 80% of the disk throughput for a more stable result. However, in heavy
+# write workload, limiting compaction and flush speed can cause write stalls too.
 # rate-bytes-per-sec = 0
+
+# Enable or disable the pipelined write
+# enable-pipelined-write = true 
 
 # Column Family default used to store actual data of the database.
 [rocksdb.defaultcf]
@@ -213,43 +229,55 @@ stats-dump-period-sec = 600
 #   zstd:   kZSTD
 
 # per level compression
-compression-per-level = "lz4:lz4:lz4:lz4:lz4:lz4:lz4"
+# compression-per-level = "no:no:lz4:lz4:lz4:zstd:zstd"
 
 # Approximate size of user data packed per block.  Note that the
 # block size specified here corresponds to uncompressed data.
-block-size = "64KB"
+# block-size = "64KB"
 
 # If you're doing point lookups you definitely want to turn bloom filters on, We use
 # bloom filters to avoid unnecessary disk reads. Default bits_per_key is 10, which
 # yields ~1% false positive rate. Larger bits_per_key values will reduce false positive
 # rate, but increase memory usage and space amplification.
-bloom-filter-bits-per-key = 10
+# bloom-filter-bits-per-key = 10
 
 # false means one sst file one bloom filter, true means evry block has a corresponding bloom filter
-block-based-bloom-filter = false
+# block-based-bloom-filter = false
+
+# level0-file-num-compaction-trigger = 4
 
 # Soft limit on number of level-0 files. We start slowing down writes at this point.
-#level0-slowdown-writes-trigger = 20
+# level0-slowdown-writes-trigger = 20
 
 # Maximum number of level-0 files.  We stop writes at this point.
-#level0-stop-writes-trigger = 36
+# level0-stop-writes-trigger = 36
 
 # Amount of data to build up in memory (backed by an unsorted log
 # on disk) before converting to a sorted on-disk file.
-write-buffer-size = "128MB"
+# write-buffer-size = "128MB"
 
 # The maximum number of write buffers that are built up in memory.
-max-write-buffer-number = 5
+# max-write-buffer-number = 5
 
 # The minimum number of write buffers that will be merged together
 # before writing to storage.
-min-write-buffer-number-to-merge = 1
+# min-write-buffer-number-to-merge = 1
 
 # Control maximum total data size for base level (level 1).
-max-bytes-for-level-base = "128MB"
+# max-bytes-for-level-base = "512MB"
 
 # Target file size for compaction.
-target-file-size-base = "32MB"
+# target-file-size-base = "32MB"
+
+# Max bytes for compaction.max_compaction_bytes
+# max-compaction-bytes = "2GB"
+
+# There are four different algorithms to pick files to compact.
+# 0 : ByCompensatedSize
+# 1 : OldestLargestSeqFirst
+# 2 : OldestSmallestSeqFirst
+# 3 : MinOverlappingRatio
+# compaction-pri = 3
 
 # block-cache used to cache uncompressed blocks, big block-cache can speed up read.
 # in normal cases should tune to 30%-50% system's total memory.
@@ -260,34 +288,59 @@ target-file-size-base = "32MB"
 # during table initialization.
 # cache-index-and-filter-blocks = true
 
-# options for Column Family write
+# Options for Column Family write
 # Column Family write used to store commit informations in MVCC model
 [rocksdb.writecf]
-compression-per-level = "lz4:lz4:lz4:lz4:lz4:lz4:lz4"
-block-size = "64KB"
-write-buffer-size = "128MB"
-max-write-buffer-number = 5
-min-write-buffer-number-to-merge = 1
-max-bytes-for-level-base = "128MB"
-target-file-size-base = "32MB"
+# compression-per-level = "no:no:lz4:lz4:lz4:zstd:zstd"
+# block-size = "64KB"
+# write-buffer-size = "128MB"
+# max-write-buffer-number = 5
+# min-write-buffer-number-to-merge = 1
+# max-bytes-for-level-base = "512MB"
+# target-file-size-base = "32MB"
 
 # in normal cases should tune to 10%-30% system's total memory.
 # block-cache-size = "256MB"
-
 # cache-index-and-filter-blocks = true
+# level0-file-num-compaction-trigger = 4
+# level0-slowdown-writes-trigger = 20
+# level0-stop-writes-trigger = 36
+# cache-index-and-filter-blocks = true
+# compaction-pri = 3
 
 # options for Column Family raft.
 # Column Family raft is used to store raft log and raft states.
 [rocksdb.raftcf]
-compression-per-level = "lz4:lz4:lz4:lz4:lz4:lz4:lz4"
-block-size = "64KB"
-write-buffer-size = "128MB"
-max-write-buffer-number = 5
-min-write-buffer-number-to-merge = 1
-max-bytes-for-level-base = "128MB"
-target-file-size-base = "32MB"
+# compression-per-level = "no:no:lz4:lz4:lz4:zstd:zstd"
+# block-size = "64KB"
+# write-buffer-size = "128MB"
+# max-write-buffer-number = 5
+# min-write-buffer-number-to-merge = 1
+# max-bytes-for-level-base = "512MB"
+# target-file-size-base = "32MB"
+
 # should tune to 256MB~2GB.
 # block-cache-size = "256MB"
+# level0-file-num-compaction-trigger = 4
+# level0-slowdown-writes-trigger = 20
+# level0-stop-writes-trigger = 36
+# cache-index-and-filter-blocks = true
+# compaction-pri = 0
+
+[rocksdb.lockcf]
+# compression-per-level = "no:no:no:no:no:no:no"
+# block-size = "16KB"
+# write-buffer-size = "128MB"
+# max-write-buffer-number = 5
+# min-write-buffer-number-to-merge = 1
+# max-bytes-for-level-base = "128MB"
+# target-file-size-base = "32MB"
+# block-cache-size = "256MB"
+# level0-file-num-compaction-trigger = 1
+# level0-slowdown-writes-trigger = 20
+# level0-stop-writes-trigger = 36
+# cache-index-and-filter-blocks = true
+# compaction-pri = 0
 
 [storage]
 # notify capacity of scheduler's channel

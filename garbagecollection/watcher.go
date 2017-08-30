@@ -13,9 +13,6 @@ import (
 	"github.com/ffan/tidb-operator/pkg/spec"
 	"github.com/ffan/tidb-operator/pkg/util/constants"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kwatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 )
@@ -31,27 +28,7 @@ var (
 	ErrVersionOutdated = errors.New("requested version is outdated in apiserver")
 
 	initRetryWaitTime = 30 * time.Second
-
-	// registry type db to schema for codec
-
-	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	// AddToScheme add user scheme to codec
-	AddToScheme = schemeBuilder.AddToScheme
 )
-
-// addKnownTypes adds the set of types defined in this package to the supplied scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
-	gvk := schema.GroupVersionKind{
-		Group:   spec.TPRGroup,
-		Version: spec.TPRVersion,
-		Kind:    "Tidb",
-	}
-	scheme.AddKnownTypeWithName(gvk,
-		&operator.Db{},
-	)
-	metav1.AddToGroupVersion(scheme, spec.SchemeGroupVersion)
-	return nil
-}
 
 // Event tidb TPR event
 type Event struct {
@@ -191,8 +168,8 @@ func (w *Watcher) initResource() (string, error) {
 		watchVersion = "0"
 		err          error
 	)
-	if err = k8sutil.CreateTPR(spec.TPRKindTidb); err != nil {
-		return "", fmt.Errorf("fail to create TPR: %v", err)
+	if err = k8sutil.CreateCRD(spec.CRDKindTidb); err != nil {
+		return "", fmt.Errorf("fail to create CRD tidb: %v", err)
 	}
 	watchVersion, err = w.findAllDbs()
 	if err != nil {
@@ -208,18 +185,18 @@ func (w *Watcher) initResource() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if !md.Spec.K8s.AvailableVolume() {
+		if !md.K8sConfig.AvailableVolume() {
 			return "", fmt.Errorf("metadata is unavailable")
 		}
 		// tidb-gc hostPath is root('/'), mountPath is '/host'
 		// so tikv hostPath is '/host' + tikv hostPath(md.Spec.K8s.HostPath)
 		hostPath := "/host/"
 		logs.Info("current pv provisioner is hostPath, hostPath: %q, mount: %q",
-			hostPath, md.Spec.K8s.Mount)
+			hostPath, md.K8sConfig.Mount)
 		pvProvisioner = &HostPathPVProvisioner{
 			Node:         w.HostName,
 			HostPath:     hostPath,
-			Mount:        md.Spec.K8s.Mount,
+			Mount:        md.K8sConfig.Mount,
 			ExcludeFiles: w.ExcludeFiles,
 		}
 	}

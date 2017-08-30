@@ -39,13 +39,13 @@ type Events struct {
 
 // Event record the tidb creation process
 type Event struct {
-	Cell            string    `json:"cell,omitempty"`
-	SourceComponent string    `json:"sc,omitempty"`
-	Key             string    `json:"key,omitempty"`
-	Type            string    `json:"type,omitempty"`
-	Message         string    `json:"msg,omitempty"`
-	FirstSeen       time.Time `json:"first,omitempty"`
-	LastSeen        time.Time `json:"last,omitempty"`
+	Cell            string    `json:"cell"`
+	SourceComponent string    `json:"sc"`
+	Key             string    `json:"key"`
+	Type            string    `json:"type"`
+	Message         string    `json:"msg"`
+	FirstSeen       time.Time `json:"first"`
+	LastSeen        time.Time `json:"last"`
 	Count           int       `json:"count"`
 }
 

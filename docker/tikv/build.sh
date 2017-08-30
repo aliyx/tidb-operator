@@ -16,6 +16,7 @@ echo "start pulling pingcap/tikv image from docker hub"
 docker pull pingcap/tikv:$VERSION
 
 echo "build mountpath"
+rm -rf bin
 mkdir bin
 go build -o ./bin/mountpath ./mountpath
 

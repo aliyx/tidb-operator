@@ -316,9 +316,9 @@ func (db *Db) Unmarshal(data []byte) error {
 	return nil
 }
 
-// GetAllDbs get a tidbList object
-func GetAllDbs() (*TidbList, error) {
-	list := &TidbList{}
+// GetAllDbs get a dbList object
+func GetAllDbs() (*DbList, error) {
+	list := &DbList{}
 	if err := dbS.List(list); err != nil {
 		if err != storage.ErrNoNode {
 			return nil, err
@@ -338,7 +338,7 @@ func GetDbs(userID string) ([]Db, error) {
 	} else {
 		userID = ""
 	}
-	list := &TidbList{}
+	list := &DbList{}
 	if err := dbS.List(list); err != nil {
 		if err != storage.ErrNoNode {
 			return nil, err

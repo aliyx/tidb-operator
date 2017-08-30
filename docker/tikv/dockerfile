@@ -4,5 +4,7 @@ FROM pingcap/tikv:rc4
 
 MAINTAINER yangxin45
 
-ADD config.toml /etc/tikv/
-ADD bin/mountpath /usr/local/bin/
+ARG VERSION=latest
+
+COPY config-${VERSION}.toml /etc/tikv/config.toml
+COPY bin/mountpath /usr/local/bin/

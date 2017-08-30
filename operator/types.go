@@ -31,8 +31,8 @@ const (
 	upgradeFailed = "False"
 )
 
-// TidbList is a list of tidb clusters.
-type TidbList struct {
+// DbList is a list of tidb clusters.
+type DbList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard list metadata
 	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata

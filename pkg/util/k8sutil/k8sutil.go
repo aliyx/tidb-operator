@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/ffan/tidb-operator/pkg/spec"
+
 	"github.com/astaxie/beego/logs"
 
 	"fmt"
@@ -16,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
@@ -107,20 +108,17 @@ func NewRESTClient() rest.Interface {
 	return kubecli.Core().RESTClient()
 }
 
-// NewTPRClientWithCodecFactory new tpr client with cf
-func NewTPRClientWithCodecFactory(group, version string, cf serializer.CodecFactory) (*rest.RESTClient, error) {
+// NewCRClientWithCodecFactory new cr client with cf
+func NewCRClientWithCodecFactory(sc *runtime.Scheme) (*rest.RESTClient, error) {
 	config, err := ClusterConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	config.GroupVersion = &schema.GroupVersion{
-		Group:   group,
-		Version: version,
-	}
+	config.GroupVersion = &spec.SchemeGroupVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: cf}
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(sc)}
 
 	restcli, err := rest.RESTClientFor(config)
 	if err != nil {
