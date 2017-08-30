@@ -41,7 +41,6 @@ spec:
 
           # set prometheus
           sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
-
           data_dir=/data/pd
           if [ -d $data_dir ]; then
             echo "Resuming with existing data dir:$data_dir"
@@ -53,6 +52,8 @@ spec:
               echo "[$(date)] waiting for {{replicas}} entries in SRV record for {{cell}}"
               sleep 1
             done
+            # pd will overwrite if join exist cluster
+            sed -i -e 's/"existing"/"{{c_state}}"/' /etc/pd/config.toml
           fi
 
           urls=""
@@ -70,5 +71,5 @@ spec:
           --advertise-client-urls="$advertise_client_urls" \
           --peer-urls="$peer_urls" \
           --advertise-peer-urls="$advertise_peer_urls" \
-          {{cluster}} \
+          {{c_urls}} \
           --config="/etc/pd/config.toml"

@@ -46,7 +46,7 @@ clean-tidb-operator:
 .PHONY: clean-tidb-operator
 
 install-grafana:
-	cd kubernetes/prometheus; \
+	cd kubernetes/manager/prometheus; \
 	./deploy.sh -c
 .PHONY: install-grafana
 

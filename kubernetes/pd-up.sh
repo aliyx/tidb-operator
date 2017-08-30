@@ -13,6 +13,8 @@ mem=${PD_MEM:-256}
 replicas=${PD_REPLICAS:-3}
 registry=${REGISTRY}
 tidbdata_volume='emptyDir: {}'
+c_state="new"
+c_urls="--initial-cluster=\$urls"
 
 pods=$($KUBECTL $KUBECTL_OPTIONS get pods -l cell=test|grep pd-test|wc -l)
 if [ "$pods" -gt "0" ]; then
@@ -28,8 +30,10 @@ for id in `seq 1 $replicas`; do
   for var in namespace cell id replicas cpu mem version tidbdata_volume registry cluster; do
     sed_script+="s,{{$var}},${!var},g;"
   done
-  cat pd-pod.yaml | sed -e "$sed_script"
-  # cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+  sed_script+="s,{{c-state}},${c_state},g;"
+  sed_script+="s,{{c-urls}},${c_urls},g;"
+  # cat pd-pod.yaml | sed -e "$sed_script"
+  cat pd-pod.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 done
 
 echo "Creating pd service for $cell cell..."
