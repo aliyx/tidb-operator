@@ -2,18 +2,20 @@ package operator
 
 import (
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/api/core/v1"
 
 	"github.com/astaxie/beego/logs"
 
-	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
 	"github.com/ffan/tidb-operator/pkg/util/httputil"
-	"github.com/ghodss/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -57,11 +59,15 @@ func (td *Tidb) upgrade() error {
 		if needUpgrade(&pod, td.Version) {
 			upgraded = true
 			// delete pod, rc will create a new version pod
-			if err = k8sutil.DeletePod(pod.GetName(), terminationGracePeriodSeconds); err != nil {
+			if err = k8sutil.DeletePods(pod.GetName()); err != nil {
 				return err
 			}
-			// time.Sleep(time.Duration(terminationGracePeriodSeconds) * time.Second)
+			time.Sleep(time.Duration(terminationGracePeriodSeconds) * time.Second)
 			td.cur = td.getNewPodName(pods)
+			if td.cur == "" {
+				err = fmt.Errorf("could get new tidb pod")
+				return err
+			}
 			if err = td.waitForOk(); err != nil {
 				return err
 			}
@@ -72,23 +78,34 @@ func (td *Tidb) upgrade() error {
 }
 
 func (td *Tidb) getNewPodName(old []v1.Pod) string {
-	pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
-	if err != nil {
-		return ""
-	}
-	for _, n := range pods {
-		have := false
-		for _, o := range old {
-			if n.GetName() == o.GetName() {
-				have = true
+	podName := ""
+	err := retryutil.Retry(3, 10, func() (bool, error) {
+		pods, err := k8sutil.GetPods(td.Db.GetName(), "tidb")
+		if err != nil {
+			return false, err
+		}
+		for _, n := range pods {
+			have := false
+			for _, o := range old {
+				if n.GetName() == o.GetName() {
+					have = true
+					break
+				}
+			}
+			if !have {
+				podName = n.GetName()
 				break
 			}
 		}
-		if !have {
-			return n.GetName()
+		if podName == "" {
+			return false, nil
 		}
+		return true, nil
+	})
+	if err != nil {
+		td.Db.Event(eventTidb, "upgrade").Trace(err, "Get the new pod")
 	}
-	return ""
+	return podName
 }
 
 func (td *Tidb) install() (err error) {
@@ -139,11 +156,29 @@ func (td *Tidb) syncMembers() error {
 }
 
 func (td *Tidb) createService() (err error) {
-	j, err := td.toJSONTemplate(tidbServiceYaml)
-	if err != nil {
-		return err
+	srv := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "tidb-" + td.Db.GetName(),
+			Labels: td.Db.getLabels("tidb"),
+		},
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeNodePort,
+			Selector: td.Db.getLabels("tidb"),
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Name:     "mysql",
+					Protocol: v1.ProtocolTCP,
+					Port:     4000,
+				},
+				v1.ServicePort{
+					Name:     "web",
+					Protocol: v1.ProtocolTCP,
+					Port:     10080,
+				},
+			},
+		},
 	}
-	srv, err := k8sutil.CreateServiceByJSON(j)
+	srv, err = k8sutil.CreateService(srv)
 	if err != nil {
 		return err
 	}
@@ -158,34 +193,58 @@ func (td *Tidb) createService() (err error) {
 }
 
 func (td *Tidb) createReplicationController() error {
-	var (
-		err error
-		j   []byte
-	)
-	j, err = td.toJSONTemplate(tidbRcYaml)
-	if err != nil {
+	rc := &v1.ReplicationController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tidb-" + td.Db.GetName(),
+		},
+		Spec: v1.ReplicationControllerSpec{
+			Replicas: intToInt32(td.Replicas),
+			Template: &v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: td.Db.getLabels("tidb"),
+				},
+				Spec: v1.PodSpec{
+					TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+					Containers: []v1.Container{
+						v1.Container{
+							Name:  "tidb",
+							Image: imageRegistry + "/tidb:" + td.Version,
+							LivenessProbe: &v1.Probe{
+								InitialDelaySeconds: 30,
+								TimeoutSeconds:      5,
+								Handler: v1.Handler{
+									HTTPGet: &v1.HTTPGetAction{
+										Path: "/status",
+										Port: intstr.FromInt(10080),
+									},
+								},
+							},
+							Resources: v1.ResourceRequirements{
+								Limits: k8sutil.MakeResourceList(td.CPU, td.Mem),
+							},
+							Env: []v1.EnvVar{
+								k8sutil.MakeTZEnvVar(),
+							},
+							Command: []string{"/tidb-server"},
+							Args: []string{
+								"-P=4000",
+								"--store=tikv",
+								"--path=pd-" + td.Db.GetName() + ":2379",
+								"-metrics-addr=prom-gateway:9091",
+								"--metrics-interval=15",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	k8sutil.SetTidbVersion(rc, td.Version)
+	if _, err := k8sutil.CreateAndWaitRc(rc, waitPodRuningTimeout); err != nil {
 		return err
 	}
-	_, err = k8sutil.CreateRcByJSON(j, waitPodRuningTimeout, func(rc *v1.ReplicationController) {
-		k8sutil.SetTidbVersion(rc, td.Version)
-	})
 	td.AvailableReplicas = td.Replicas
-	return err
-}
-
-func (td *Tidb) toJSONTemplate(temp string) ([]byte, error) {
-	r := strings.NewReplacer(
-		"{{version}}", td.Version,
-		"{{cpu}}", fmt.Sprintf("%v", td.CPU), "{{mem}}", fmt.Sprintf("%v", td.Mem),
-		"{{namespace}}", getNamespace(),
-		"{{replicas}}", fmt.Sprintf("%v", td.Replicas),
-		"{{registry}}", imageRegistry, "{{cell}}", td.Db.Metadata.Name)
-	str := r.Replace(temp)
-	j, err := yaml.YAMLToJSON([]byte(str))
-	if err != nil {
-		return nil, err
-	}
-	return j, nil
+	return nil
 }
 
 func (td *Tidb) waitForOk() (err error) {

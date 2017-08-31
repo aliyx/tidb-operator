@@ -22,8 +22,6 @@ spec:
               - "pd"
           topologyKey: kubernetes.io/hostname
   volumes:
-    - name: syslog
-      hostPath: {path: /dev/log}
     - name: datadir
       {{tidbdata_volume}}
   terminationGracePeriodSeconds: 5

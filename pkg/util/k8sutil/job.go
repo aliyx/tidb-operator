@@ -1,8 +1,6 @@
 package k8sutil
 
 import (
-	"encoding/json"
-
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
 
@@ -12,25 +10,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// CreateJobByJSON create and wait job status 'running'
-func CreateJobByJSON(j []byte, timeout time.Duration, updateFunc func(*v1.Job)) (*v1.Job, error) {
-	job := &v1.Job{}
-	if err := json.Unmarshal(j, job); err != nil {
-		return nil, err
-	}
-	updateFunc(job)
-	return CreateAndWaitJob(job, timeout)
-}
-
-// CreateAndWaitJobByJSON create and wait job status 'running'
-func CreateAndWaitJobByJSON(j []byte, timeout time.Duration) (*v1.Job, error) {
-	job := &v1.Job{}
-	if err := json.Unmarshal(j, job); err != nil {
-		return nil, err
-	}
-	return CreateAndWaitJob(job, timeout)
-}
 
 // CreateAndWaitJob create and wait job status 'running'
 func CreateAndWaitJob(job *v1.Job, timeout time.Duration) (*v1.Job, error) {

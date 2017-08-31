@@ -15,6 +15,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -245,5 +246,37 @@ func SetTidbVersion(i interface{}, version string) {
 			v.Spec.Template.Annotations = make(map[string]string)
 		}
 		v.Spec.Template.Annotations[tidbVersionAnnotationKey] = version
+	}
+}
+
+func MakeEmptyDirVolume(name string) v1.Volume {
+	return v1.Volume{
+		Name:         name,
+		VolumeSource: v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}},
+	}
+}
+
+func MakeTZEnvVar() v1.EnvVar {
+	return v1.EnvVar{
+		Name:  "TZ",
+		Value: "Asia/Shanghai",
+	}
+}
+
+func MakePodIPEnvVar() v1.EnvVar {
+	return v1.EnvVar{
+		Name: "POD_IP",
+		ValueFrom: &v1.EnvVarSource{
+			FieldRef: &v1.ObjectFieldSelector{
+				FieldPath: "status.podIP",
+			},
+		},
+	}
+}
+
+func MakeResourceList(cpu, mem int) v1.ResourceList {
+	return v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%dm", cpu)),
+		v1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dMi", mem)),
 	}
 }

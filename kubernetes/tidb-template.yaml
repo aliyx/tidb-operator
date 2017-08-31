@@ -33,22 +33,6 @@ spec:
         cell: {{cell}}
         app: tidb
     spec:
-      affinity:
-        # TiDB and TiKV instances, it is recommended to deploy separately to avoid competing CPU resources and performance
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 80
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: component
-                  operator: In
-                  values:
-                  - "tikv"
-              topologyKey: kubernetes.io/hostname
-      volumes:
-        - name: syslog
-          hostPath: {path: /dev/log}
       terminationGracePeriodSeconds: 5
       containers:
       - name: tidb
@@ -59,9 +43,6 @@ spec:
             port: 10080
           initialDelaySeconds: 30
           timeoutSeconds: 5
-        volumeMounts:
-          - name: syslog
-            mountPath: /dev/log
         resources:
           limits:
             memory: "{{mem}}Mi"

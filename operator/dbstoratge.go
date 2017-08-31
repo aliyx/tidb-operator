@@ -169,11 +169,6 @@ func (tk *Tikv) check() error {
 		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
 	}
 	tk.Volume = strings.Trim(md.K8sConfig.HostPath, " ")
-	if len(tk.Spec.Volume) == 0 {
-		tk.Volume = "emptyDir: {}"
-	} else {
-		tk.Volume = fmt.Sprintf("hostPath: {path: %s}", tk.Volume)
-	}
 	tk.Mount = md.K8sConfig.Mount
 	return nil
 }

@@ -15,10 +15,10 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/pdutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
-	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -119,37 +119,114 @@ func (tk *Tikv) _install() (err error) {
 	return nil
 }
 
+const tikvCmd = `
+p=$(mountpath "/host" {{mount}})
+data_dir=$p/$HOSTNAME
+echo "Current data dir:$data_dir"
+if [ -d $data_dir ]; then
+  echo "Resuming with existing data dir"
+else
+  echo "First run for this tikv"
+fi
+/tikv-server \
+--store="$data_dir" \
+--addr="0.0.0.0:20160" \
+--capacity={{capacity}} \
+--advertise-addr="$POD_IP:20160" \
+--pd="pd-{{cell}}:2379" \
+--config="/etc/tikv/config.toml"
+`
+
 func (tk *Tikv) createPod() (err error) {
-	var j []byte
-	if j, err = tk.toJSONTemplate(tikvPodYaml); err != nil {
+	r := strings.NewReplacer(
+		"{{capacity}}", fmt.Sprintf("%d", tk.Spec.Capatity*GB),
+		"{{cell}}", tk.Db.GetName(),
+		"{{mount}}", tk.Spec.Mount)
+	cmd := r.Replace(tikvCmd)
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   fmt.Sprintf("tikv-%s-%03v", tk.Db.GetName(), tk.Member),
+			Labels: tk.Db.getLabels("tikv"),
+		},
+		Spec: v1.PodSpec{
+			TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+			RestartPolicy:                 v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				v1.Container{
+					Name:            "tikv",
+					Image:           imageRegistry + "/tikv:" + tk.Version,
+					ImagePullPolicy: v1.PullAlways,
+					Ports:           []v1.ContainerPort{{ContainerPort: 20160}},
+					VolumeMounts: []v1.VolumeMount{
+						{Name: "datadir", MountPath: "/host"},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: k8sutil.MakeResourceList(tk.CPU, tk.Mem),
+					},
+					Env: []v1.EnvVar{
+						k8sutil.MakeTZEnvVar(),
+						k8sutil.MakePodIPEnvVar(),
+					},
+					Command: []string{
+						"bash", "-c", cmd,
+					},
+				},
+			},
+		},
+	}
+
+	// set volume
+
+	if len(tk.Volume) == 0 {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sutil.MakeEmptyDirVolume("datadir"))
+	} else {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
+			Name: "datadir",
+			VolumeSource: v1.VolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: tk.Volume,
+				},
+			},
+		})
+	}
+
+	// save image version
+	k8sutil.SetTidbVersion(pod, tk.Version)
+
+	// PD and TiKV instances, it is recommended that each instance individually deploy a hard disk
+	// to avoid IO conflicts and affect performance
+	pod.Spec.Affinity = &v1.Affinity{
+		PodAntiAffinity: &v1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
+				v1.WeightedPodAffinityTerm{
+					Weight: 80,
+					PodAffinityTerm: v1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								metav1.LabelSelectorRequirement{
+									Key:      "component",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{"pd"},
+								},
+							},
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		},
+	}
+
+	if pod, err = k8sutil.CreateAndWaitPod(pod, waitPodRuningTimeout); err != nil {
 		return err
 	}
-	var pod *v1.Pod
-	if pod, err = k8sutil.CreatePodByJSON(j, waitPodRuningTimeout, func(pod *v1.Pod) {
-		k8sutil.SetTidbVersion(pod, tk.Version)
-	}); err != nil {
-		return err
-	}
+
 	s := tk.Stores[tk.cur]
 	s.Name = tk.cur
 	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
 	s.Node = pod.Spec.NodeName
 	return nil
-}
-
-func (tk *Tikv) toJSONTemplate(temp string) ([]byte, error) {
-	r := strings.NewReplacer(
-		"{{version}}", tk.Spec.Version,
-		"{{cpu}}", fmt.Sprintf("%v", tk.Spec.CPU),
-		"{{mem}}", fmt.Sprintf("%v", tk.Spec.Mem),
-		"{{capacity}}", fmt.Sprintf("%v", tk.Spec.Capatity*GB),
-		"{{tidbdata_volume}}", fmt.Sprintf("%v", tk.Spec.Volume),
-		"{{id}}", fmt.Sprintf("%03v", tk.Member),
-		"{{registry}}", imageRegistry,
-		"{{cell}}", tk.Db.GetName(),
-		"{{mount}}", tk.Spec.Mount,
-		"{{namespace}}", getNamespace())
-	return yaml.YAMLToJSON([]byte(r.Replace(temp)))
 }
 
 func (tk *Tikv) waitForStoreOk() (err error) {

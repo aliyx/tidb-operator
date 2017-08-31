@@ -83,7 +83,7 @@ func (e *Event) Trace(err error, msg ...string) {
 	if err != nil {
 		e.Type = Eerror
 		e.Message = fmt.Sprintf("%s: %v", msg, err)
-		logs.Error("%s[comp:%s, key:%s]: %s", e.Cell, e.SourceComponent, e.Key, e.Message)
+		logs.Error("db:%s[comp:%s, key:%s]: %s", e.Cell, e.SourceComponent, e.Key, e.Message)
 	}
 	e.save()
 }

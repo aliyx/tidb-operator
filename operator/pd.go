@@ -12,8 +12,8 @@ import (
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 	"github.com/ffan/tidb-operator/pkg/util/pdutil"
 	"github.com/ffan/tidb-operator/pkg/util/retryutil"
-	"github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (p *Pd) upgrade() error {
@@ -267,12 +267,12 @@ func (p *Pd) install() (err error) {
 
 func (p *Pd) createServices() error {
 	// create headless
-	if _, err := p.createService(pdHeadlessServiceYaml); err != nil {
+	if _, err := p.createHeadlessService(); err != nil {
 		return err
 	}
 
 	// create service
-	srv, err := p.createService(pdServiceYaml)
+	srv, err := p.createService()
 	if err != nil {
 		return err
 	}
@@ -284,28 +284,96 @@ func (p *Pd) createServices() error {
 	return nil
 }
 
-func (p *Pd) createService(temp string) (*v1.Service, error) {
-	j, err := p.toJSONTemplate(temp)
-	if err != nil {
-		return nil, err
+func (p *Pd) createService() (*v1.Service, error) {
+	srv := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "pd-" + p.Db.GetName(),
+			Labels: p.Db.getLabels("pd"),
+		},
+		Spec: v1.ServiceSpec{
+			Type:     v1.ServiceTypeNodePort,
+			Selector: p.Db.getLabels("pd"),
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Name:     "client",
+					Protocol: v1.ProtocolTCP,
+					Port:     2379,
+				},
+			},
+		},
 	}
-	return k8sutil.CreateServiceByJSON(j)
+	return k8sutil.CreateService(srv)
+}
+
+func (p *Pd) createHeadlessService() (*v1.Service, error) {
+	srv := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "pd-" + p.Db.GetName() + "-srv",
+			Labels: p.Db.getLabels("pd"),
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: "None",
+			Selector:  p.Db.getLabels("pd"),
+			Ports: []v1.ServicePort{
+				v1.ServicePort{
+					Name:     "pd-server",
+					Protocol: v1.ProtocolTCP,
+					Port:     2380,
+				},
+			},
+		},
+	}
+	return k8sutil.CreateService(srv)
 }
 
 func (p *Pd) createPod() error {
-	var (
-		err error
-		b   []byte
-	)
-	if b, err = p.toJSONTemplate(pdPodYaml); err != nil {
-		return err
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   p.getName(),
+			Labels: p.Db.getLabels("pd"),
+		},
+		Spec: v1.PodSpec{
+			TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+			RestartPolicy:                 v1.RestartPolicyNever,
+			// DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
+			// For example, pd-test-001 in default namesapce will have DNS name
+			// 'pd-test-001.test.default.svc.cluster.local'.
+			Hostname:  p.getName(),
+			Subdomain: fmt.Sprintf("pd-%s-srv", p.Db.GetName()),
+			Volumes: []v1.Volume{
+				k8sutil.MakeEmptyDirVolume("datadir"),
+			},
+			Containers: []v1.Container{
+				v1.Container{
+					Name:            "pd",
+					Image:           p.getImage(),
+					ImagePullPolicy: v1.PullIfNotPresent,
+					VolumeMounts: []v1.VolumeMount{
+						{Name: "datadir", MountPath: "/host"},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: k8sutil.MakeResourceList(p.CPU, p.Mem),
+					},
+					Env: []v1.EnvVar{
+						k8sutil.MakeTZEnvVar(),
+						k8sutil.MakePodIPEnvVar(),
+					},
+					Command: []string{
+						"bash", "-c", p.getCmd(),
+					},
+				},
+			},
+		},
 	}
-	if _, err = k8sutil.CreatePodByJSON(b, waitPodRuningTimeout, func(pod *v1.Pod) {
-		k8sutil.SetTidbVersion(pod, p.Version)
-	}); err != nil {
+	k8sutil.SetTidbVersion(pod, p.Version)
+	if _, err := k8sutil.CreateAndWaitPod(pod, waitPodRuningTimeout); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (p *Pd) getName() string {
+	return fmt.Sprintf("pd-%s-%03d", p.Db.GetName(), p.Member)
 }
 
 func (p *Pd) waitForOk() (err error) {
@@ -340,7 +408,50 @@ func (p *Pd) waitForOk() (err error) {
 	return err
 }
 
-func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
+const tidbCmd = `
+client_urls="http://0.0.0.0:2379"
+# FQDN
+advertise_client_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2379"
+peer_urls="http://0.0.0.0:2380"
+advertise_peer_urls="http://pd-{{cell}}-{{id}}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380"
+
+# set prometheus
+sed -i -e 's/{m-job}/{{cell}}/' /etc/pd/config.toml
+data_dir=/data/pd
+if [ -d $data_dir ]; then
+  echo "Resuming with existing data dir:$data_dir"
+else
+  echo "First run for this member"
+  # First wait for the desired number of replicas to show up.
+  echo "Waiting for {{replicas}} replicas in SRV record for {{cell}}..."
+  until [ $(getpods {{cell}} | wc -l) -eq {{replicas}} ]; do
+	echo "[$(date)] waiting for {{replicas}} entries in SRV record for {{cell}}"
+	sleep 1
+  done
+  # pd will overwrite if join exist cluster
+  sed -i -e 's/"existing"/"{{c_state}}"/' /etc/pd/config.toml
+fi
+
+urls=""
+for id in {1..{{replicas}}}; do
+  id=$(printf "%03d\n" $id)
+  urls+="pd-{{cell}}-${id}=http://pd-{{cell}}-${id}.pd-{{cell}}-srv.{{namespace}}.svc.cluster.local:2380,"
+done
+urls=${urls%,}
+echo "Initial-cluster:$urls"
+
+pd-server \
+--name="$HOSTNAME" \
+--data-dir="$data_dir" \
+--client-urls="$client_urls" \
+--advertise-client-urls="$advertise_client_urls" \
+--peer-urls="$peer_urls" \
+--advertise-peer-urls="$advertise_peer_urls" \
+{{c_urls}} \
+--config="/etc/pd/config.toml"
+`
+
+func (p *Pd) getCmd() string {
 	state := "new"
 	cluster := "--initial-cluster=$urls"
 	if p.initialClusterState != "" {
@@ -356,19 +467,10 @@ func (p *Pd) toJSONTemplate(temp string) ([]byte, error) {
 		"{{cell}}", p.Db.GetName(),
 		"{{id}}", fmt.Sprintf("%03d", p.Member),
 		"{{replicas}}", fmt.Sprintf("%d", p.Spec.Replicas),
-		"{{cpu}}", fmt.Sprintf("%v", p.Spec.CPU),
-		"{{mem}}", fmt.Sprintf("%v", p.Spec.Mem),
-		"{{version}}", p.Spec.Version,
-		"{{registry}}", imageRegistry,
 		"{{c_state}}", state,
 		"{{c_urls}}", cluster,
 	)
-	str := r.Replace(temp)
-	j, err := yaml.YAMLToJSON([]byte(str))
-	if err != nil {
-		return nil, err
-	}
-	return j, nil
+	return r.Replace(tidbCmd)
 }
 
 func (p *Pd) getImage() string {

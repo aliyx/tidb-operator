@@ -35,7 +35,9 @@ const (
 	tikvMaxDowntime = 60 * 60
 
 	tikvAllowMaximumDowntimes = 3
+)
 
+const (
 	// ScaleUndefined no scale request
 	ScaleUndefined int = iota
 	// ScalePending wait for the admin to scale
@@ -351,6 +353,14 @@ func started(cell string) bool {
 		logs.Error("Get %s pods error: %v", cell, err)
 	}
 	return len(pods) > 0
+}
+
+func (db *Db) getLabels(comp string) map[string]string {
+	return map[string]string{
+		"component": comp,
+		"cell":      db.GetName(),
+		"app":       "tidb",
+	}
 }
 
 // Locker get rwlocker
