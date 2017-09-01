@@ -19,7 +19,7 @@ func Test_upgradeOne(t *testing.T) {
 			name: "upgrade",
 			args: args{
 				name:    "pd-006-test-001",
-				image:   fmt.Sprintf("%s/pd:%s", imageRegistry, "latest"),
+				image:   fmt.Sprintf("%s/pd:%s", ImageRegistry, "latest"),
 				version: "latest",
 			},
 			wantErr: false,

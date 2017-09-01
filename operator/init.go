@@ -7,10 +7,8 @@ import (
 
 	"context"
 
-	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/ffan/tidb-operator/pkg/servenv"
-	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 )
 
 const (
@@ -18,23 +16,16 @@ const (
 )
 
 var (
-	forceInitMd   bool
-	imageRegistry string
+	// ForceInitMd overwrite metadata if true, otherwise not
+	ForceInitMd bool
+	// ImageRegistry private docker image registry
+	ImageRegistry string
 	onInitHooks   servenv.Hooks
 )
-
-// ParseConfig parse all config
-func ParseConfig() {
-	forceInitMd = beego.AppConfig.DefaultBool("forceInitMd", false)
-	imageRegistry = beego.AppConfig.String("dockerRegistry")
-	logs.Debug("force init metadata:", forceInitMd)
-	logs.Debug("image registrey:", imageRegistry)
-}
 
 // Init operator
 func Init() {
 	rand.Seed(time.Now().Unix())
-	k8sutil.Init(beego.AppConfig.String("k8sAddr"))
 	onInitHooks.Add(metaInit)
 	onInitHooks.Add(dbInit)
 	onInitHooks.Add(eventInit)

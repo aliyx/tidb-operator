@@ -4,7 +4,8 @@ var (
 	defaultTrminationGracePeriodSeconds int64 = 5
 )
 
-func getTerminationGracePeriodSeconds() *int64 {
+// GetTerminationGracePeriodSeconds ...
+func GetTerminationGracePeriodSeconds() *int64 {
 	return &defaultTrminationGracePeriodSeconds
 }
 

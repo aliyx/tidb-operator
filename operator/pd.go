@@ -333,7 +333,7 @@ func (p *Pd) createPod() error {
 			Labels: p.Db.getLabels("pd"),
 		},
 		Spec: v1.PodSpec{
-			TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+			TerminationGracePeriodSeconds: GetTerminationGracePeriodSeconds(),
 			RestartPolicy:                 v1.RestartPolicyNever,
 			// DNS A record: [m.Name].[clusterName].Namespace.svc.cluster.local.
 			// For example, pd-test-001 in default namesapce will have DNS name
@@ -474,5 +474,5 @@ func (p *Pd) getCmd() string {
 }
 
 func (p *Pd) getImage() string {
-	return fmt.Sprintf("%s/pd:%s", imageRegistry, p.Version)
+	return fmt.Sprintf("%s/pd:%s", ImageRegistry, p.Version)
 }

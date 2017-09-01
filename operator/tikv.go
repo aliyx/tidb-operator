@@ -39,7 +39,7 @@ func (tk *Tikv) upgrade() (err error) {
 	var (
 		upgraded bool
 		count    int
-		image    = fmt.Sprintf("%s/tikv:%s", imageRegistry, tk.Version)
+		image    = fmt.Sprintf("%s/tikv:%s", ImageRegistry, tk.Version)
 	)
 
 	e := tk.Db.Event(eventTikv, "upgrate")
@@ -150,12 +150,12 @@ func (tk *Tikv) createPod() (err error) {
 			Labels: tk.Db.getLabels("tikv"),
 		},
 		Spec: v1.PodSpec{
-			TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+			TerminationGracePeriodSeconds: GetTerminationGracePeriodSeconds(),
 			RestartPolicy:                 v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				v1.Container{
 					Name:            "tikv",
-					Image:           imageRegistry + "/tikv:" + tk.Version,
+					Image:           ImageRegistry + "/tikv:" + tk.Version,
 					ImagePullPolicy: v1.PullAlways,
 					Ports:           []v1.ContainerPort{{ContainerPort: 20160}},
 					VolumeMounts: []v1.VolumeMount{

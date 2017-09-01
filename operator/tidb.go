@@ -26,7 +26,7 @@ func (td *Tidb) upgrade() error {
 	var (
 		err      error
 		upgraded = false
-		newImage = fmt.Sprintf("%s/tidb:%s", imageRegistry, td.Version)
+		newImage = fmt.Sprintf("%s/tidb:%s", ImageRegistry, td.Version)
 	)
 
 	e := td.Db.Event(eventTidb, "upgrade")
@@ -204,11 +204,11 @@ func (td *Tidb) createReplicationController() error {
 					Labels: td.Db.getLabels("tidb"),
 				},
 				Spec: v1.PodSpec{
-					TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+					TerminationGracePeriodSeconds: GetTerminationGracePeriodSeconds(),
 					Containers: []v1.Container{
 						v1.Container{
 							Name:  "tidb",
-							Image: imageRegistry + "/tidb:" + td.Version,
+							Image: ImageRegistry + "/tidb:" + td.Version,
 							LivenessProbe: &v1.Probe{
 								InitialDelaySeconds: 30,
 								TimeoutSeconds:      5,

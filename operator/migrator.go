@@ -161,11 +161,11 @@ func (db *Db) startMigrator(my *tsql.Migration) (err error) {
 				},
 				Spec: v1.PodSpec{
 					RestartPolicy:                 v1.RestartPolicyOnFailure,
-					TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(),
+					TerminationGracePeriodSeconds: GetTerminationGracePeriodSeconds(),
 					Containers: []v1.Container{
 						v1.Container{
 							Name:  "migrator",
-							Image: imageRegistry + "migrator:latest",
+							Image: ImageRegistry + "migrator:latest",
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									v1.ResourceCPU:    resource.MustParse("200m"),

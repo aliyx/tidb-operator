@@ -58,8 +58,8 @@ func init() {
 	logs.Info("current namespace is %s", Namespace)
 }
 
-// Init create tidb namespace
-func Init(addr string) {
+// MustInit create tidb namespace
+func MustInit(addr string) {
 	masterHost = addr
 	logs.Info("kubernetes master host is %s", masterHost)
 

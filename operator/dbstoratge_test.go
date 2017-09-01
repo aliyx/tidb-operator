@@ -13,7 +13,6 @@ import (
 func TestMain(m *testing.M) {
 	beego.AppConfig.Set("k8sAddr", "http://10.213.44.128:10218")
 	beego.AppConfig.Set("dockerRegistry", "10.209.224.13:10500/ffan/rds")
-	ParseConfig()
 	waitProxys = false
 	Init()
 	lockers["006-xinyang1"] = new(sync.Mutex)

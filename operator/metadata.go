@@ -2,7 +2,6 @@ package operator
 
 import (
 	"encoding/json"
-	"flag"
 	"reflect"
 
 	yaml "gopkg.in/yaml.v2"
@@ -97,27 +96,19 @@ type Metadata struct {
 }
 
 const (
-	syncMetadataInterval = 10 * time.Second
-
+	syncMetadataInterval     = 10 * time.Second
 	defaultMetadatConfigName = "tidb-metadata"
 )
 
 var (
-	hostPath        string
-	mount           string
-	defaultHostPath = "/mnt"
-	defaultMount    = "data"
+	HostPath string
+	Mount    string
 
 	count int32
 
 	// for test
 	waitProxys = true
 )
-
-func init() {
-	flag.StringVar(&hostPath, "host-path", defaultHostPath, "The tikv hostPath volume.")
-	flag.StringVar(&mount, "mount", defaultMount, "The path prefix of tikv mount.")
-}
 
 // ToConfigMapData tranfer metadata to config map
 func (m *Metadata) ToConfigMapData() (map[string]string, error) {
@@ -235,7 +226,7 @@ func initMetadataIfNot() {
 		}
 	}()
 	if md != nil {
-		if !forceInitMd {
+		if !ForceInitMd {
 			return
 		}
 	}
@@ -253,8 +244,8 @@ func initMetadataIfNot() {
 	}
 
 	md.K8sConfig = K8sConfig{
-		HostPath: hostPath,
-		Mount:    mount,
+		HostPath: HostPath,
+		Mount:    Mount,
 		Proxys:   ps,
 	}
 	if !md.K8sConfig.AvailableVolume() {
