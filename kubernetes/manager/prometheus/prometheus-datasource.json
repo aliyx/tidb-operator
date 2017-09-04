@@ -1,5 +1,5 @@
 {
-  "name": "tidb",
+  "name": "tidb-cluster",
   "type": "prometheus",
   "url": "http://prom-server:9090",
   "access": "proxy",
