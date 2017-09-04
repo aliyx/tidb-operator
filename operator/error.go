@@ -8,7 +8,11 @@ import (
 )
 
 var (
-	errInvalidReplica = errors.New("invalid replica")
+	errCellIsNil               = errors.New("cell is nil")
+	errInvalidSchema           = errors.New("invalid database schema")
+	errInvalidDatabaseUsername = errors.New("invalid database username")
+	errInvalidDatabasePassword = errors.New("invalid database password")
+	errInvalidReplica          = errors.New("invalid replica")
 
 	// ErrRepeatOperation is returned by functions to specify the operation is executing.
 	ErrRepeatOperation = errors.New("the previous operation is being executed, please stop first")

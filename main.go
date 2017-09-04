@@ -63,7 +63,7 @@ func init() {
 	logs.SetLogFuncCall(true)
 	logs.SetLevel(logLevel)
 
-	// set env
+	// set beego
 
 	beego.BConfig.AppName = "tidb-operator"
 	// can't get body data,if no set
@@ -73,6 +73,11 @@ func init() {
 	beego.BConfig.RunMode = runmode
 	beego.BConfig.Listen.HTTPAddr = httpaddr
 	beego.BConfig.Listen.HTTPPort = httpport
+	switch beego.BConfig.RunMode {
+	case "dev":
+		beego.BConfig.WebConfig.DirectoryIndex = true
+		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
+	}
 
 	operator.ImageRegistry = dockerRegistry
 	operator.ForceInitMd = forceInitMd
@@ -82,12 +87,6 @@ func init() {
 	logs.Info("docker image registrey:", dockerRegistry)
 	logs.Info("host path:", hostPath)
 	logs.Info("mount:", mount)
-
-	switch beego.BConfig.RunMode {
-	case "dev":
-		beego.BConfig.WebConfig.DirectoryIndex = true
-		beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
-	}
 
 	namespace = os.Getenv("MY_NAMESPACE")
 	if len(namespace) == 0 {

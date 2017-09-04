@@ -53,7 +53,6 @@ type Db struct {
 	Tidb     *Tidb  `json:"tidb"`
 	Operator string `json:"operator"`
 	Status   Status `json:"status"`
-	Volume   string `json:"tidbdata_volume,omitempty"`
 }
 
 // Tidb tidb module

@@ -2,7 +2,6 @@ package operator
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -18,11 +17,6 @@ import (
 
 var (
 	dbS *storage.Storage
-
-	errCellIsNil               = errors.New("cell is nil")
-	errInvalidSchema           = errors.New("invalid database schema")
-	errInvalidDatabaseUsername = errors.New("invalid database username")
-	errInvalidDatabasePassword = errors.New("invalid database password")
 
 	defaultImageVersion = "latest"
 )
@@ -97,14 +91,6 @@ func (db *Db) check() (err error) {
 	}
 	if err = db.Tidb.check(); err != nil {
 		return err
-	}
-	// db share Volume
-	md := getNonNullMetadata()
-	db.Volume = strings.Trim(md.K8sConfig.HostPath, " ")
-	if len(db.Volume) == 0 {
-		db.Volume = "emptyDir: {}"
-	} else {
-		db.Volume = fmt.Sprintf("hostPath: {path: %s}", db.Volume)
 	}
 	return nil
 }
