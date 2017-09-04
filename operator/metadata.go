@@ -101,11 +101,6 @@ const (
 )
 
 var (
-	// HostPath ...
-	HostPath string
-	// Mount ...
-	Mount string
-
 	count int32
 
 	// for test

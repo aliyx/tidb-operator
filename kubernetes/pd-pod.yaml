@@ -7,6 +7,22 @@ metadata:
     cell: {{cell}}
     app: tidb
 spec:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 80
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: component
+              operator: In
+              values:
+              - "pd"
+            - key: cell
+              operator: In
+              values:
+              - "{{cell}}"
+          topologyKey: kubernetes.io/hostname
   # default is 30s
   terminationGracePeriodSeconds: 5
   restartPolicy: Never

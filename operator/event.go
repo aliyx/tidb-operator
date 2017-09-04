@@ -51,16 +51,7 @@ type Event struct {
 
 var (
 	evtMu sync.Mutex
-	evtS  *storage.Storage
 )
-
-func eventInit() {
-	s, err := storage.NewStorage(getNamespace(), spec.CRDKindEvent)
-	if err != nil {
-		panic(fmt.Errorf("Create storage event error: %v", err))
-	}
-	evtS = s
-}
 
 // NewEvent new a event instance
 func NewEvent(cell, comp, key string) *Event {

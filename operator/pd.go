@@ -365,7 +365,11 @@ func (p *Pd) createPod() error {
 			},
 		},
 	}
+
 	k8sutil.SetTidbVersion(pod, p.Version)
+
+	podWithAffinity([]string{"pd"}, p.Db.GetName(), pod)
+
 	if _, err := k8sutil.CreateAndWaitPod(pod, waitPodRuningTimeout); err != nil {
 		return err
 	}

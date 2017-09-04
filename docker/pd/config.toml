@@ -24,7 +24,7 @@ level = "info"
 #format = "text"
 
 # disable automatic timestamps in output
-disable-timestamp = true
+disable-timestamp = false
 
 # file logging
 [log.file]

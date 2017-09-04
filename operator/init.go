@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -8,11 +9,14 @@ import (
 	"context"
 
 	"github.com/astaxie/beego/logs"
-	"github.com/ffan/tidb-operator/pkg/servenv"
+	"github.com/ffan/tidb-operator/pkg/spec"
+	"github.com/ffan/tidb-operator/pkg/storage"
 )
 
 const (
 	reconcileInterval = 15 * time.Second
+
+	defaultImageVersion = "latest"
 )
 
 var (
@@ -20,17 +24,31 @@ var (
 	ForceInitMd bool
 	// ImageRegistry private docker image registry
 	ImageRegistry string
-	onInitHooks   servenv.Hooks
+	// HostPath as tikv root directory on the host node’s filesystem
+	HostPath string
+	// Mount as tikv subpath prefix
+	Mount string
+
+	dbS  *storage.Storage
+	evtS *storage.Storage
 )
 
 // Init operator
 func Init() {
 	rand.Seed(time.Now().Unix())
-	onInitHooks.Add(metaInit)
-	onInitHooks.Add(dbInit)
-	onInitHooks.Add(eventInit)
-	onInitHooks.Fire()
+	metaInit()
 
+	s, err := storage.NewStorage(getNamespace(), spec.CRDKindTidb)
+	if err != nil {
+		panic(fmt.Errorf("Create storage db error: %v", err))
+	}
+	dbS = s
+
+	s, err = storage.NewStorage(getNamespace(), spec.CRDKindEvent)
+	if err != nil {
+		panic(fmt.Errorf("Create storage event error: %v", err))
+	}
+	evtS = s
 }
 
 // Run operator check

@@ -15,12 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	dbS *storage.Storage
-
-	defaultImageVersion = "latest"
-)
-
 // NewDb create a db instance
 func NewDb(cell ...string) *Db {
 	td := Db{}
@@ -28,14 +22,6 @@ func NewDb(cell ...string) *Db {
 		td.Metadata.Name = cell[0]
 	}
 	return &td
-}
-
-func dbInit() {
-	s, err := storage.NewStorage(getNamespace(), spec.CRDKindTidb)
-	if err != nil {
-		panic(fmt.Errorf("Create storage db error: %v", err))
-	}
-	dbS = s
 }
 
 // Save db

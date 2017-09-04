@@ -32,14 +32,6 @@ make install-grafana # run this shell on kubernetes master
 
 Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.
 
-#### Deploy tidb-gc on kubernetes
-
-Tidb-gc is used to recycle deleted tikvs and tidb cluster metrics in prometheus, default hostpath is `/mnt`, which will gc dir(`/mnt/data*/`) if `tidb-operator` starts the argument -host-path is `/mnt`, -mount is `data`.
-
-```bash
-make install-tidb-gc # run this shell on kubernetes master
-```
-
 ## Startup tidb-operator
 
 ### To start on kubernetes cluster

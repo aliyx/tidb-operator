@@ -73,16 +73,16 @@ spec:
               -runmode={{runMode}} \
               -http-addr=${POD_IP} \
               -init-md={{initMd}} \
-              -host-path={{hostPath}} \
               -log-level={{logLevel}} \
+              -host-path={{hostPath}} \
               -mount={{mount}}
         image: {{registry}}/tidb-operator:{{version}}
         imagePullPolicy: Always
         env:
-        - name: POD_IP
+        - name: MY_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: status.podIP
+              fieldPath: metadata.namespace
         - name: TZ
           value: "Asia/Shanghai"
       # Comment the following tolerations if Dashboard must not be deployed on master

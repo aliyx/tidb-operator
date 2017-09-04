@@ -137,6 +137,7 @@ func (w *Watcher) handleTidbEvent(event *Event) (err error) {
 		if err = gc(w.dbs[db.GetName()], nil, pvProvisioner); err != nil {
 			return err
 		}
+		logs.Info("db %q is deleted", db.GetName())
 		delete(w.dbs, db.GetName())
 		delete(w.dbRVs, db.GetName())
 	}

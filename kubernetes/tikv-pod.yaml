@@ -19,7 +19,11 @@ spec:
             - key: component
               operator: In
               values:
-              - "pd"
+              - "tikv"
+            - key: cell
+              operator: In
+              values:
+              - "{{cell}}"
           topologyKey: kubernetes.io/hostname
   volumes:
     - name: datadir

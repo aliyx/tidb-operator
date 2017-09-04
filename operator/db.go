@@ -324,15 +324,17 @@ func Delete(cell string) error {
 		if !db.TryLock() {
 			return
 		}
+		logs.Info("start deleting db", db.GetName())
 		defer func() {
 			defer db.Unlock()
 			if err != nil {
 				db.Event(eventDb, "delete").Trace(err, "Failed to delete db")
+			} else {
+				logs.Info("end delete db", db.GetName())
 			}
 		}()
 
 		db.Operator = "stop"
-		logs.Info("start deleting db", db.GetName())
 		if err = db.Uninstall(false); err != nil {
 			return
 		}
@@ -342,7 +344,6 @@ func Delete(cell string) error {
 		if err = db.delete(); err != nil {
 			return
 		}
-		logs.Info("end delete db", db.GetName())
 	}()
 	return nil
 }

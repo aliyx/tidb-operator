@@ -194,29 +194,7 @@ func (tk *Tikv) createPod() (err error) {
 	// save image version
 	k8sutil.SetTidbVersion(pod, tk.Version)
 
-	// PD and TiKV instances, it is recommended that each instance individually deploy a hard disk
-	// to avoid IO conflicts and affect performance
-	pod.Spec.Affinity = &v1.Affinity{
-		PodAntiAffinity: &v1.PodAntiAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
-				v1.WeightedPodAffinityTerm{
-					Weight: 80,
-					PodAffinityTerm: v1.PodAffinityTerm{
-						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								metav1.LabelSelectorRequirement{
-									Key:      "component",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{"pd"},
-								},
-							},
-						},
-						TopologyKey: "kubernetes.io/hostname",
-					},
-				},
-			},
-		},
-	}
+	podWithAffinity([]string{"tikv"}, tk.Db.GetName(), pod)
 
 	if pod, err = k8sutil.CreateAndWaitPod(pod, waitPodRuningTimeout); err != nil {
 		return err
@@ -227,6 +205,37 @@ func (tk *Tikv) createPod() (err error) {
 	s.Address = fmt.Sprintf("%s:%d", pod.Status.PodIP, defaultTikvPort)
 	s.Node = pod.Spec.NodeName
 	return nil
+}
+
+func podWithAffinity(comps []string, cell string, pod *v1.Pod) {
+	// PD and TiKV instances, it is recommended that each instance individually deploy a hard disk
+	// to avoid IO conflicts and affect performance
+	pod.Spec.Affinity = &v1.Affinity{
+		PodAntiAffinity: &v1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
+				v1.WeightedPodAffinityTerm{
+					Weight: 100,
+					PodAffinityTerm: v1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								metav1.LabelSelectorRequirement{
+									Key:      "component",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   comps,
+								},
+								metav1.LabelSelectorRequirement{
+									Key:      "cell",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{cell},
+								},
+							},
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		},
+	}
 }
 
 func (tk *Tikv) waitForStoreOk() (err error) {
