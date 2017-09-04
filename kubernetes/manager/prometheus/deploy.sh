@@ -22,8 +22,11 @@ fi
 
 cIp=''
 
-$KUBECTL $KUBECTL_OPTIONS get pods
-if [[ "$?" == "0" ]]; then
+$KUBECTL $KUBECTL_OPTIONS get pods > /dev/null 2>&1
+
+if [[ "$?" != "0" ]]; then
+  echo "can not access k8s cluster, maybe not at master node?"
+else
   $KUBECTL $KUBECTL_OPTIONS $c -f gateway.yaml
 
   $KUBECTL $KUBECTL_OPTIONS $c -f server.yaml
