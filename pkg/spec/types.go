@@ -15,7 +15,7 @@ const (
 	// CRDKindTidb CRD tidb kind
 	CRDKindTidb = "Tidb"
 	// CRDKindEvent CRD event kind
-	CRDKindEvent = "Event"
+	CRDKindEvent = "Log"
 )
 
 var (

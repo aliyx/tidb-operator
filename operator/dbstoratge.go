@@ -109,14 +109,6 @@ func (p *Pd) check() error {
 	if p.Spec.Replicas < 3 || p.Spec.Replicas > max || p.Spec.Replicas%2 == 0 {
 		return fmt.Errorf("replicas must be an odd number >= 3 and <= %d", max)
 	}
-
-	// set volume
-
-	if len(p.Spec.Volume) == 0 {
-		p.Spec.Volume = "emptyDir: {}"
-	} else {
-		p.Spec.Volume = fmt.Sprintf("hostPath: {path: %s}", p.Spec.Volume)
-	}
 	return nil
 }
 
@@ -127,7 +119,7 @@ func (tk *Tikv) check() error {
 	if tk.Capatity < 1 {
 		tk.Capatity = md.Tikv.Capacity
 	}
-	if tk.Replicas < 1 {
+	if tk.Replicas < 3 {
 		tk.Replicas = 3
 	}
 	if tk.Version == "" {
@@ -138,7 +130,7 @@ func (tk *Tikv) check() error {
 	}
 	max := md.Tikv.Max
 	if tk.Spec.Replicas < 3 || tk.Spec.Replicas > max {
-		return fmt.Errorf("replicas must be >= 3 and <= %d", max)
+		return fmt.Errorf("replicas count must be >= 3 and <= %d", max)
 	}
 	tk.Volume = strings.Trim(md.K8sConfig.HostPath, " ")
 	tk.Mount = md.K8sConfig.Mount
@@ -149,8 +141,8 @@ func (td *Tidb) check() error {
 	md := getNonNullMetadata()
 	td.CPU = md.Tidb.CPU
 	td.Mem = md.Tidb.Mem
-	if td.Replicas < 1 {
-		td.Replicas = 3
+	if td.Replicas < 2 {
+		td.Replicas = 2
 	}
 	if td.Version == "" {
 		td.Version = defaultImageVersion
@@ -159,8 +151,8 @@ func (td *Tidb) check() error {
 		return err
 	}
 	max := md.Tidb.Max
-	if td.Replicas < 1 || td.Replicas > max {
-		return fmt.Errorf("replicas must be >= 1 and <= %d", max)
+	if td.Replicas < 2 || td.Replicas > max {
+		return fmt.Errorf("replicas count must be >= 2 and <= %d", max)
 	}
 	return nil
 }

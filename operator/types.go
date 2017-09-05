@@ -87,8 +87,8 @@ type Spec struct {
 	Mem      int    `json:"mem"`
 	Version  string `json:"version"`
 	Replicas int    `json:"replicas"`
-	Volume   string `json:"tidbdata_volume,omitempty"`
-	Mount    string `json:"mount,omitempty"`
+	Volume   string `json:"volume,omitempty"`
+	Mount    string `json:"volumeMount,omitempty"`
 	Capatity int    `json:"capatity,omitempty"`
 }
 

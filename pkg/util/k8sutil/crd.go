@@ -55,9 +55,10 @@ func CreateCRD(kind string) error {
 
 // WaitCRDReady wait CRD create finished
 func WaitCRDReady(kind string, clientset apiextensionsclient.Interface) error {
+	name := fmt.Sprintf("%ss.%s", strings.ToLower(kind), spec.SchemeGroupVersion.Group)
 	notFountWait := 0
 	err := retryutil.Retry(5*time.Second, 20, func() (bool, error) {
-		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(kind, metav1.GetOptions{})
+		crd, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, metav1.GetOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				notFountWait++
