@@ -80,17 +80,19 @@ for file in $files; do
 				echo ',"overwrite":true,"inputs":[{"name":"DS_TIDB-CLUSTER","type":"datasource","pluginId":"prometheus","value":"tidb-cluster"}]}'
 			) | \
       # match metrics{}
-      sed -e 's/\(pd[a-z_]*\){/\1{'"$pd"',/g' | \
-      sed -e 's/\(tikv[a-z_]*\){/\1{'"$tikv"',/g' | \
-      sed -e 's/\(tidb[a-z_]*\){/\1{'"$tidb"',/g' | \
+      sed -e 's/\(\<pd[a-z_]*\){/\1{'"$pd"',/g' | \
+			sed -e 's/\(\<grpc_ser[a-z_]*\){/\1{'"$pd"',/g' | \
+      sed -e 's/\(\<tikv[a-z_]*\){/\1{'"$tikv"',/g' | \
+      sed -e 's/\(\<tidb[a-z_]*\){/\1{'"$tidb"',/g' | \
       # match metrics[]
-      sed -e 's/\(pd[a-z_]*\)\[/\1{'"$pd"'}[/g' | \
-      sed -e 's/\(tikv[a-z_]*\)\[/\1{'"$tikv"'}[/g' | \
-      sed -e 's/\(tidb[a-z_]*\)\[/\1{'"$tidb"'}[/g' | \
+      sed -e 's/\(\<pd[a-z_]*\)\[/\1{'"$pd"'}[/g' | \
+			sed -e 's/\(\<grpc_ser[a-z_]*\)\[/\1{'"$pd"'}[/g' | \
+      sed -e 's/\(\<tikv[a-z_]*\)\[/\1{'"$tikv"'}[/g' | \
+      sed -e 's/\(\<tidb[a-z_]*\)\[/\1{'"$tidb"'}[/g' | \
       # match metrics)
-      sed -e 's/\(pd[a-z_]*\))/\1{'"$pd"'})/g' | \
-      sed -e 's/\(tikv[a-z_]*\))/\1{'"$tikv"'})/g' | \
-      sed -e 's/\(tidb[a-z_]*\))/\1{'"$tidb"'})/g' | \
+      sed -e 's/\(\<pd[a-z_]*\))/\1{'"$pd"'})/g' | \
+      sed -e 's/\(\<tikv[a-z_]*\))/\1{'"$tikv"'})/g' | \
+      sed -e 's/\(\<tidb[a-z_]*\))/\1{'"$tidb"'})/g' | \
       # remove instance=\"$instance\"
       sed -e 's/,instance=\\"$instance\\"//g' | \
 			jq '.dashboard.templating={"list": [{"allValue": null,"current": {},"datasource": "${DS_TIDB-CLUSTER}","hide": 0,"includeAll": false,"label": null,"multi": false,"name": "tidb","options": [],"query": "label_values(pd_cluster_status, job)","refresh": 1,"regex": "","sort": 1,"tagValuesQuery": "","tags": [],"tagsQuery": "","type": "query","useTags": false}]}' |

@@ -30,11 +30,11 @@ const (
 
 	// pd/tikv/tidb grace period is 5s, so +3s
 	terminationGracePeriodSeconds = 8
-
 	// test:3minute product:60minute
-	tikvMaxDowntime = 60 * 60
-
+	tikvMaxDowntime           = 60 * 60
 	tikvAllowMaximumDowntimes = 3
+
+	nodeSelectHostname = "kubernetes.io/hostname"
 )
 
 const (

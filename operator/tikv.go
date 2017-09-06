@@ -107,7 +107,9 @@ func (tk *Tikv) _install() (err error) {
 	if tk.Stores == nil {
 		tk.Stores = make(map[string]*Store)
 	}
-	tk.Stores[tk.cur] = &Store{}
+	if _, ok := tk.Stores[tk.cur]; !ok {
+		tk.Stores[tk.cur] = &Store{}
+	}
 	tk.ReadyReplicas++
 	if err = tk.createPod(); err != nil {
 		return err
@@ -144,9 +146,10 @@ func (tk *Tikv) createPod() (err error) {
 		"{{mount}}", tk.Spec.Mount)
 	cmd := r.Replace(tikvCmd)
 
+	tkName := fmt.Sprintf("tikv-%s-%03v", tk.Db.GetName(), tk.Member)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("tikv-%s-%03v", tk.Db.GetName(), tk.Member),
+			Name:   tkName,
 			Labels: tk.Db.getLabels("tikv"),
 		},
 		Spec: v1.PodSpec{
@@ -193,6 +196,10 @@ func (tk *Tikv) createPod() (err error) {
 
 	// save image version
 	k8sutil.SetTidbVersion(pod, tk.Version)
+
+	if s := tk.Stores[tkName]; s != nil && len(s.Node) > 0 {
+		pod.Spec.NodeSelector = map[string]string{nodeSelectHostname: s.Node}
+	}
 
 	podWithAffinity([]string{"tikv"}, tk.Db.GetName(), pod)
 

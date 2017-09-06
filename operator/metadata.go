@@ -353,13 +353,13 @@ pd:
   memory: 1024
   max: 3
 tikv:
-  cpu: 500
-  memory: 1024
+  cpu: 1000
+  memory: 2048
   capacity: 100
   max: 10
 tidb:
-  cpu: 500
-  memory: 1024
+  cpu: 1000
+  memory: 2048
   max: 10
 approvalConditions:
   kvReplicas: 3
