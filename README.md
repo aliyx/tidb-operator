@@ -20,7 +20,7 @@ Note: Due to GFW reasons, some installation packages and images can not be obtai
 
 Access kubernetes dashboard: `http://<NodeIP>:10281`
 
-#### Download
+#### Download source code to loacal
 
 Git clone the project to `$GOPATH/src/github/ffan` dir
 

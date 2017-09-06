@@ -4,7 +4,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/ffan/tidb-operator/pkg/util/k8sutil"
 
 	"github.com/astaxie/beego"
@@ -18,6 +20,12 @@ import (
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/tools/record"
 
 	"context"
 	"flag"
@@ -97,16 +105,62 @@ func init() {
 }
 
 func main() {
-	k8sutil.MustInit(k8sAddress)
-	if err := startTidbFullGC(); err != nil {
-		panic(err)
+	id, err := os.Hostname()
+	if err != nil {
+		logrus.Fatalf("failed to get hostname: %v", err)
+	}
+	name := os.Getenv("MY_POD_NAME")
+	if len(name) == 0 {
+		name = id
 	}
 
+	k8sutil.MustInit(k8sAddress)
+
+	startTidbFullGC()
+
+	kubecli := k8sutil.MustNewKubeClient()
+
+	rl, err := resourcelock.New(resourcelock.EndpointsResourceLock,
+		namespace,
+		"tidb-operator",
+		kubecli.(*kubernetes.Clientset),
+		resourcelock.ResourceLockConfig{
+			Identity:      id,
+			EventRecorder: createRecorder(kubecli, name, namespace),
+		})
+	if err != nil {
+		logrus.Fatalf("error creating lock: %v", err)
+	}
+
+	leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
+		Lock:          rl,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: run,
+			OnStoppedLeading: func() {
+				logrus.Fatalf("leader election lost")
+			},
+		},
+	})
+
+	panic("unreachable")
+}
+
+func createRecorder(kubecli kubernetes.Interface, name, namespace string) record.EventRecorder {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(logrus.Infof)
+	eventBroadcaster.StartRecordingToSink(&v1core.EventSinkImpl{Interface: v1core.New(kubecli.Core().RESTClient()).Events(namespace)})
+	return eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: name})
+}
+
+func run(stop <-chan struct{}) {
 	operator.Init()
 	ctx, cancel := context.WithCancel(context.Background())
 	err := operator.Run(ctx)
 	if err != nil {
-		panic(err)
+		logrus.Fatalf("failed to run operator: %v", err)
 	}
 
 	// start restful api server
@@ -125,18 +179,17 @@ func main() {
 	}
 }
 
-func startTidbFullGC() error {
+func startTidbFullGC() {
 	var err error
 	if err = k8sutil.CreateServiceAccount(gcName); err != nil && !apierrors.IsAlreadyExists(err) {
-		logs.Error("Unable to create service account: %v", err)
+		logrus.Fatalf("Unable to create service account: %v", err)
 	}
 	if err = k8sutil.CreateClusterRoleBinding(gcName); err != nil && !apierrors.IsAlreadyExists(err) {
-		logs.Error("Unable to create cluster role bindings: %v", err)
+		logrus.Fatalf("Unable to create cluster role bindings: %v", err)
 	}
 	if err = createDaemonSet(); err != nil && !apierrors.IsAlreadyExists(err) {
-		logs.Error("Unable to create daemonset: %v", err)
+		logrus.Fatalf("Unable to create daemonset: %v", err)
 	}
-	return nil
 }
 
 func createDaemonSet() error {
