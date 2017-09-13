@@ -15,7 +15,7 @@ Store the k8s cluster needed to build scripts and rpm.
 Execute on the specified master node:
 
 ```bash
-bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) master
+bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.5.sh) master
 ```
 
 ## Node
@@ -23,7 +23,7 @@ bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) master
 Execute on the specified slave node:
 
 ```bash
-bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.4.sh) join ip # Ip refers to the master node ip address
+bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.5.sh) join ip # Ip refers to the master node ip address
 ```
 
 ## Mark proxy and prometheus node

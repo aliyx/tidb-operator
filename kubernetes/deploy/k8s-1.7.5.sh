@@ -10,7 +10,7 @@ if [ "$root" -ne 0 ]; then
 	exit 1
 fi
 
-version=1.7.4
+version=1.7.5
 # private docker registries
 registries=10.209.224.13:10500
 # file server
@@ -33,7 +33,7 @@ kube::common::is_ip() {
 
 kube::common::os() {
 	ubu=$(cat /etc/issue | grep "Ubuntu 16.04" | wc -l)
-	cet=$(cat cat /etc/centos-release | grep "CentOS Linux release 7" | wc -l)
+	cet=$(cat /etc/centos-release | grep "CentOS Linux release 7" | wc -l)
 	if [ "$ubu" == "1" ]; then
 		export OS="ubuntu"
 	elif [ "$cet" == "1" ]; then
@@ -66,12 +66,13 @@ kube::prepare_rpm() {
 
 # https://kubernetes.io/docs/admin/kubeadm/
 kube::prepare_image() {
-	kube:install_docker
+	kube::install_docker
+	echo starting pull images...
 
 	# download kube depentent images
 	for imageName in ${images[@]} ${weave[@]}; do
 		dest=$registries/$imageName
-		have=$(docker images | grep $(echo ${dest%:*}) | wc -l)
+		have=$(docker images | grep $(echo ${dest%:*}) | grep $(echo ${dest##*:}) | wc -l)
 		if [ $have -lt 1 ]; then
 			docker pull $imageName
 			docker tag $imageName $dest
@@ -263,13 +264,16 @@ main() {
 	case $1 in
 	"prepare")
 		shift
-		if [ "$@" == "rpm" ]; then
+		if [ $# -lt 1 ]; then
+			kube::prepare_rpm
+			kube::prepare_rpm
+		elif [ "$@" == "rpm" ]; then
 			kube::prepare_rpm
 		elif [ "$@" == "image" ]; then
 			kube::prepare_image
 		else
-			kube::prepare_rpm
-			kube::prepare_image
+			echo "unkown command $0 prepare $@"
+			exit 1
 		fi
 		;;
 	"master")
