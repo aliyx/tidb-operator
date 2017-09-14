@@ -21,8 +21,7 @@ RPM_KUBECTL=$fserver/rpm/kubectl-$version-0.x86_64.rpm
 RPM_KUBELET=$fserver/rpm/kubelet-$version-0.x86_64.rpm
 RPM_KUBECNI=$fserver/rpm/kubernetes-cni-0.5.1-0.x86_64.rpm
 
-images=(gcr.io/google_containers/kube-apiserver-amd64:v$version gcr.io/google_containers/kube-controller-manager-amd64:v$version gcr.io/google_containers/kube-scheduler-amd64:v$version gcr.io/google_containers/kube-proxy-amd64:v$version gcr.io/google_containers/etcd-amd64:3.0.17 gcr.io/google_containers/pause-amd64:3.0 gcr.io/google_containers/k8s-dns-sidecar-amd64:1.14.4 gcr.io/google_containers/k8s-dns-kube-dns-amd64:1.14.4 gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64:1.14.4 gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.3)
-weave=(weaveworks/weave-kube:1.9.8 weaveworks/weave-npc:1.9.8 weaveworks/weaveexec:1.9.8)
+images=(gcr.io/google_containers/kube-apiserver-amd64:v$version gcr.io/google_containers/kube-controller-manager-amd64:v$version gcr.io/google_containers/kube-scheduler-amd64:v$version gcr.io/google_containers/kube-proxy-amd64:v$version gcr.io/google_containers/etcd-amd64:3.0.17 gcr.io/google_containers/pause-amd64:3.0 gcr.io/google_containers/k8s-dns-sidecar-amd64:1.14.4 gcr.io/google_containers/k8s-dns-kube-dns-amd64:1.14.4 gcr.io/google_containers/k8s-dns-dnsmasq-nanny-amd64:1.14.4 gcr.io/google_containers/kubernetes-dashboard-amd64:v1.6.3 quay.io/coreos/flannel:v0.8.0-amd64)
 
 IpAddressRegex="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
 HostnameRegex="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
@@ -70,7 +69,7 @@ kube::prepare_image() {
 	echo starting pull images...
 
 	# download kube depentent images
-	for imageName in ${images[@]} ${weave[@]}; do
+	for imageName in ${images[@]}; do
 		dest=$registries/$imageName
 		have=$(docker images | grep $(echo ${dest%:*}) | grep $(echo ${dest##*:}) | wc -l)
 		if [ $have -lt 1 ]; then
@@ -178,9 +177,6 @@ kube::master_upgrade() {
 
 	curl -sS -L $fserver/master.yaml >/tmp/kube/master.yaml
 	kubeadm init --skip-preflight-checks --config /tmp/kube/master.yaml
-
-	# https://www.weave.works/docs/net/latest/kubernetes/kube-addon/
-	kubectl apply -f $fserver/weave-daemonset-k8s-1.6.yaml
 }
 
 kube::node_upgrade() {
@@ -210,13 +206,8 @@ kube::master_up() {
 	export KUBECONFIG=/etc/kubernetes/admin.conf
 	echo "export KUBECONFIG=/etc/kubernetes/admin.conf" | tee -a /etc/profile.d/k8s.sh
 
-	#install weave network
-	# use weave as pod network https://www.weave.works/docs/net/latest/kube-addon/
-	# https://github.com/weaveworks/weave/releases/
-	# 2.0.2 requires ipset version 6.29 or higher, that set types support the optional comment extension.
-	kubectl apply -f $fserver/weave-daemonset-k8s-1.6.yaml
-	curl -sSL $fserver/weave-1.9.8.sh >/usr/local/bin/weave
-	chmod a+x /usr/local/bin/weave
+	kubectl apply -f $fserver/kube-flannel-rbac.yml
+	kubectl apply -f $fserver/kube-flannel.yml
 
 	kubectl apply -f $fserver/kubernetes-dashboard.yaml
 
