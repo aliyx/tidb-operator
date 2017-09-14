@@ -37,7 +37,7 @@ kube::common::is_ports_used() {
     for port in ${ports[@]}; do
 		have=$(netstat -antp | grep $port | wc -l)
 		if [ $have -gt 0 ]; then
-			echo "The port($port) is used by other programs"
+			echo "Port($port) is used by other programs"
 			exit 1
 		fi
 	done
@@ -120,7 +120,7 @@ kube::install_docker() {
 
 kube::pull_images() {
 	for imageName in ${images[@]}; do
-		have=$(docker images | grep $(echo ${imageName%:*}) | wc -l)
+		have=$(docker images | grep $(echo ${imageName%:*}) | grep $(echo ${imageName##*:}) | wc -l)
 		if [ $have -lt 1 ]; then
 			docker pull $registries/$imageName
 			docker tag $registries/$imageName $imageName
@@ -203,7 +203,7 @@ kube::node_upgrade() {
 # https://kubernetes.io/docs/setup/independent/install-kubeadm/
 kube::master_up() {
 	kube::common::is_ports_used
-	
+
 	kube::common::os
 
 	kube::install_docker

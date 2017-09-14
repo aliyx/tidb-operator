@@ -1,6 +1,6 @@
 # prometheus-kubernetes
 
-https://github.com/migmartri/prometheus-kubernetes
+![reference](https://github.com/migmartri/prometheus-kubernetes)
 
 Prometheus setup that contains:
 
@@ -13,38 +13,13 @@ Prometheus setup that contains:
 * Build prom-server image and push it into a container registry
 
 ```bash
-cd prom-server
-./build.sh
+./docker/prom-server/build.sh
 ```
 
 * Deploy setup into k8s.
 
 ```bash
-# From the project root execute
-./up.sh
+make install grafana # run this shell on kubernetes master
 ```
 
-* Configure Grafana
-
-You can find the IP address executing:
-
-```bash
-kubectl describe services grafana | grep NodePort
-```
-
-Once inside, create a data source using the endpoint:
-
-```bash
-URL: http://prom-server:9090/
-Access: Proxy
-```
-
-### Caveats
-
-Since we are using gcepersistentdisk, the number of pods that can mount
-that volume type is limited to 1. That means that the number of replicas
-for prom-server replication controller needs to be fixed to 1.
-
-This also affects the ability of executing rolling-updates on that rc.
-
-TODO: Explore other persistence layer options.
+Access grafana: `http://<NodeIP>:12802`, user&password is admin/admin.

@@ -29,18 +29,15 @@ bash <(curl -sSL 10.213.44.128:12701/kube/k8s-1.7.5.sh) join ip # Ip refers to t
 ## Mark proxy and prometheus node
 
 ```bash
-# label proxy
+# proxy
 kubectl label node name node-role.proxy=
-kubectl taint node name node-role.proxy=:PreferNoSchedule
-# label prometheus
+kubectl label node name node-role.proxy- # remove
+
+# prometheus
 kubectl label node name node-role.prometheus=
 kubectl taint node name node-role.prometheus=:PreferNoSchedule
-
-#remove
-kubectl label node name node-role.proxy-
-kubectl taint node name node-role.proxy-
-kubectl label node name node-role.prometheus-
-kubectl taint node name node-role.prometheus-
+kubectl label node name node-role.prometheus- # remove
+kubectl taint node name node-role.prometheus- # remove
 ```
 
 ## Access
