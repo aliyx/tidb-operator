@@ -26,8 +26,21 @@ images=(gcr.io/google_containers/kube-apiserver-amd64:v$version gcr.io/google_co
 IpAddressRegex="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
 HostnameRegex="^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
 
+# https://kubernetes.io/docs/setup/independent/install-kubeadm/
+ports=(6443 2379 2380 10250 10251 10252 10255)
+
 kube::common::is_ip() {
     echo "$1" | grep -E "^$IpAddressRegex$" >/dev/null || echo "$1" | grep -E "^$HostnameRegex$" >/dev/null
+}
+
+kube::common::is_ports_used() {
+    for port in ${ports[@]}; do
+		have=$(netstat -antp | grep $port | wc -l)
+		if [ $have -gt 0 ]; then
+			echo "The port($port) is used by other programs"
+			exit 1
+		fi
+	done
 }
 
 kube::common::os() {
@@ -186,7 +199,11 @@ kube::node_upgrade() {
 
 # see logs
 # journalctl -xeu kubelet
+# tail -f /var/log/messages
+# https://kubernetes.io/docs/setup/independent/install-kubeadm/
 kube::master_up() {
+	kube::common::is_ports_used
+	
 	kube::common::os
 
 	kube::install_docker
@@ -246,9 +263,6 @@ kube::tear_down() {
 	yum remove -y kubectl kubeadm kubelet kubernetes-cni
 	rm -rf /var/lib/cni
 	rm -rf /etc/cni/
-
-	kube::weae_reset
-	# ip link del weave
 }
 
 main() {
@@ -272,7 +286,10 @@ main() {
 		;;
 	"upgrade")
 		shift
-		if [ "$@" == "master" ]; then
+		if [ $# -lt 1 ]; then
+			echo "unkown command $0 upgrade"
+			exit 1
+		elif [ "$@" == "master" ]; then
 			kube::master_upgrade
 		elif [ "$@" == "node" ]; then
 			kube::node_upgrade

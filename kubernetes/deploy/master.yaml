@@ -2,6 +2,9 @@
 apiVersion: kubeadm.k8s.io/v1alpha1
 kind: MasterConfiguration
 kubernetesVersion: stable
+# Note: - For flannel to work correctly, --pod-network-cidr=10.244.0.0/16 has to be passed to kubeadm init
+networking:
+  podSubnet: 10.244.0.0/16
 # kubeadm token generate 
 token: 997ea0.40e5c1218d0afc50
 # default the token never expire
