@@ -46,9 +46,21 @@ address = "prom-gateway:9091"
 [schedule]
 max-snapshot-count = 3
 max-store-down-time = "1h"
-leader-schedule-limit = 1024
+leader-schedule-limit = 64
 region-schedule-limit = 16
 replica-schedule-limit = 24
+
+# customized schedulers, the format is as below
+# if empty, it will use balanceLeader, balanceRegion, hotReadRegion, hotWriteRegion as default
+[schedule.schedulers]
+# [schedule.schedulers.balanceLeader]
+#		
+# [schedule.schedulers.balanceRegion]
+#		
+# [schedule.schedulers.hotWriteRegion]
+#
+# [schedule.schedulers.hotReadRegion]
+
 
 [replication]
 # The number of replicas for each region.

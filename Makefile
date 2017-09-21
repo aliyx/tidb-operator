@@ -4,7 +4,7 @@ endif
 export DPROXY
 
 ifeq ($(REGISTRY),)
-	REGISTRY = 10.209.224.13:10500/ffan/rds/
+	REGISTRY = 10.209.224.13:10500/ffan/rds
 endif
 export REGISTRY
 
@@ -23,11 +23,11 @@ push: push-pd push-tikv push-tidb push-migrator push-prom-server push-tidb-gc pu
 .PHONY: push
 
 # uninstall apps from k8s
-clean: clean-grafana clean-tidb-gc clean-tidb-operator
+clean: clean-grafana clean-tidb-operator
 .PHONY: clean
 
 # install apps to k8s
-install: install-grafana install-tidb-gc install-tidb-operator
+install: install-grafana install-tidb-operator
 .PHONY: install
 
 clean-grafana:
@@ -96,29 +96,29 @@ tikv:
 .PHONY: tikv
 
 push-pd: docker/pd
-	docker push $(REGISTRY)pd:$(VERSION)
+	docker push $(REGISTRY)/pd:$(VERSION)
 .PHONY: push-pd
 
 push-tikv:
-	docker push $(REGISTRY)tikv:$(VERSION)
+	docker push $(REGISTRY)/tikv:$(VERSION)
 .PHONY: push-tikv
 
 push-tidb:
-	docker push $(REGISTRY)tidb:$(VERSION)
+	docker push $(REGISTRY)/tidb:$(VERSION)
 .PHONY: push-tidb
 
 push-migrator: docker/migrator
-	docker push $(REGISTRY)migrator:$(VERSION)
+	docker push $(REGISTRY)/migrator:$(VERSION)
 .PHONY: push-migrator
 
 push-prom-server:
-	docker push $(REGISTRY)prom-server:$(VERSION)
+	docker push $(REGISTRY)/prom-server:$(VERSION)
 .PHONY: push-prom-server
 
 push-tidb-gc:
-	docker push $(REGISTRY)tidb-gc:$(VERSION)
+	docker push $(REGISTRY)/tidb-gc:$(VERSION)
 .PHONY: push-tidb-gc
 
 push-tidb-operator:
-	docker push $(REGISTRY)tidb-operator:$(VERSION)
+	docker push $(REGISTRY)/tidb-operator:$(VERSION)
 .PHONY: push-tidb-operator

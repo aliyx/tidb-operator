@@ -347,6 +347,7 @@ func getProxys() []string {
 var initData = `
 versions:
 - rc4
+- pre-ga
 - latest
 pd:
   cpu: 500

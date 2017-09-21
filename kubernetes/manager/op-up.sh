@@ -26,5 +26,6 @@ for var in initMd env version registry namespace hostPath mount logLevel; do
   sed_script+="s,{{$var}},${!var},g;"
 done
 echo "Creating tidb-operator service/deployment..."
-cat op-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
+cat op-template.yaml | sed -e "$sed_script"
+# cat op-template.yaml | sed -e "$sed_script" | $KUBECTL $KUBECTL_OPTIONS create -f -
 

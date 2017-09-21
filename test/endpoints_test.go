@@ -44,8 +44,8 @@ func Test_Limit(t *testing.T) {
 
 func Test_CreateDB(t *testing.T) {
 	body := `{
-		"pd":{"version":"rc4"},"tikv":{"replicas":3,"version":"rc4"},
-		"tidb":{"replicas":2,"version":"rc4"},
+		"pd":{"version":"pre-ga"},"tikv":{"replicas":3,"version":"pre-ga"},
+		"tidb":{"replicas":2,"version":"pre-ga"},
 		"owner":{"userId":"1","userName":"test","desc":""},
 		"schema":{"name":"test","user":"test","password":"test"},
 		"status":{"phase":-1}}`

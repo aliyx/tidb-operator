@@ -9,7 +9,7 @@ VERSION=${VERSION:-'latest'}
 echo "****************************"
 echo "*Starting build tikv image..."
 echo "*  Proxy: $DPROXY"
-echo "*  Image: ${REGISTRY}tikv:$VERSION"
+echo "*  Image: ${REGISTRY}/tikv:$VERSION"
 echo "****************************" 
 
 echo "start pulling pingcap/tikv image from docker hub"
@@ -20,14 +20,14 @@ rm -rf bin
 mkdir bin
 go build -o ./bin/mountpath ./mountpath
 
-(docker build $DPROXY --build-arg VERSION=$VERSION -t ${REGISTRY}tikv:$VERSION-base -f dockerfile ./)
+(docker build $DPROXY --build-arg VERSION=$VERSION -t ${REGISTRY}/tikv:$VERSION-base -f dockerfile ./)
 
 # Extract files from tikv image
 mkdir base
-docker run -ti --rm -v $PWD/base:/base -u $UID --entrypoint sh ${REGISTRY}tikv:$VERSION-base -c 'cp -f /tikv-server /base/tikv-server'
+docker run -ti --rm -v $PWD/base:/base -u $UID --entrypoint sh ${REGISTRY}/tikv:$VERSION-base -c 'cp -f /tikv-server /base/tikv-server'
 
 # Build tikv image
-docker build -t ${REGISTRY}tikv:$VERSION -f dockerfile_lite ./
+docker build -t ${REGISTRY}/tikv:$VERSION -f dockerfile_lite ./
 
 # Clean up temporary files
 rm -rf base
