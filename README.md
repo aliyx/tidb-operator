@@ -4,6 +4,8 @@ tidb-operator manage multiple tidb cluster atop Kubernetes, support multi-tenant
 
 Note: **Currently only support kubernetes version is `1.7`, all port ranges `[10000-15000)`. Only provide restful api, easy to integrate into the existing web frame.**
 
+Note: **PingCAP maintains a separate [tidb-operator project](https://github.com/pingcap/tidb-operator).**
+
 ## Build images
 
 Build all docker images and push to your private docker registry, default version is `latest`:
